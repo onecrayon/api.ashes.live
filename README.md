@@ -1,6 +1,6 @@
 # Ashes.live API
 
-This is the backend API for Ashes.live, a fan-developed deckbuilder and community site for the card game Ashes: Rise of the Phoenixborn.
+This is the backend API for Ashes.live, a fan-developed deckbuilder and community site for the card game Ashes Reborn.
 
 ## Dependencies
 

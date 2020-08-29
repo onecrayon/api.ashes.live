@@ -4,7 +4,7 @@ build-backend = "poetry.masonry.api"
 
 [tool.poetry]
 name = "Ashes.live"
-description = "API backend for a fan-developed deckbuilder and community website for the card game Ashes: Rise of the Phoenixborn"
+description = "API backend for a fan-developed deckbuilder and community website for the card game Ashes Reborn"
 version = "0.1.0"
 license = "ISC"
 readme = "README.md"
