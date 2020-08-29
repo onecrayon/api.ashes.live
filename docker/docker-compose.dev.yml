@@ -1,0 +1,26 @@
+---
+
+# This docker-compose file is required to bind ports and volumes in development.
+
+version: '3.7'
+services:
+    postgres:
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+
+    api:
+        image: 'asheslive:dev'
+        build:
+            target: development_build
+            args:
+                ENV: development
+        ports:
+            # We only bind ports directly in development:
+            - '8000:8000'
+        volumes:
+            # We only mount source code in development:
+            - .:/code
+        command: python -m uvicorn application:app --reload --host 0.0.0.0 --port 8000
+
+volumes:
+    pgdata:

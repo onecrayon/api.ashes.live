@@ -1,0 +1,26 @@
+---
+
+# Base Docker Compose file.
+# This defines the basic environments that are used for both develoment and
+# testing. Overrides are explicitly specified in the Makefile for their
+# relevant targets.
+#
+# Many patterns here lifted directly from:
+# <https://github.com/wemake-services/wemake-django-template>
+
+version: '3.7'
+services:
+    postgres:
+        image: postgres:12.2
+        restart: always
+        env_file: .env
+
+    api:
+        build:
+            context: .
+            dockerfile: ./docker/Dockerfile
+        depends_on:
+            - postgres
+        restart: always
+        # env_file populates environment variables at runtime
+        env_file: .env
