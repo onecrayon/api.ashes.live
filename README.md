@@ -113,7 +113,7 @@ and (for Poetry) in `pyproject.toml` then rebuild your API container using `make
 
 ## Code logic
 
-The primary entrypoint for the application is `application/api.py`. This file defines
+The primary entrypoint for the application is `api/main.py`. This file defines
 the FastAPI app and attaches all site routers.
 
 Route view functions are defined in `views`, organized by base URL segment.

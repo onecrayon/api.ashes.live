@@ -1,8 +1,8 @@
 """Configuration settings, loaded from environment variables
 
-`settings` instance is hoisted to the main application module; e.g.:
+`settings` instance is hoisted to the main api module; e.g.:
 
-    from application import settings
+    from api import settings
 """
 from pydantic import BaseSettings
 

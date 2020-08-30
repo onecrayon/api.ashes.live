@@ -82,4 +82,4 @@ ENTRYPOINT ["tini", "--", "/entrypoint.sh"]
 # The following stage is only for Prod (CURRENTLY UNUSED):
 # See: <https://wemake-django-template.readthedocs.io/en/latest/pages/template/production.html>
 FROM development_build as production_build
-COPY --chown=web:web ./application /code/application
+COPY --chown=web:web ./api /code/api

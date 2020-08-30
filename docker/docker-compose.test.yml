@@ -16,4 +16,4 @@ services:
         volumes:
             # We mount the code to ensure that we are testing the latest changes
             - .:/code
-        command: pytest --cov=application --cov-config=.coveragerc --cov-report=term --cov-report=html
+        command: pytest --cov=api --cov-config=.coveragerc --cov-report=term --cov-report=html

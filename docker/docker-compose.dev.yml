@@ -20,7 +20,7 @@ services:
         volumes:
             # We only mount source code in development:
             - .:/code
-        command: python -m uvicorn application:app --reload --host 0.0.0.0 --port 8000
+        command: python -m uvicorn api:app --reload --host 0.0.0.0 --port 8000
 
 volumes:
     pgdata:
