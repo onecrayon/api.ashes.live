@@ -15,22 +15,36 @@ class DiceFlags(Enum):
     time = 64
 
 
-conjurations_table = db.Table('card_conjuration',
+conjurations_table = db.Table(
+    "card_conjuration",
     db.AlchemyBase.metadata,
-    db.Column('card_id', db.Integer, db.ForeignKey('card.id'), nullable=False, primary_key=True),
-    db.Column('conjuration_id', db.Integer, db.ForeignKey('card.id'), nullable=False,
-              primary_key=True)
+    db.Column(
+        "card_id",
+        db.Integer,
+        db.ForeignKey("card.id"),
+        nullable=False,
+        primary_key=True,
+    ),
+    db.Column(
+        "conjuration_id",
+        db.Integer,
+        db.ForeignKey("card.id"),
+        nullable=False,
+        primary_key=True,
+    ),
 )
 
 
 class Card(db.AlchemyBase):
-    __tablename__ = 'card'
+    __tablename__ = "card"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     entity_id = db.Column(db.Integer, nullable=False, index=True, unique=True)
     name = db.Column(db.String(30), nullable=False, index=True, unique=True)
     stub = db.Column(db.String(30), nullable=False, index=True, unique=True)
     phoenixborn = db.Column(db.String(25), nullable=True, index=True)
-    release_id = db.Column(db.Integer, db.ForeignKey(Release.id), nullable=False, index=True, default=0)
+    release_id = db.Column(
+        db.Integer, db.ForeignKey(Release.id), nullable=False, index=True, default=0
+    )
     # This gets incremented when a card's text is updated due to errata
     version = db.Column(db.Integer, nullable=False, default=1)
     card_type = db.Column(db.String(25), nullable=False, index=True)
@@ -46,11 +60,11 @@ class Card(db.AlchemyBase):
     artist_url = db.Column(db.String(255), nullable=True)
 
     conjurations = db.relationship(
-        'Card',
+        "Card",
         secondary=conjurations_table,
-        primaryjoin=(id==conjurations_table.c.card_id),
-        secondaryjoin=(id==conjurations_table.c.conjuration_id),
-        backref='summons'
+        primaryjoin=(id == conjurations_table.c.card_id),
+        secondaryjoin=(id == conjurations_table.c.conjuration_id),
+        backref="summons",
     )
     release = db.relationship(Release)
 
@@ -71,32 +85,38 @@ class Card(db.AlchemyBase):
     @staticmethod
     def has_any_dice_filter(dice):
         if not dice:
-            dice = ['basic']
+            dice = ["basic"]
         filters = []
-        if 'basic' in dice:
-            filters.append(db.and_(
-                Card.dice_flags == 0,
-                Card.alt_dice_flags == 0
-            ))
-            dice.remove('basic')
-        filters = filters + [
-            Card.dice_flags.op('&')(DiceFlags[die].value) == DiceFlags[die].value for die in dice
-        ] + [
-            Card.alt_dice_flags.op('&')(DiceFlags[die].value) == DiceFlags[die].value for die in dice
-        ]
+        if "basic" in dice:
+            filters.append(db.and_(Card.dice_flags == 0, Card.alt_dice_flags == 0))
+            dice.remove("basic")
+        filters = (
+            filters
+            + [
+                Card.dice_flags.op("&")(DiceFlags[die].value) == DiceFlags[die].value
+                for die in dice
+            ]
+            + [
+                Card.alt_dice_flags.op("&")(DiceFlags[die].value)
+                == DiceFlags[die].value
+                for die in dice
+            ]
+        )
         return db.or_(*filters)
-    
+
     @staticmethod
     def has_all_dice_filter(dice):
         flags = Card.dice_to_flags(dice)
-        filters = [db.or_(
-            Card.dice_flags.op('&')(DiceFlags[die].value) == DiceFlags[die].value,
-            Card.alt_dice_flags.op('&')(DiceFlags[die].value) == DiceFlags[die].value
-        ) for die in dice]
-        return db.and_(
-            *filters
-        )
+        filters = [
+            db.or_(
+                Card.dice_flags.op("&")(DiceFlags[die].value) == DiceFlags[die].value,
+                Card.alt_dice_flags.op("&")(DiceFlags[die].value)
+                == DiceFlags[die].value,
+            )
+            for die in dice
+        ]
+        return db.and_(*filters)
 
 
 # Define our index to ensure Alembic can automatically generate future migrations
-db.Index('ix_card_text', Card.name, Card.text)
+db.Index("ix_card_text", Card.name, Card.text)

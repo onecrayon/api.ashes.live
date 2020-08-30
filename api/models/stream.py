@@ -6,13 +6,15 @@ from .user import User
 
 class Streamable(db.AlchemyBase):
     """A Streamable entity is one that can show up in activity streams"""
-    __tablename__ = 'streamable'
+
+    __tablename__ = "streamable"
     entity_id = db.Column(db.Integer, primary_key=True)
 
 
 class Stream(db.AlchemyBase):
     """Stream entries are used to construct activity streams"""
-    __tablename__ = 'stream'
+
+    __tablename__ = "stream"
     id = db.Column(db.Integer, primary_key=True)
     entity_id = db.Column(db.Integer, nullable=False, index=True, unique=True)
     entity_type = db.Column(db.String(16), index=True)
@@ -22,7 +24,10 @@ class Stream(db.AlchemyBase):
 
 class Subscription(db.AlchemyBase):
     """A Subscription subscribes a user to a Streamable entity's comments"""
-    __tablename__ = 'subscription'
-    user_id = db.Column(db.Integer, db.ForeignKey(User.id), primary_key=True, nullable=False)
+
+    __tablename__ = "subscription"
+    user_id = db.Column(
+        db.Integer, db.ForeignKey(User.id), primary_key=True, nullable=False
+    )
     source_entity_id = db.Column(db.Integer, primary_key=True, nullable=False)
     last_seen_entity_id = db.Column(db.Integer, index=True)

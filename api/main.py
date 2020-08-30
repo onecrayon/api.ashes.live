@@ -5,7 +5,7 @@ from . import views
 from .environment import settings
 
 
-__version__ = '2.0.0a0'
+__version__ = "2.0.0a0"
 
 # Create our main application
 app = FastAPI(
@@ -16,5 +16,5 @@ app = FastAPI(
     ),
     version=__version__,
     docs_url="/",
-    redoc_url= "/redoc",
+    redoc_url="/redoc",
 )

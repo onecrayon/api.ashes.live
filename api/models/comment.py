@@ -5,7 +5,7 @@ from .user import User
 
 
 class Comment(db.AlchemyBase):
-    __tablename__ = 'comment'
+    __tablename__ = "comment"
     id = db.Column(db.Integer, primary_key=True)
     entity_id = db.Column(db.Integer, nullable=False, index=True, unique=True)
     user_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=False)

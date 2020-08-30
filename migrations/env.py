@@ -60,17 +60,13 @@ def run_migrations_online():
     """
     connectable = engine_from_config(
         # Replaced this with a static dict since we are loading from a settings object
-        {
-            'sqlalchemy.url': settings.postgres_url
-        },
+        {"sqlalchemy.url": settings.postgres_url},
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

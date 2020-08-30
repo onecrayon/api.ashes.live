@@ -5,7 +5,7 @@ from .user import User
 
 
 class Section(db.AlchemyBase):
-    __tablename__ = 'section'
+    __tablename__ = "section"
     id = db.Column(db.Integer, primary_key=True)
     entity_id = db.Column(db.Integer, nullable=False, index=True, unique=True)
     title = db.Column(db.String(255), nullable=False)
@@ -15,11 +15,13 @@ class Section(db.AlchemyBase):
 
 
 class Post(db.AlchemyBase):
-    __tablename__ = 'post'
+    __tablename__ = "post"
     id = db.Column(db.Integer, primary_key=True)
     entity_id = db.Column(db.Integer, nullable=False, index=True, unique=True)
     user_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=False)
-    section_id = db.Column(db.Integer, db.ForeignKey(Section.id), nullable=False, index=True)
+    section_id = db.Column(
+        db.Integer, db.ForeignKey(Section.id), nullable=False, index=True
+    )
     title = db.Column(db.String(255), nullable=False)
     text = db.Column(db.Text)
     pin_teaser = db.Column(db.Text)
