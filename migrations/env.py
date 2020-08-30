@@ -39,7 +39,7 @@ def run_migrations_offline():
     script output.
 
     """
-    url = settings.db_url
+    url = settings.postgres_url
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -61,7 +61,7 @@ def run_migrations_online():
     connectable = engine_from_config(
         # Replaced this with a static dict since we are loading from a settings object
         {
-            'sqlalchemy.url': settings.db_url
+            'sqlalchemy.url': settings.postgres_url
         },
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,

@@ -11,9 +11,10 @@ from sqlalchemy import (
     asc, between, case, cast, collate, desc, distinct, except_, except_all, exists, extract, false, func, funcfilter,
     intersect, intersect_all, join, lateral, literal, literal_column, modifier, not_, null, nullsfirst, nullslast,
     or_, outerjoin, over, text, true, tuple_, type_coerce, union, union_all, within_group,
+    Index, Table,
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.orm import sessionmaker, relationship, backref
 
 from .environment import settings
 
@@ -40,6 +41,7 @@ __all__ = (
     String, Text, Unicode, UnicodeText,
     # Relationships
     relationship,
+    backref,
     # SQL subset
     alias,
     all_, and_, any_, except_, except_all, not_, or_,
@@ -65,11 +67,14 @@ __all__ = (
     type_coerce,
     union, union_all,
     within_group,
+    # Schema
+    Index,
+    Table,
 )
 
 # Setup base engine and session class
 engine = create_engine(
-    settings.db_url,
+    settings.postgres_url,
     echo=settings.debug
 )
 SessionLocal = sessionmaker(bind=engine)
