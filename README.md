@@ -52,6 +52,9 @@ root@123:/code$ poetry add DEPENDENCY
 Then commit changes in your updated `poetry.lock` and `pyproject.toml`. Please see the
 [Poetry docs](https://python-poetry.org/docs/) for other available commands.
 
+You may wish to shut down your container, run `make build`, and relaunch it to ensure that
+newly added dependencies are available.
+
 **Please note:** `make shell` will log you into the Docker container as the root user!
 This is unfortunately necessary to allow Poetry to function properly (I haven't found a
 good way yet to install initial dependencies as a non-root account and have them work,
@@ -61,17 +64,18 @@ which means the shell has to be root in order to properly calculate the dependen
 
 You can use [Visual Studio Code](https://code.visualstudio.com/) to develop directly within
 the Docker container, allowing you direct access to the Python environment (which means
-linting, access to Python tools, and working code analysis for free). To do so:
+linting, access to Python tools, working code analysis for free, and bash shell access
+without needing to run a make command). To do so:
 
 1. Install [Visual Studio Code](https://code.visualstudio.com/), if you haven't already
 2. Install the [Remote Development extension pack](https://aka.ms/vscode-remote/download/extension)
-3. Outside VSCode in your favored command line, execute `make run` to launch the API container
-4. Use the Remote Explorer in the left sidebar of VSC to attach to the running API container
-   (likely named `asheslive_api_1`). You can find explicit instructions for this in the
+3. **Outside VSCode** in your favored command line, execute `make run` to launch the API container
+4. **Inside VSCode** use the Remote Explorer in the left sidebar of VSC to attach to the running
+   API container (likely named `asheslive:dev`). You can find explicit instructions for this in the
    [Visual Studio Code documentation](https://code.visualstudio.com/docs/remote/containers#_attaching-to-running-containers)
-5. If this is your first time attaching, open the Command Palette and type "attached" then
-   select "Remote-Containers: Open Attached Configuration File...", replace the contents
-   of the file with the following, and save:
+5. If this is your first time attaching, open the Command Palette and type "container" then
+   select "Remote-Containers: Open Container Configuration", replace the contents
+   of the file with the following, save, and then close the window and re-attach to the container:
 
 ```json
 {
@@ -97,8 +101,9 @@ You will need to start the API prior to launching VSCode to automatically attach
 to get working consistently without requiring rebuiding the API with every poetry change.)
 
 **Please note:** you *must* run your make commands in an external shell! The VSCode Terminal
-will provide you access to the equivalent of `make shell`, but running the standard make
-commands there will result in Docker-in-Docker, which is not desirable in this instance.
+in your attached container window will provide you access to the equivalent of `make shell`,
+but running the standard make commands there will result in Docker-in-Docker, which is not
+desirable in this instance.
 
 ### Update core tools
 
