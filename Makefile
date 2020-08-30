@@ -16,10 +16,13 @@ _help:
 run:      ## Run development server
 	@docker-compose $(DOCKER_COMPOSE_DEV) up
 
-test:
+db:       ## Run standalone postgres server; accessible at localhost:5432
+	@docker-compose $(DOCKER_COMPOSE_DEV) run --service-ports --rm postgres
+
+test:     ## Execute test suite
 	@docker-compose $(DOCKER_COMPOSE_TEST) -p asheslive_tests run --rm -w /code api
 
-shell:    ## Open a bash shell in the /app folder
+shell:    ## Open a bash shell (as the root user!)
 	@$(DOCKER_RUN) bash
 
 clean:    ## Clean up Docker containers, images, etc.
