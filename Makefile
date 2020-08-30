@@ -25,6 +25,9 @@ test:     ## Execute test suite
 shell:    ## Open a bash shell (as the root user!)
 	@$(DOCKER_RUN) bash
 
+db-shell: ## Open a bash shell with access to the database
+	@docker-compose $(DOCKER_COMPOSE_DEV) run --rm -u root -w /code api bash
+
 clean:    ## Clean up Docker containers, images, etc.
 	@docker-compose $(DOCKER_COMPOSE_DEV) down --remove-orphans
 	@docker-compose $(DOCKER_COMPOSE_TEST) -p asheslive_tests down --remove-orphans
