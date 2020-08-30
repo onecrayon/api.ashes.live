@@ -121,7 +121,7 @@ Route view functions are defined in `views`, organized by base URL segment.
 ### API documentation
 
 Ashes.live uses FastAPI's automatically-generated OpenAPI documentation. You can find the
-site's docs at <http://localhost:8000/docs> once you have the site running locally.
+site's docs at <http://localhost:8000> once you have the site running locally.
 
 ### Testing strategy
 
