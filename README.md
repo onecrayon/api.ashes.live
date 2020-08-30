@@ -4,7 +4,7 @@ This is the backend API for Ashes.live, a fan-developed deckbuilder and communit
 
 ## Dependencies
 
-You must install the following to run CardPlay.live locally:
+You must install the following to run the Ashes.live API locally:
 
 * [Docker](https://docs.docker.com/engine/installation/)
 * [Docker Compose](https://docs.docker.com/compose/install/) (included in Docker
