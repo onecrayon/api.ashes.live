@@ -18,7 +18,7 @@ _error_out_example = _error_out_example.has_errors and _error_out_example.dict()
 
 
 @router.get(
-    "/health-check/",
+    "/health-check",
     tags=["server"],
     response_model=schema.HealthCheckOut,
     responses={
@@ -29,11 +29,8 @@ _error_out_example = _error_out_example.has_errors and _error_out_example.dict()
     },
 )
 def health_check(response: Response, session: db.Session = Depends(db.get_session)):
-    """Health Check
-
-    Reports on service and overall API status. Please do not hit this endpoint repeatedly; it
-        is mainly intended for diagnosing problems internally.
-    """
+    """Reports on service and overall API status. Please do not hit this endpoint repeatedly;
+    it is mainly intended for diagnosing problems internally."""
     # Default okay response
     output = schema.HealthCheckOut()
 
