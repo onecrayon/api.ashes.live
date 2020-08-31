@@ -71,14 +71,15 @@ from sqlalchemy import (
     MetaData,
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship, backref
+from sqlalchemy.orm import sessionmaker, relationship, backref, Session
 
 from .environment import settings
 
 __all__ = (
-    # Local variables
+    # Local variables and session handling
     "AlchemyBase",
-    "SessionLocal",
+    Session,
+    "get_session",
     # SQLAlchemy convenience access
     #  "Holy verbosity, Batman! Why not programmatically include these like in Flask-SQLAlchemy?"
     #  "Well, Robin, I happen to like accurate autocomplete in my editors."
@@ -167,3 +168,11 @@ meta = MetaData(
     }
 )
 AlchemyBase = declarative_base(metadata=meta)
+
+# Setup our database Dependency
+def get_session():
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
