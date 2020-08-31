@@ -6,23 +6,25 @@ Typical usage:
         id = db.Column(db.Integer, primary_key=True)
 """
 from sqlalchemy import (
-    create_engine,
-    Column,
-    ForeignKey,
     BigInteger,
     Binary,
     Boolean,
+    Column,
     Date,
     DateTime,
     Enum,
     Float,
+    ForeignKey,
+    Index,
     Integer,
     Interval,
     LargeBinary,
+    MetaData,
     Numeric,
     PickleType,
     SmallInteger,
     String,
+    Table,
     Text,
     Time,
     Unicode,
@@ -36,6 +38,7 @@ from sqlalchemy import (
     case,
     cast,
     collate,
+    create_engine,
     desc,
     distinct,
     except_,
@@ -66,12 +69,9 @@ from sqlalchemy import (
     union,
     union_all,
     within_group,
-    Index,
-    Table,
-    MetaData,
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship, backref, Session
+from sqlalchemy.orm import Session, backref, relationship, sessionmaker
 
 from .environment import settings
 

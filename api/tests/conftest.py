@@ -11,11 +11,11 @@
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy_utils import create_database, drop_database, database_exists
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy_utils import create_database, database_exists, drop_database
 
 # `models` is necessary to ensure that AlchemyBase is properly populated
-from api import app, db, settings, models
+from api import app, db, models, settings
 
 
 @pytest.fixture(scope="session")

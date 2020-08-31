@@ -4,7 +4,6 @@ from fastapi import FastAPI
 from . import views
 from .environment import settings
 
-
 __version__ = "2.0.0a0"
 
 # Create our main application
