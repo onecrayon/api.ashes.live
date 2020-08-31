@@ -170,7 +170,7 @@ meta = MetaData(
 AlchemyBase = declarative_base(metadata=meta)
 
 # Setup our database Dependency
-def get_session():
+def get_session():  # pragma: no cover
     session = SessionLocal()
     try:
         yield session
