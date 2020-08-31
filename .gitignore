@@ -9,3 +9,6 @@ __pycache__/
 # Pytest coverage output
 .coverage
 htmlcov/
+
+# Editor files
+.vscode/.ropeproject
