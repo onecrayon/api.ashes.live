@@ -18,3 +18,6 @@ app = FastAPI(
     docs_url="/",
     redoc_url="/redoc",
 )
+
+# Setup our application routes
+app.include_router(views.health_check.router)
