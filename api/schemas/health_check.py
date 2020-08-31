@@ -3,17 +3,17 @@ from enum import Enum
 from pydantic import BaseModel
 
 
-class StatusResponses(str, Enum):
+class HealthCheckStatusResponses(str, Enum):
     """Output strings for status responses"""
 
     okay = "okay"
     error = "error"
 
 
-class ServicesOut(BaseModel):
+class HealthCheckServicesOut(BaseModel):
     """Nested services status tracking"""
 
-    database: StatusResponses = StatusResponses.okay
+    database: HealthCheckStatusResponses = HealthCheckStatusResponses.okay
 
     def __iter__(self):
         """Allow iterating over the various services for easy checking for failures"""
@@ -23,12 +23,12 @@ class ServicesOut(BaseModel):
 class HealthCheckOut(BaseModel):
     """Information about API system status"""
 
-    status: StatusResponses = StatusResponses.okay
-    services: ServicesOut = ServicesOut()
+    status: HealthCheckStatusResponses = HealthCheckStatusResponses.okay
+    services: HealthCheckServicesOut = HealthCheckServicesOut()
 
     @property
     def has_errors(self):
-        if any(x == StatusResponses.error for x in self.services):
-            self.status = StatusResponses.error
+        if any(x == HealthCheckStatusResponses.error for x in self.services):
+            self.status = HealthCheckStatusResponses.error
             return True
         return False

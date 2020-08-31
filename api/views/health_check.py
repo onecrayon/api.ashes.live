@@ -13,7 +13,7 @@ router = APIRouter()
 
 # Construct example error output for OpenAPI spec
 _error_out_example = schema.HealthCheckOut()
-_error_out_example.services.database = schema.StatusResponses.error
+_error_out_example.services.database = schema.HealthCheckStatusResponses.error
 _error_out_example = _error_out_example.has_errors and _error_out_example.dict()
 
 
@@ -41,7 +41,7 @@ def health_check(response: Response, session: db.Session = Depends(db.get_sessio
         ).scalar()
         assert meaning_of_life_the_universe_and_everything == 42
     except:
-        output.services.database = schema.StatusResponses.error
+        output.services.database = schema.HealthCheckStatusResponses.error
         logger.error("Postgres health-check FAILED", exc_info=True)
 
     if output.has_errors:
