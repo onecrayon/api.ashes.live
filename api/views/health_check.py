@@ -1,9 +1,13 @@
+import logging
+
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.sql.expression import literal_column
 
 from api import db
 from api.schemas import health_check as schema
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
