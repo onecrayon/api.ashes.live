@@ -15,7 +15,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 # `models` is necessary to ensure that AlchemyBase is properly populated
-from api import app, db, models, settings
+from api import app, db, models
+from api.environment import settings
+from api.depends import get_session
 
 
 @pytest.fixture(scope="session")
@@ -51,7 +53,7 @@ def client(session_local: Session) -> TestClient:
     def override_get_session():
         yield session
 
-    app.dependency_overrides[db.get_session] = override_get_session
+    app.dependency_overrides[get_session] = override_get_session
 
     try:
         yield TestClient(app)

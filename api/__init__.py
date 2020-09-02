@@ -1,3 +1,2 @@
-# Hoist our primary global values
+# Hoist our app for easier access
 from .main import app
-from .environment import settings

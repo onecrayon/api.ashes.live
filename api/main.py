@@ -2,7 +2,6 @@
 from fastapi import FastAPI
 
 from . import views
-from .environment import settings
 
 __version__ = "2.0.0a0"
 
@@ -19,4 +18,5 @@ app = FastAPI(
 )
 
 # Setup our application routes
+app.include_router(views.auth.router)
 app.include_router(views.health_check.router)

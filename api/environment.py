@@ -1,8 +1,8 @@
 """Configuration settings, loaded from environment variables
 
-`settings` instance is hoisted to the main api module; e.g.:
+Typical usage:
 
-    from api import settings
+    from api.environment import settings
 """
 from pydantic import BaseSettings
 
@@ -16,8 +16,17 @@ class ApplicationSettings(BaseSettings):
 
     debug: bool = False
 
+    access_token_expiry_hours: int = 24
+    secret_key: str
+
+    @property
+    def access_token_expiry(self) -> int:
+        """Token expiry in minutes"""
+        return self.access_token_expiry_hours * 60
+
     @property
     def postgres_url(self) -> str:
+        """Database connection URL"""
         return (
             f"postgresql+psycopg2://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}"
             f":{self.postgres_port}/{self.postgres_db}"

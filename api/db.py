@@ -79,7 +79,7 @@ __all__ = (
     # Local variables and session handling
     "AlchemyBase",
     Session,
-    "get_session",
+    "SessionLocal",
     # SQLAlchemy convenience access
     #  "Holy verbosity, Batman! Why not programmatically include these like in Flask-SQLAlchemy?"
     #  "Well, Robin, I happen to like accurate autocomplete in my editors."
@@ -168,11 +168,3 @@ meta = MetaData(
     }
 )
 AlchemyBase = declarative_base(metadata=meta)
-
-# Setup our database Dependency
-def get_session():  # pragma: no cover
-    session = SessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
