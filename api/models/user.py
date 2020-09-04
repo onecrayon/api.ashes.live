@@ -2,6 +2,7 @@ from datetime import datetime
 from random import choice
 
 from api import db
+from api.utils.auth import generate_password_hash
 
 
 class User(db.AlchemyBase):
@@ -30,59 +31,8 @@ class User(db.AlchemyBase):
 
     # `collection` defined via backref in api.models.release.UserRelease
 
-    def __init__(
-        self,
-        email,
-        password,
-        badge=None,
-        username=None,
-        description=None,
-        newsletter_opt_in=False,
-    ):
-        self.email = email
-        # TODO: hash the password! This approach relies on a Flask module
-        # self.password = bcrypt.generate_password_hash(password)
-        if badge and re.search(r"^[0-9][a-z0-9*&+=-]+[a-z0-9*!]$", badge):
-            self.badge = badge
-        else:
-            self.badge = User.fetch_badges(True)
-        self.username = (
-            username
-            if username
-            else choice(
-                [
-                    "Aradel Summergaard",
-                    "Brennen Blackcloud",
-                    "Coal Roarkwin",
-                    "Dimona Odinstar",
-                    "Jessa Na Ni",
-                    "Leo Sunshadow",
-                    "Lulu Firststone",
-                    "Maeoni Viper",
-                    "Namine Hymntide",
-                    "Noah Redmoon",
-                    "Odette Diamondcrest",
-                    "Orrick Gilstream",
-                    "Rin Northfell",
-                    "Saria Guideman",
-                    "Victoria Glassfire",
-                    "Echo Greystorm",
-                    "Jericho Kill",
-                    "Astrea",
-                    "Koji Wolfcub",
-                    "Harold Westraven",
-                    "Sembali Grimtongue",
-                    "Rimea Careworn",
-                    "Xander Heartsblood",
-                    "Fiona Mercywind",
-                    "James Endersight",
-                ]
-            )
-        )
-        self.description = description
-        self.newsletter_opt_in = newsletter_opt_in
-
     def set_password(self, password):
-        # TODO: hash the password! This approach relies on a Flask module
-        # self.password = bcrypt.generate_password_hash(password)
+        """(Re)set the password after the user has been created"""
+        # Hash the password
+        self.password = generate_password_hash(password)
         self.reset_uuid = None

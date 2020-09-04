@@ -41,22 +41,29 @@ def session_local():
         yield TestSessionLocal
     finally:
         drop_database(test_engine.url)
-        pass
 
 
 @pytest.fixture(scope="function")
-def client(session_local: Session) -> TestClient:
-    """Return a FastAPI TestClient for issuing requests and rollback session transaction"""
+def session(session_local: Session, monkeypatch) -> Session:
+    """Return an SQLAlchemy session for this test"""
     session = session_local()
     session.begin_nested()
+    # Overwrite commits with flushes so that we can query stuff, but it's in the same transaction
+    monkeypatch.setattr(session, "commit", session.flush)
+    try:
+        yield session
+    finally:
+        session.rollback()
+        session.close()
+
+
+@pytest.fixture(scope="function")
+def client(session: Session) -> TestClient:
+    """Return a FastAPI TestClient for issuing requests and rollback session transaction"""
 
     def override_get_session():
         yield session
 
     app.dependency_overrides[get_session] = override_get_session
 
-    try:
-        yield TestClient(app)
-    finally:
-        session.rollback()
-        session.close()
+    yield TestClient(app)
