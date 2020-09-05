@@ -58,3 +58,47 @@ def test_patch_user_validation_error(client: TestClient, session: db.Session):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
+
+
+# Basic access to `/v2/players/{badge}` moderation endpoint is handled by test_auth.py
+def test_moderate_user_self(client: TestClient, session: db.Session):
+    """Users cannot moderat themselves"""
+    admin, token = _create_user_token(session)
+    admin.is_admin = True
+    session.commit()
+    response = client.patch(
+        f"/v2/players/{admin.badge}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"username": "newname", "moderation_notes": "Bad name."},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
+
+
+def test_moderate_user_nonexistent(client: TestClient, session: db.Session):
+    """Cannot moderate non-existent users"""
+    admin, token = _create_user_token(session)
+    admin.is_admin = True
+    session.commit()
+    user, _ = _create_user_token(session)
+    response = client.patch(
+        f"/v2/players/a{user.badge}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"username": "newname", "moderation_notes": "Bad name."},
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND, response.json()
+
+
+def test_ban_user(client: TestClient, session: db.Session):
+    """Admins can ban users"""
+    admin, token = _create_user_token(session)
+    admin.is_admin = True
+    session.commit()
+    user, _ = _create_user_token(session)
+    response = client.patch(
+        f"/v2/players/{user.badge}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"is_banned": True, "moderation_notes": "Bad user."},
+    )
+    assert response.status_code == status.HTTP_200_OK, response.json()
+    session.refresh(user)
+    assert user.is_banned == True

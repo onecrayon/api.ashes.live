@@ -106,3 +106,33 @@ def test_login_required_banned_user(client: TestClient, session: db.Session):
         "/v2/players/me", headers={"Authorization": f"Bearer {token}"}
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN, response.json()
+
+
+def test_admin_required(client: TestClient, session: db.Session):
+    """Admins can access admin_required dependency paths"""
+    admin, token = _create_user_token(session)
+    admin.is_admin = True
+    session.commit()
+    user, _ = _create_user_token(session)
+    response = client.patch(
+        f"/v2/players/{user.badge}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"username": "newname", "moderation_notes": "Bad name."},
+    )
+    assert response.status_code == status.HTTP_200_OK, response.json()
+
+
+def test_admin_required_normal_user(client: TestClient, session: db.Session):
+    """Non-admins cannot access admin_required dependency paths"""
+    user1, token = _create_user_token(session)
+    user2, _ = _create_user_token(session)
+    user2.username = "oldname"
+    session.commit()
+    response = client.patch(
+        f"/v2/players/{user2.badge}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"username": "newname", "moderation_notes": "Bad name."},
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
+    session.refresh(user2)
+    assert user2.username == "oldname"

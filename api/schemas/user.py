@@ -31,10 +31,34 @@ class UserSelfIn(BaseModel):
     username: str = Field(
         None, description="How you wish to be known around the site.", max_length=42
     )
-    description: Optional[str] = Field(
+    description: str = Field(
         None, description="Supports card codes and star formatting."
     )
     newsletter_opt_in: bool = False
     email_subscriptions: bool = False
     exclude_subscriptions: bool = False
     colorize_icons: bool = False
+
+
+class UserModerationIn(BaseModel):
+    """Moderate a user"""
+
+    username: str = None
+    description: str = None
+    is_banned: bool = False
+    moderation_notes: str = Field(
+        ...,
+        description="Required notes about what and why moderation actions were taken. May be exposed to the moderated user.",
+    )
+
+
+class UserModerationOut(BaseModel):
+    """Response after moderating a user"""
+
+    username: str
+    description: Optional[str]
+    is_banned: bool
+    moderation_notes: str
+
+    class Config:
+        orm_mode = True

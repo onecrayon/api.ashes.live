@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api import db
-from api.depends import get_session, login_required, AUTH_RESPONSES
+from api.depends import get_session, admin_required, login_required, AUTH_RESPONSES
 from api.exceptions import NotFoundException
 from api.models import User
 from api.schemas import GenericError, user as schema
@@ -50,4 +50,39 @@ def get_user_data(badge: str, session: db.Session = Depends(get_session)):
     )
     if not user:
         raise NotFoundException(detail="User not found.")
+    return user
+
+
+@router.patch(
+    "/players/{badge}",
+    response_model=schema.UserModerationOut,
+    responses={
+        400: {"model": GenericError},
+        404: {"model": GenericError},
+        **AUTH_RESPONSES,
+    },
+)
+def moderate_user(
+    badge: str,
+    updates: schema.UserModerationIn,
+    session: db.Session = Depends(get_session),
+    current_user: "User" = Depends(admin_required),
+):
+    """**Admin only.** Ban a user; or moderate their username or description."""
+    user: User = session.query(User).filter(User.badge == badge).first()
+    if not user:
+        raise NotFoundException(detail="User not found.")
+    if user.id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot moderate yourself.",
+        )
+    update_dict = updates.dict(exclude_unset=True)
+    if "is_banned" in update_dict:
+        user.is_banned = update_dict["is_banned"]
+        user.moderation_notes = update_dict["moderation_notes"]
+    else:
+        for key, value in update_dict.items():
+            setattr(user, key, value)
+    session.commit()
     return user
