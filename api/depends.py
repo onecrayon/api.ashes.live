@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends, FastAPI, HTTPException, status
-from jose import JWTError
+from jose import jwt, JWTError
 
 from .db import Session, SessionLocal
 from .environment import settings
@@ -18,7 +18,7 @@ def get_session():  # pragma: no cover
         session.close()
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="v2/token", auto_error=False)
 
 credentials_exception = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -51,7 +51,7 @@ def login_required(current_user: "AnonymousUser" = Depends(get_current_user)) ->
     """Returns authenticated user"""
     if current_user.is_anonymous():
         raise credentials_exception
-    return user
+    return current_user
 
 
 def admin_required(current_user: "User" = Depends(login_required)) -> "User":

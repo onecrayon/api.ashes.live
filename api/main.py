@@ -20,3 +20,4 @@ app = FastAPI(
 # Setup our application routes
 app.include_router(views.health_check.router)
 app.include_router(views.auth.router, prefix="/v2", tags=["auth"])
+app.include_router(views.players.router, prefix="/v2", tags=["players"])
