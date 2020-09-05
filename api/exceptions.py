@@ -33,3 +33,10 @@ class BannedUserException(APIException):
     detail = (
         "Your account has been banned. Please contact an admin if you wish to appeal."
     )
+
+
+class NotFoundException(APIException):
+    """Standard "item not found" exception."""
+
+    status_code = status.HTTP_404_NOT_FOUND
+    detail = "Item not found."
