@@ -119,7 +119,7 @@ def generate_badges(
     if len(options) < number:
         return generate_badges(
             session,
-            single=False,
+            single=single,
             number=number,
             length=length,
             _tries=_tries + 1,

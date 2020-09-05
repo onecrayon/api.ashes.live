@@ -20,6 +20,22 @@ def get_my_data(current_user: "User" = Depends(login_required)):
     return current_user
 
 
+@router.patch(
+    "/players/me", response_model=schema.UserSelfOut, responses=AUTH_RESPONSES
+)
+def update_my_data(
+    updates: schema.UserSelfIn,
+    current_user: "User" = Depends(login_required),
+    session: db.Session = Depends(get_session),
+):
+    """Update user information for the logged-in user."""
+    update_dict = updates.dict(exclude_unset=True)
+    for key, value in update_dict.items():
+        setattr(current_user, key, value)
+    session.commit()
+    return current_user
+
+
 @router.get(
     "/players/{badge}",
     response_model=schema.UserPublicOut,
