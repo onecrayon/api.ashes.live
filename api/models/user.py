@@ -5,7 +5,14 @@ from api import db
 from api.utils.auth import generate_password_hash
 
 
-class User(db.AlchemyBase):
+class AnonymousUser:
+    """Anonymous user base class"""
+
+    def is_anonymous(self) -> bool:
+        return True
+
+
+class User(db.AlchemyBase, AnonymousUser):
     __tablename__ = "user"
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(254), unique=True, nullable=False, index=True)
@@ -30,6 +37,9 @@ class User(db.AlchemyBase):
     modified = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # `collection` defined via backref in api.models.release.UserRelease
+
+    def is_anonymous(self) -> bool:
+        return False
 
     def set_password(self, password):
         """(Re)set the password after the user has been created"""
