@@ -18,5 +18,5 @@ app = FastAPI(
 )
 
 # Setup our application routes
-app.include_router(views.auth.router)
 app.include_router(views.health_check.router)
+app.include_router(views.auth.router, prefix="/v2", tags=["auth"])

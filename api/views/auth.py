@@ -7,14 +7,18 @@ from api import db
 from api.depends import get_session
 from api.environment import settings
 from api.models import User
-from api.schemas import auth as schema
+from api.schemas import GenericError, auth as schema
 from api.utils.auth import verify_password, create_access_token
 
 
 router = APIRouter()
 
 
-@router.post("/token", tags=["auth"], response_model=schema.AuthTokenOut)
+@router.post(
+    "/token",
+    response_model=schema.AuthTokenOut,
+    responses={401: {"model": GenericError}},
+)
 def log_in(
     form_data: OAuth2PasswordRequestForm = Depends(),
     session: db.Session = Depends(get_session),
