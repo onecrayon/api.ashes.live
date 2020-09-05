@@ -14,6 +14,6 @@ router = APIRouter()
     response_model=schema.UserSelfOut,
     responses=AUTH_RESPONSES,
 )
-def get_me(current_user: "User" = Depends(login_required)):
+def get_my_data(current_user: "User" = Depends(login_required)):
     """Return user information for self"""
     return current_user
