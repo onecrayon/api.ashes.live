@@ -1,13 +1,14 @@
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
 from api import db
-from api.depends import get_session
+from api.depends import AUTH_RESPONSES, get_session
 from api.environment import settings
+from api.exceptions import CredentialsException, BannedUserException
 from api.models import User
-from api.schemas import GenericError, auth as schema
+from api.schemas import auth as schema
 from api.utils.auth import verify_password, create_access_token
 
 
@@ -17,7 +18,7 @@ router = APIRouter()
 @router.post(
     "/token",
     response_model=schema.AuthTokenOut,
-    responses={401: {"model": GenericError}},
+    responses=AUTH_RESPONSES,
 )
 def log_in(
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -30,11 +31,11 @@ def log_in(
     """
     user = session.query(User).filter(User.email == form_data.username).first()
     if not user or not verify_password(form_data.password, user.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+        raise CredentialsException(
             detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
+    if user.is_banned:
+        raise BannedUserException()
     access_token_expires = timedelta(minutes=settings.access_token_expiry)
     access_token = create_access_token(
         data={"sub": user.badge},

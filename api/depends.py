@@ -6,7 +6,9 @@ from jose import jwt, JWTError
 
 from .db import Session, SessionLocal
 from .environment import settings
+from .exceptions import CredentialsException, BannedUserException
 from .models import AnonymousUser, User
+from .schemas import GenericError
 
 # Setup common global dependencies
 def get_session():  # pragma: no cover
@@ -20,11 +22,11 @@ def get_session():  # pragma: no cover
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="v2/token", auto_error=False)
 
-credentials_exception = HTTPException(
-    status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Invalid credentials. Please log in again.",
-    headers={"WWW-Authenticate": "Bearer"},
-)
+
+AUTH_RESPONSES = {
+    401: {"model": GenericError, "description": "Invalid credentials."},
+    403: {"model": GenericError, "description": "User has been banned."},
+}
 
 
 def get_current_user(
@@ -38,24 +40,26 @@ def get_current_user(
         payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
         user_badge: str = payload.get("sub")
         if user_badge is None:
-            raise credentials_exception
+            raise CredentialsException()
     except JWTError:
-        raise credentials_exception
+        raise CredentialsException()
     current_user = session.query(User).filter(User.badge == user_badge).first()
     if current_user is None:
-        raise credentials_exception
+        raise CredentialsException()
+    if current_user.is_banned:
+        raise BannedUserException()
     return current_user
 
 
 def login_required(current_user: "AnonymousUser" = Depends(get_current_user)) -> "User":
     """Returns authenticated user"""
     if current_user.is_anonymous():
-        raise credentials_exception
+        raise CredentialsException()
     return current_user
 
 
 def admin_required(current_user: "User" = Depends(login_required)) -> "User":
     """Returns authenticated admin user"""
     if not current_user.is_admin:
-        raise credentials_exception
+        raise CredentialsException()
     return current_user

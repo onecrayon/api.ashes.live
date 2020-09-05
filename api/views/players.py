@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api import db
-from api.depends import get_session, login_required
+from api.depends import get_session, login_required, AUTH_RESPONSES
 from api.models import User
-from api.schemas import GenericError, user as schema
+from api.schemas import user as schema
 
 
 router = APIRouter()
@@ -12,7 +12,7 @@ router = APIRouter()
 @router.get(
     "/players/me",
     response_model=schema.UserSelfOut,
-    responses={401: {"model": GenericError}},
+    responses=AUTH_RESPONSES,
 )
 def get_me(current_user: "User" = Depends(login_required)):
     """Return user information for self"""
