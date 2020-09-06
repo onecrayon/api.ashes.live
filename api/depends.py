@@ -8,7 +8,7 @@ from .db import Session, SessionLocal
 from .environment import settings
 from .exceptions import CredentialsException, BannedUserException
 from .models import AnonymousUser, User
-from .schemas import GenericError
+from .schemas import DetailResponse
 
 # Setup common global dependencies
 def get_session():  # pragma: no cover
@@ -24,8 +24,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="v2/token", auto_error=False)
 
 
 AUTH_RESPONSES = {
-    401: {"model": GenericError, "description": "Invalid credentials."},
-    403: {"model": GenericError, "description": "User has been banned."},
+    401: {"model": DetailResponse, "description": "Invalid credentials."},
+    403: {"model": DetailResponse, "description": "User has been banned."},
 }
 
 

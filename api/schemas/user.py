@@ -1,6 +1,12 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
+
+
+class UserEmailIn(BaseModel):
+    """Email to which an invite should be sent"""
+
+    email: EmailStr
 
 
 class UserPublicOut(BaseModel):

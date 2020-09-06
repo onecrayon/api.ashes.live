@@ -4,10 +4,36 @@ from api import db
 from api.depends import get_session, admin_required, login_required, AUTH_RESPONSES
 from api.exceptions import NotFoundException
 from api.models import User
-from api.schemas import GenericError, user as schema
+from api.schemas import DetailResponse, user as schema
+from api.services.user import get_invite_for_email
 
 
 router = APIRouter()
+
+
+@router.post(
+    "/players/new", status_code=status.HTTP_201_CREATED, response_model=DetailResponse
+)
+def request_invite(
+    data: schema.UserEmailIn, session: db.Session = Depends(get_session)
+):
+    """Request an invite be sent to the given email."""
+    email = data.email.lower()
+    user = session.query(User).filter(User.email == email).first()
+    if user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This email is already in use.",
+        )
+    invitation = get_invite_for_email(session, email)
+    # TODO: Email the user
+    # send_message(
+    #     invitation.email, 'Create your Ashes.live account!', 'invite_token',
+    #     invite=invitation
+    # )
+    return {
+        "detail": "Your invitation has been sent! Please follow the link in your email to set your password."
+    }
 
 
 @router.get(
@@ -39,7 +65,7 @@ def update_my_data(
 @router.get(
     "/players/{badge}",
     response_model=schema.UserPublicOut,
-    responses={404: {"model": GenericError}},
+    responses={404: {"model": DetailResponse}},
 )
 def get_user_data(badge: str, session: db.Session = Depends(get_session)):
     """Return public user information for any user."""
@@ -57,8 +83,8 @@ def get_user_data(badge: str, session: db.Session = Depends(get_session)):
     "/players/{badge}",
     response_model=schema.UserModerationOut,
     responses={
-        400: {"model": GenericError},
-        404: {"model": GenericError},
+        400: {"model": DetailResponse},
+        404: {"model": DetailResponse},
         **AUTH_RESPONSES,
     },
 )
