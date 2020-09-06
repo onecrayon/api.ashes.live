@@ -1,12 +1,12 @@
 from api import db
 from api.services.user import _random_badges, generate_badges
 from api.utils.auth import verify_password
-from .utils import _create_user_password
+from .utils import create_user_password
 
 
 def test_create_user(session: db.Session):
     """Unit test to verify user creation logic"""
-    user, password = _create_user_password(session)
+    user, password = create_user_password(session)
     assert verify_password(password, user.password) == True
 
 
@@ -33,7 +33,7 @@ def test_generate_badges_kid_friendly_failure(session: db.Session, monkeypatch):
 def test_generate_badges_all_taken(session: db.Session, monkeypatch):
     """Unit test to simulate all badges being taken"""
     # Create a user with our target badge
-    user, _ = _create_user_password(session)
+    user, _ = create_user_password(session)
     user.badge = "1234"
     session.commit()
 
@@ -51,7 +51,7 @@ def test_generate_badges_all_taken(session: db.Session, monkeypatch):
 
 def test_generate_badges_some_taken(session: db.Session, monkeypatch):
     """Unit test to simulate some badges being taken (recursion)"""
-    user, _ = _create_user_password(session)
+    user, _ = create_user_password(session)
     user.badge = "1234"
     session.commit()
 
