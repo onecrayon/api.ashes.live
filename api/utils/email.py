@@ -30,7 +30,7 @@ def send_message(recipient, template_id, data: Optional[dict] = None) -> bool:
         logger.error(
             f"Unable to send email due to missing API key <{api_key}> or sender <{sender}>."
         )
-        return false
+        return False
     if not template_id:
         logger.error(
             f"Template ID <{template_id}> not defined! Email has not been sent."
