@@ -38,15 +38,9 @@ def request_invite(
             "invite_token": invitation.uuid,
         },
     )
-    success_info = {
+    return {
         "detail": "Your invitation has been sent! Please follow the link in your email to set your password."
     }
-    if settings.debug:
-        logger.debug(
-            f"User invitation successfully created with token: {invitation.uuid}"
-        )
-        success_info["_token"] = invitation.uuid
-    return success_info
 
 
 @router.get(
