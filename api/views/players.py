@@ -8,6 +8,7 @@ from api.exceptions import NotFoundException
 from api.models import User
 from api.schemas import DetailResponse, user as schema
 from api.services.user import get_invite_for_email
+from api.utils.email import send_message
 
 
 router = APIRouter()
@@ -29,11 +30,14 @@ def request_invite(
             detail="This email is already in use.",
         )
     invitation = get_invite_for_email(session, email)
-    # TODO: Email the user
-    # send_message(
-    #     invitation.email, 'Create your Ashes.live account!', 'invite_token',
-    #     invite=invitation
-    # )
+    # Email the user
+    send_message(
+        recipient=invitation.email,
+        template_id=settings.sendgrid_invite_template,
+        data={
+            "invite_token": invitation.uuid,
+        },
+    )
     success_info = {
         "detail": "Your invitation has been sent! Please follow the link in your email to set your password."
     }

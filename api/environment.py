@@ -19,6 +19,13 @@ class ApplicationSettings(BaseSettings):
     access_token_expiry_hours: int = 24
     secret_key: str
 
+    # Email properties
+    mail_sender_address: str = None
+    mail_debug_recipient: str = None
+
+    sendgrid_api_key: str = None
+    sendgrid_invite_template: str = None
+
     @property
     def access_token_expiry(self) -> int:
         """Token expiry in minutes"""
