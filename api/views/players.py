@@ -1,7 +1,9 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api import db
 from api.depends import get_session, admin_required, login_required, AUTH_RESPONSES
+from api.environment import settings
 from api.exceptions import NotFoundException
 from api.models import User
 from api.schemas import DetailResponse, user as schema
@@ -9,6 +11,7 @@ from api.services.user import get_invite_for_email
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -31,9 +34,15 @@ def request_invite(
     #     invitation.email, 'Create your Ashes.live account!', 'invite_token',
     #     invite=invitation
     # )
-    return {
+    success_info = {
         "detail": "Your invitation has been sent! Please follow the link in your email to set your password."
     }
+    if settings.debug:
+        logger.debug(
+            f"User invitation successfully created with token: {invitation.uuid}"
+        )
+        success_info["_token"] = invitation.uuid
+    return success_info
 
 
 @router.get(
