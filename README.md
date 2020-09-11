@@ -1,6 +1,7 @@
 # Ashes.live API
 
-This is the backend API for Ashes.live, a fan-developed deckbuilder and community site for the card game Ashes Reborn.
+This is the backend API for Ashes.live, a fan-developed deckbuilder and community site for the card
+game Ashes Reborn.
 
 ## Dependencies
 
@@ -16,49 +17,42 @@ the standard [3 Musketeers](https://3musketeers.io/) pattern.
 
 ### Running on Windows
 
-**Please note:** in order to run Docker Desktop on Windows you will need Windows Pro.
+**Please note:** in order to run Docker Desktop on Windows you will either need a recent copy of
+Windows 10 Home with [WSL 2 enabled](https://docs.microsoft.com/en-us/windows/wsl/install-win10),
+or Windows 10 Pro.
 
 One easy way to install `make` on Windows:
 
 1. Install the [Chocolatey](https://chocolatey.org/install) package manager
 2. Run `choco install make` in an elevated command prompt
 
-## Running locally
+## First run
 
 After installing the dependencies above:
 
 1. Create a copy of `.env.example` named `.env` in your root directory
-2. Update `POSTGRES_PASSWORD` and other settings in `.env` for local development
+2. *At minimum* update `POSTGRES_PASSWORD` and `SECRET_KEY` in `.env` (you can update other
+   values if you wish; they aren't required to run locally, though)
 3. Run `make` from the root project directory
 
-This will build your main Docker container and show you the available commands you can
+This will build your main Docker container and display the available commands you can
 execute with `make`.
 
-Your two typical commands will be `make run` (which will launch a local, auto-refreshing
-development server) and `make shell` (which will open a shell connection within Docker).
+Now that you have a functional API stack, you need data in your database:
 
-After running `make run`, you can access your site at <http:localhost:8000>.
+1. Run `make migrate` to initialize empty tables in your database
+2. Run `make example-data` to populate your database with card and deck data from Ashes 1.0
 
-### Installing Python dependencies
+At this point, you can execute `make run` to start a local development server, and view your
+site's API documentation at <http:localhost:8000>.
 
-Ashes.live uses [Poetry](https://python-poetry.org/) for dependency management. To
-install a new dependency:
+From within the API docs, you can query the API directly and inspect its output. If you need
+to authenticate, use the email `hello@ashes.live` as the username with the password `changeme`
+to log in as IsaacBot#30000. **You must not make your API public without changing this password.**
 
-```sh
-$ make shell
-root@123:/code$ poetry add DEPENDENCY
-```
+If you are running a local development server to work on the front-end application, you're done!
 
-Then commit changes in your updated `poetry.lock` and `pyproject.toml`. Please see the
-[Poetry docs](https://python-poetry.org/docs/) for other available commands.
-
-You may wish to shut down your container, run `make build`, and relaunch it to ensure that
-newly added dependencies are available.
-
-**Please note:** `make shell` will log you into the Docker container as the root user!
-This is unfortunately necessary to allow Poetry to function properly (I haven't found a
-good way yet to install initial dependencies as a non-root account and have them work,
-which means the shell has to be root in order to properly calculate the dependency graph).
+If you wish to contribute to the API, read on!
 
 ### Developing within the Docker container
 
@@ -105,6 +99,82 @@ in your attached container window will provide you access to the equivalent of `
 but running the standard make commands there will result in Docker-in-Docker, which is not
 desirable in this instance.
 
+## Development
+
+The Ashes.live API uses the [FastAPI](https://fastapi.tiangolo.com/) framework to handle view
+logic, and [SQLAlchemy](https://www.sqlalchemy.org/) for models and database interaction.
+[Pydantic](https://pydantic-docs.helpmanual.io/) is used for modeling and validating endpoint
+input and output. [Pytest](https://docs.pytest.org/en/latest/) is used for testing.
+
+### Code logic
+
+The primary entrypoint for the application is `api/main.py`. This file defines
+the FastAPI app and attaches all site routers. Site modules are organized as follows:
+
+* `api/views`: Route view functions, typically organized by base URL segment. Start here to
+  trace a code path for a given endpoint.
+* `api/models`: Data models used to persist to and represent info from the database
+* `api/schemas`: Pydantic models used to validate and model endpoint input/output
+* `api/tests`: Integration tests (with some unit tests where integration testing is not feasible)
+* `api/services`: Functions for performing "business logic"; e.g. creating and modifying models,
+  shared queries that span model relationships, etc.
+* `api/utils`: Utility functions for doing a single small thing (placed here because multiple
+  endpoints leverage the function, or to make testing easier)
+
+Services and utility functions are quite similar. Generally speaking, if it's working with simple
+data, it's a utility. If it's manipulating models, it's probably a service.
+
+You will likely leverage the following files, as well:
+
+* `api/db.py`: Convenience access to SQLAlchemy objects and methods
+* `api/depends.py`: View dependencies (e.g. to allow endpoints access to the logged-in user)
+* `api/environment.py`: Exports the `settings` object for access to environment settings
+
+### Testing strategy
+
+I am shooting to maintain 100% code coverage. When you submit a PR, I will expect you to
+include tests that fully cover your code. You can view line-by-line coverage information
+by executing `make test` and then loading `htmlcov/index.html` into your favorite browser.
+
+Note that full code coverage simply means the tests must exercise all possible logic paths
+in your code. However, If you check the `api/tests` folder you will find that most existing
+tests are *integration* tests; they setup a scenario, query a single endpoint, and check that
+the status code is correct (typically no other information is verified). Tests do not need
+to exhaustively cover every eventuality; they simply need to ensure that all code paths are
+functional and appear to be working as expected.
+
+Testing performs queries against an actual database, and every individual test starts with
+an empty slate (there is no pre-existing data, and data does not persist between tests).
+
+In some instances, you may need to write unit tests instead (for instance, user badge generation
+logic does this). This will typically come up when you need to verify error handling within
+a service or utility function for failure states that are not possible to trigger externally.
+
+### Installing Python dependencies
+
+The Ashes.live API uses [Poetry](https://python-poetry.org/) for dependency management. To
+install a new dependency from outside of the container:
+
+```sh
+$ make shell
+root@123:/code$ poetry add DEPENDENCY
+```
+
+(If you are developing within Visual Studio Code, you can open the built-in terminal and skip
+the `make shell` command.)
+
+Then commit changes in your updated `poetry.lock` and `pyproject.toml`. Please see the
+[Poetry docs](https://python-poetry.org/docs/) for other available commands.
+
+You may wish to shut down your container, run `make build`, and relaunch it to ensure that
+newly added dependencies are available. If you pull down code and stuff starts failing in
+weird ways, you probably need to run `make build` and `make migrate`.
+
+**Please note:** `make shell` will log you into the Docker container as the root user!
+This is unfortunately necessary to allow Poetry to function properly (I haven't found a
+good way yet to install initial dependencies as a non-root account and have them work,
+which means the shell has to be root in order to properly calculate the dependency graph).
+
 ### Update core tools
 
 The underlying Dockerfile uses the following tools, pinned to specific release versions:
@@ -115,19 +185,3 @@ The underlying Dockerfile uses the following tools, pinned to specific release v
 
 In order to update these tools, you must update their pinned version in `docker/Dockerfile`
 and (for Poetry) in `pyproject.toml` then rebuild your API container using `make build`.
-
-## Code logic
-
-The primary entrypoint for the application is `api/main.py`. This file defines
-the FastAPI app and attaches all site routers.
-
-Route view functions are defined in `views`, organized by base URL segment.
-
-### API documentation
-
-Ashes.live uses FastAPI's automatically-generated OpenAPI documentation. You can find the
-site's docs at <http://localhost:8000> once you have the site running locally.
-
-### Testing strategy
-
-TBD

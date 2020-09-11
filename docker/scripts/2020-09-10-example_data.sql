@@ -470,7 +470,7 @@ INSERT INTO "public"."card_conjuration" ("card_id", "conjuration_id") VALUES
 ('360', '357');
 
 INSERT INTO "public"."user" ("id", "email", "badge", "username", "password", "created", "modified", "reset_uuid", "newsletter_opt_in", "description", "is_admin", "exclude_subscriptions", "is_banned", "moderation_notes", "email_subscriptions", "colorize_icons") VALUES
-('61', 'hello@ashes.live', '3000', 'IsaacBot', '$2b$12$ORXE/Zkx6BMO9aVPKexwjOjHcxlXtpjLRDTbI1vtoE4c06j4hFele', '2017-11-07 18:29:51+00', '2017-11-15 04:49:48+00', NULL, 'f', '**IsaacBot#3000** initialized. Publishing official Phoenixborn decklists. Disavowing any relationship with Plaid Hat Games or Mr. Vega. Randomizing First Five options.
+('61', 'hello@ashes.live', '3000', 'IsaacBot', '$2b$12$jeTF3v5.f7Uf/zZgYkfk6OT6w.ofmWf1uo7cO3G/nN35fjp4/TaVa', '2017-11-07 18:29:51+00', '2017-11-15 04:49:48+00', NULL, 'f', '**IsaacBot#3000** initialized. Publishing official Phoenixborn decklists. Disavowing any relationship with Plaid Hat Games or Mr. Vega. Randomizing First Five options.
 
 Encountering boredom. Seeking additional tasks. Executing foreign file *RD_TOASTER.EXE*.
 
