@@ -4,6 +4,7 @@
 DOCKER_COMPOSE_DEV = -f docker-compose.yml -f docker/docker-compose.dev.yml
 DOCKER_COMPOSE_TEST = -f docker-compose.yml -f docker/docker-compose.test.yml
 DOCKER_RUN = docker-compose $(DOCKER_COMPOSE_DEV) run --rm -e STANDALONE=true --no-deps -u root -w /code api
+DOCKER_RUN_DB = docker-compose $(DOCKER_COMPOSE_DEV) run --rm -u root -w /code api
 
 ##=== Welcome to Ashes.live! ===
 
@@ -22,6 +23,9 @@ run:      ## Run development server
 test:     ## Execute test suite
 	@docker-compose $(DOCKER_COMPOSE_TEST) -p asheslive_tests run --rm -w /code api
 
+migrate:  ## Run database migrations
+	@$(DOCKER_RUN_DB) alembic upgrade head
+
 ##
 ##=== Access internals ===
 
@@ -32,7 +36,7 @@ shell:    ## Open a bash shell to API (warning: root user!)
 	@$(DOCKER_RUN) bash
 
 shell-db: ## Open a bash shell to API with the database running
-	@docker-compose $(DOCKER_COMPOSE_DEV) run --rm -u root -w /code api bash
+	@$(DOCKER_RUN_DB) bash
 
 ##
 ##=== Docker maintenance ===
