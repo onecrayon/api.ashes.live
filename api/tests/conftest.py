@@ -20,6 +20,11 @@ from api.environment import settings
 from api.depends import get_session
 
 
+@pytest.fixture(scope="session", autouse=True)
+def test_environment():
+    settings.sendgrid_api_key = None
+
+
 @pytest.fixture(scope="session")
 def session_local():
     """Override the default database with our testing database, and make sure to run migrations"""

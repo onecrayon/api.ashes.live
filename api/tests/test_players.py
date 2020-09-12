@@ -4,6 +4,8 @@ from fastapi.testclient import TestClient
 from api import db
 from . import utils
 
+# Basic `/v2/players/new` behavior is tested by the default auth dependency checks in `test_auth.py`
+
 # `/v2/players/me` is tested by the default auth dependency checks in `test_auth.py`
 
 

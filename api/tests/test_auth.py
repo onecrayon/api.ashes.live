@@ -9,7 +9,9 @@ from freezegun import freeze_time
 from jose import jwt
 
 from api import db
+from api.models import Invite
 from api.environment import settings
+import api.views.players
 from . import utils
 
 
@@ -47,6 +49,33 @@ def test_token(client: TestClient, session: db.Session):
     # Verify that we can log in with the random password
     response = client.post("/v2/token", {"username": user.email, "password": password})
     assert response.status_code == status.HTTP_200_OK, response.json()
+
+
+def test_anonymous_required(client: TestClient, session: db.Session, monkeypatch):
+    """Anonymous users can access endpoints that require anonymity"""
+
+    def _always_true(*args, **kwargs):
+        return True
+
+    # Just patch the whole send_email method; its behavior is tested elsewhere
+    monkeypatch.setattr(api.views.players, "send_message", _always_true)
+    fake_email = utils.generate_random_email()
+    response = client.post("/v2/players/new", json={"email": fake_email})
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+    assert session.query(Invite).filter(Invite.email == fake_email).count() == 1
+
+
+def test_anonymous_required_authenticated_user(client: TestClient, session: db.Session):
+    """Authenicated users cannot access enpoints that require anonymity"""
+    _, token = utils.create_user_token(session)
+    fake_email = utils.generate_random_email()
+    response = client.post(
+        "/v2/players/new",
+        json={"email": fake_email},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
+    assert session.query(Invite).filter(Invite.email == fake_email).count() == 0
 
 
 def test_login_required(client: TestClient, session: db.Session):

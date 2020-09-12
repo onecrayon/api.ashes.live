@@ -10,7 +10,7 @@ from api.utils.auth import create_access_token
 
 def create_user_password(session: db.Session) -> Tuple[models.User, str]:
     """Returns a new user, and their plaintext password"""
-    email = f"{generate_random_chars(4)}@{generate_random_chars(6)}.fake"
+    email = generate_random_email()
     password = generate_random_chars(16)
     user = create_user(session, email=email, password=password)
     return user, password
@@ -30,6 +30,11 @@ def create_admin_token(session: db.Session) -> Tuple[models.User, str]:
     user.is_admin = True
     session.commit()
     return user, token
+
+
+def generate_random_email() -> str:
+    """Returns a random email-like string"""
+    return f"{generate_random_chars(4)}@{generate_random_chars(6)}.fake".lower()
 
 
 def generate_random_chars(length=10) -> str:
