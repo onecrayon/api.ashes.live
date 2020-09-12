@@ -2,7 +2,13 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api import db
-from api.depends import get_session, admin_required, login_required, AUTH_RESPONSES
+from api.depends import (
+    get_session,
+    admin_required,
+    anonymous_required,
+    login_required,
+    AUTH_RESPONSES,
+)
 from api.environment import settings
 from api.exceptions import APIException, NotFoundException
 from api.models import User
@@ -27,7 +33,9 @@ logger = logging.getLogger(__name__)
     },
 )
 def request_invite(
-    data: schema.UserEmailIn, session: db.Session = Depends(get_session)
+    data: schema.UserEmailIn,
+    session: db.Session = Depends(get_session),
+    _=Depends(anonymous_required),
 ):
     """Request an invite be sent to the given email."""
     email = data.email.lower()

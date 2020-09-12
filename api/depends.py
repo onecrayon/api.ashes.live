@@ -51,6 +51,17 @@ def get_current_user(
     return current_user
 
 
+def anonymous_required(
+    current_user: "AnonymousUser" = Depends(get_current_user),
+) -> "AnonymousUser":
+    """Throws an error if endpoint is accessed by logged-in user"""
+    if not current_user.is_anonymous():
+        raise CredentialsException(
+            detail="You are already logged in as a registered user."
+        )
+    return current_user
+
+
 def login_required(current_user: "AnonymousUser" = Depends(get_current_user)) -> "User":
     """Returns authenticated user"""
     if current_user.is_anonymous():
