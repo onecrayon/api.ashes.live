@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from api import db
 from api.depends import get_session, admin_required, login_required, AUTH_RESPONSES
 from api.environment import settings
-from api.exceptions import NotFoundException
+from api.exceptions import APIException, NotFoundException
 from api.models import User
 from api.schemas import DetailResponse, user as schema
 from api.services.user import get_invite_for_email
@@ -16,7 +16,15 @@ logger = logging.getLogger(__name__)
 
 
 @router.post(
-    "/players/new", status_code=status.HTTP_201_CREATED, response_model=DetailResponse
+    "/players/new",
+    status_code=status.HTTP_201_CREATED,
+    response_model=DetailResponse,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Unable to send email. See detail for reason.",
+        }
+    },
 )
 def request_invite(
     data: schema.UserEmailIn, session: db.Session = Depends(get_session)
@@ -25,19 +33,22 @@ def request_invite(
     email = data.email.lower()
     user = session.query(User).filter(User.email == email).first()
     if user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+        raise APIException(
             detail="This email is already in use.",
         )
     invitation = get_invite_for_email(session, email)
     # Email the user
-    send_message(
+    if not send_message(
         recipient=invitation.email,
         template_id=settings.sendgrid_invite_template,
         data={
-            "invite_token": invitation.uuid,
+            "invite_token": str(invitation.uuid),
+            "email": invitation.email,
         },
-    )
+    ):
+        raise APIException(
+            detail="Unable to send invitation email; please contact the site owner."
+        )
     return {
         "detail": "Your invitation has been sent! Please follow the link in your email to set your password."
     }

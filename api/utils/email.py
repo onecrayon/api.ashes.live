@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+import sendgrid.helpers.mail as sendgrid_helpers
 
 from api.environment import settings
 
@@ -40,24 +40,20 @@ def send_message(recipient, template_id, data: Optional[dict] = None) -> bool:
     if settings.debug:
         if not settings.mail_debug_recipient:
             logger.info(
-                f"DEBUG: Transactional email <{template_id}> to <{recipients}> has not been sent. "
+                f"DEBUG: Transactional email <{template_id}> to <{recipient}> has not been sent. "
                 f"Please add `MAIL_DEBUG_RECIPIENT` to your .env file if you wish to send email "
                 f"while debugging."
             )
             return False
-        if isinstance(recipients, str):
-            recipients = [recipients]
-        new_recipients = []
-        for recipient in recipients:
-            logger.info(f"Replacing email recipient: <{recipient}>")
-            new_recipients.append(settings.mail_debug_recipient)
-        recipients = new_recipients
+        new_recipient = settings.mail_debug_recipient
+        logger.info(f"Replacing email recipient: <{recipient}>")
+        recipient = new_recipient
 
     sendgrid_client = SendGridAPIClient(api_key=api_key)
     # sender might be a tuple of (name, email)
     sendgrid_helpers.Email(sender)
-    to_email = sendgrid_helpers.To(first_recipient)
-    message = Mail(from_email=from_email, to_emails=to_email)
+    to_email = sendgrid_helpers.To(recipient)
+    message = sendgrid_helpers.Mail(from_email=sender, to_emails=to_email)
     message.template_id = template_id
     if data:
         message.dynamic_template_data = data
@@ -70,6 +66,6 @@ def send_message(recipient, template_id, data: Optional[dict] = None) -> bool:
             return False
         return True
     except Exception as e:
-        logger.error(f"Failed to send email via SendGrid API: {e.message}")
-        logger.error(f"Mail request: {message}".format(message))
+        logger.error(f"Failed to send email via SendGrid API: {e}")
+        logger.error(f"Mail request: {message}")
         return False

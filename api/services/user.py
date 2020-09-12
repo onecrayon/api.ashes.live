@@ -1,7 +1,6 @@
 from random import choice
 import re
 import string
-import uuid
 
 from api import db, models
 from api.utils.auth import generate_password_hash
@@ -15,12 +14,8 @@ def get_invite_for_email(session: "db.Session", email: str) -> "models.Invite":
     if invitation:
         invitation.requests += 1
     else:
-        # Grab a unique UUID
-        str_id = str(uuid.uuid4())
-        while session.query(models.Invite).get(str_id):
-            str_id = str(uuid.uuid4())
         # Create our invitation
-        invitation = models.Invite(uuid=str_id, email=email)
+        invitation = models.Invite(email=email)
         session.add(invitation)
     session.commit()
     return invitation
