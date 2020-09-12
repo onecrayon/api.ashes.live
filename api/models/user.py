@@ -25,7 +25,7 @@ class User(db.AlchemyBase, AnonymousUser):
     moderation_notes = db.Column(db.Text)
     password = db.Column(db.String(255), nullable=False)
     reset_uuid = db.Column(
-        db.String(36), nullable=True, default=None, index=True, unique=True
+        db.UUID(as_uuid=True), nullable=True, default=None, index=True, unique=True
     )
     newsletter_opt_in = db.Column(db.Boolean, nullable=False, default=False)
     exclude_subscriptions = db.Column(db.Boolean, nullable=False, default=False)

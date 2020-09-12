@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from api import db
@@ -5,7 +6,7 @@ from api import db
 
 class Invite(db.AlchemyBase):
     __tablename__ = "invite"
-    uuid = db.Column(db.String(36), primary_key=True)
+    uuid = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = db.Column(db.String(254), unique=True, nullable=False, index=True)
     requests = db.Column(db.Integer, nullable=False, default=1)
     requested = db.Column(

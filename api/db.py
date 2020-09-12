@@ -70,6 +70,7 @@ from sqlalchemy import (
     union_all,
     within_group,
 )
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, backref, relationship, sessionmaker
 
@@ -105,6 +106,7 @@ __all__ = (
     Text,
     Unicode,
     UnicodeText,
+    UUID,
     # Relationships
     relationship,
     backref,
