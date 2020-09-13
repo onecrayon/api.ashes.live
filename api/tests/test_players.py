@@ -2,9 +2,59 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from api import db
+from api.models import Invite
+import api.views.players
 from . import utils
 
 # Basic `/v2/players/new` behavior is tested by the default auth dependency checks in `test_auth.py`
+
+
+def test_invite_requests_incremented(
+    client: TestClient, session: db.Session, monkeypatch
+):
+    """Requesting an invite multiple times must increment the requests counter"""
+
+    def _always_true(*args, **kwargs):
+        return True
+
+    # Just patch the whole send_email method; its behavior is tested elsewhere
+    monkeypatch.setattr(api.views.players, "send_message", _always_true)
+    fake_email = utils.generate_random_email()
+    response = client.post("/v2/players/new", json={"email": fake_email})
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+    assert (
+        session.query(Invite.requests).filter(Invite.email == fake_email).scalar() == 1
+    )
+    # Request a second time
+    response = client.post("/v2/players/new", json={"email": fake_email})
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+    assert (
+        session.query(Invite.requests).filter(Invite.email == fake_email).scalar() == 2
+    )
+
+
+def test_invite_existing_user(client: TestClient, session: db.Session):
+    """Requesting an invite for a registered emails throws an error"""
+    user, _ = utils.create_user_token(session)
+    response = client.post("/v2/players/new", json={"email": user.email})
+    assert response.status_code == status.HTTP_400_BAD_REQUEST, respone.json()
+    assert session.query(Invite).filter(Invite.email == user.email).count() == 0
+
+
+def test_invite_sendgrid_failure(client: TestClient, session: db.Session, monkeypatch):
+    """Endpoint throws an error if SendGrid call fails"""
+
+    def _always_false(*args, **kwargs):
+        return False
+
+    # Just patch the whole send_email method; its behavior is tested elsewhere
+    monkeypatch.setattr(api.views.players, "send_message", _always_false)
+    fake_email = utils.generate_random_email()
+    response = client.post("/v2/players/new", json={"email": fake_email})
+    assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
+    # Email failed, but the invite should still be created
+    assert session.query(Invite).filter(Invite.email == fake_email).count() == 1
+
 
 # `/v2/players/me` is tested by the default auth dependency checks in `test_auth.py`
 

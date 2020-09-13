@@ -16,18 +16,21 @@ from sqlalchemy_utils import create_database, database_exists, drop_database
 
 # `models` is necessary to ensure that AlchemyBase is properly populated
 from api import app, db, models
-from api.environment import settings
+import api.environment
 from api.depends import get_session
+from . import utils
 
 
-@pytest.fixture(scope="session", autouse=True)
-def test_environment():
-    settings.sendgrid_api_key = None
+@pytest.fixture(scope="function", autouse=True)
+def testing_environment(monkeypatch):
+    # Ensure we don't have any SendGrid API key stored for a real SendGrid account
+    utils.monkeypatch_settings(monkeypatch, {"sendgrid_api_key": None})
 
 
 @pytest.fixture(scope="session")
 def session_local():
     """Override the default database with our testing database, and make sure to run migrations"""
+    settings = api.environment.ApplicationSettings()
     test_engine = create_engine(
         (
             f"postgresql+psycopg2://{settings.postgres_user}:{settings.postgres_password}"

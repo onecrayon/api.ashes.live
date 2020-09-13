@@ -4,8 +4,15 @@ import string
 from typing import Tuple
 
 from api import db, models
+from api.environment import settings
 from api.services.user import create_user
 from api.utils.auth import create_access_token
+
+
+def monkeypatch_settings(monkeypatch, new_settings: dict):
+    """Patches the given setting for a single test"""
+    for key, value in new_settings.items():
+        monkeypatch.setattr(settings, key, value)
 
 
 def create_user_password(session: db.Session) -> Tuple[models.User, str]:
