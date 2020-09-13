@@ -8,6 +8,8 @@ from pydantic import BaseSettings
 
 
 class ApplicationSettings(BaseSettings):
+    site_name: str = "Ashes.live"
+
     postgres_user: str
     postgres_password: str = ""
     postgres_db: str

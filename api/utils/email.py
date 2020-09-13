@@ -50,8 +50,7 @@ def send_message(recipient, template_id, data: Optional[dict] = None) -> bool:
         recipient = new_recipient
 
     sendgrid_client = SendGridAPIClient(api_key=api_key)
-    # sender might be a tuple of (name, email)
-    sendgrid_helpers.Email(sender)
+    sender = sendgrid_helpers.Email(sender, name=settings.site_name)
     to_email = sendgrid_helpers.To(recipient)
     message = sendgrid_helpers.Mail(from_email=sender, to_emails=to_email)
     message.template_id = template_id
