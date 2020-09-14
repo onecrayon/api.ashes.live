@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -8,8 +6,9 @@ from api.depends import AUTH_RESPONSES, get_session
 from api.environment import settings
 from api.exceptions import CredentialsException, BannedUserException
 from api.models import User
+from api.services.user import access_token_for_user
 from api.schemas import auth as schema
-from api.utils.auth import verify_password, create_access_token
+from api.utils.auth import verify_password
 
 
 router = APIRouter()
@@ -36,9 +35,5 @@ def log_in(
         )
     if user.is_banned:
         raise BannedUserException()
-    access_token_expires = timedelta(minutes=settings.access_token_expiry)
-    access_token = create_access_token(
-        data={"sub": user.badge},
-        expires_delta=access_token_expires,
-    )
+    access_token = access_token_for_user(user)
     return {"access_token": access_token, "token_type": "bearer"}

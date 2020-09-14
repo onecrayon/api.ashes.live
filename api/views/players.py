@@ -1,5 +1,7 @@
 import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import UUID4
 
 from api import db
 from api.depends import (
@@ -11,9 +13,10 @@ from api.depends import (
 )
 from api.environment import settings
 from api.exceptions import APIException, NotFoundException
-from api.models import User
+from api.models import Invite, User
 from api.schemas import DetailResponse, user as schema
-from api.services.user import get_invite_for_email
+from api.schemas.auth import AuthTokenOut
+from api.services.user import access_token_for_user, get_invite_for_email, create_user
 from api.utils.email import send_message
 
 
@@ -37,7 +40,10 @@ def request_invite(
     session: db.Session = Depends(get_session),
     _=Depends(anonymous_required),
 ):
-    """Request an invite be sent to the given email."""
+    """Request an invite be sent to the given email.
+
+    Will fail if requested by an authenticated user.
+    """
     email = data.email.lower()
     user = session.query(User).filter(User.email == email).first()
     if user:
@@ -60,6 +66,39 @@ def request_invite(
     return {
         "detail": "Your invitation has been sent! Please follow the link in your email to set your password."
     }
+
+
+@router.post(
+    "/players/new/{token}",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AuthTokenOut,
+    responses={404: {"model": DetailResponse, "description": "Bad invitation token"}},
+)
+def create_player(
+    token: UUID4,
+    data: schema.UserRegistrationIn,
+    session: db.Session = Depends(get_session),
+    _=Depends(anonymous_required),
+):
+    """Create a new player using the token obtained by requesting an invite.
+
+    Will fail if requested by an authenticated user.
+    """
+    invite = session.query(Invite).filter(Invite.uuid == token).first()
+    if invite is None:
+        raise NotFoundException(detail="Token not found. Please request a new invite.")
+    user = create_user(
+        session,
+        invite.email,
+        data.password,
+        username=data.username,
+        description=data.description,
+        newsletter_opt_in=data.newsletter_opt_in,
+    )
+    session.delete(invite)
+    session.commit()
+    access_token = access_token_for_user(user)
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 @router.get(

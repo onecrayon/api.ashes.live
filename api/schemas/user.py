@@ -1,12 +1,32 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, validator
 
 
 class UserEmailIn(BaseModel):
     """Email to which an invite should be sent"""
 
     email: EmailStr
+
+
+class UserRegistrationIn(BaseModel):
+    """Registration details for a given user"""
+
+    username: Optional[str] = Field(
+        None, description="How you wish to be known around the site.", max_length=42
+    )
+    password: str = Field(..., min_length=8, max_length=50)
+    password_confirm: str = Field(..., min_length=8, max_length=50)
+    description: Optional[str] = Field(
+        None, description="Supports card codes and star formatting."
+    )
+    newsletter_opt_in: bool = False
+
+    @validator("password_confirm")
+    def passwords_match(cls, v, values, **kwargs):
+        if "password" in values and v != values["password"]:
+            raise ValueError("passwords do not match")
+        return v
 
 
 class UserPublicOut(BaseModel):

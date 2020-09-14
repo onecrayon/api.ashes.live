@@ -1,9 +1,20 @@
+from datetime import timedelta
 from random import choice
 import re
 import string
 
 from api import db, models
-from api.utils.auth import generate_password_hash
+from api.environment import settings
+from api.utils.auth import generate_password_hash, create_access_token
+
+
+def access_token_for_user(user: "models.User") -> str:
+    """Returns an access token for the given user"""
+    access_token_expires = timedelta(minutes=settings.access_token_expiry)
+    return create_access_token(
+        data={"sub": user.badge},
+        expires_delta=access_token_expires,
+    )
 
 
 def get_invite_for_email(session: "db.Session", email: str) -> "models.Invite":
