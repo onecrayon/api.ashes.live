@@ -1,8 +1,11 @@
+import uuid
+
 from fastapi import status
 from fastapi.testclient import TestClient
 
 from api import db
-from api.models import Invite
+from api.models import Invite, User
+from api.services.user import get_invite_for_email
 import api.views.players
 from . import utils
 
@@ -54,6 +57,46 @@ def test_invite_sendgrid_failure(client: TestClient, session: db.Session, monkey
     assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
     # Email failed, but the invite should still be created
     assert session.query(Invite).filter(Invite.email == fake_email).count() == 1
+
+
+def test_register_user_different_passwords(client: TestClient, session: db.Session):
+    """Throw a validation error when passwords do not match"""
+    email = utils.generate_random_email()
+    invite = get_invite_for_email(session, email)
+    password = utils.generate_random_chars(10)
+    password_confirm = utils.generate_random_chars(11)
+    response = client.post(
+        f"/v2/players/new/{invite.uuid}",
+        json={"password": password, "password_confirm": password_confirm},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
+    assert session.query(User).count() == 0
+
+
+def test_register_user_invalid_token(client: TestClient, session: db.Session):
+    """No user created with an invalid token is passed"""
+    bad_token = uuid.uuid4()
+    password = utils.generate_random_chars(10)
+    response = client.post(
+        f"/v2/players/new/{bad_token}",
+        json={"password": password, "password_confirm": password},
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND, response.json()
+    assert session.query(User).count() == 0
+
+
+def test_register_user(client: TestClient, session: db.Session):
+    """User is created and invite destroyed upon registration"""
+    email = utils.generate_random_email()
+    invite = get_invite_for_email(session, email)
+    password = utils.generate_random_chars(10)
+    response = client.post(
+        f"/v2/players/new/{invite.uuid}",
+        json={"password": password, "password_confirm": password},
+    )
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+    assert session.query(Invite).filter(Invite.email == email).count() == 0
+    assert session.query(User).filter(User.email == email).count() == 1
 
 
 # `/v2/players/me` is tested by the default auth dependency checks in `test_auth.py`
