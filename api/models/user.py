@@ -2,7 +2,6 @@ from datetime import datetime
 from random import choice
 
 from api import db
-from api.utils.auth import generate_password_hash
 
 
 class AnonymousUser:
@@ -40,9 +39,3 @@ class User(db.AlchemyBase, AnonymousUser):
 
     def is_anonymous(self) -> bool:
         return False
-
-    def set_password(self, password):
-        """(Re)set the password after the user has been created"""
-        # Hash the password
-        self.password = generate_password_hash(password)
-        self.reset_uuid = None
