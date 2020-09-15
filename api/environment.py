@@ -27,6 +27,7 @@ class ApplicationSettings(BaseSettings):
 
     sendgrid_api_key: str = None
     sendgrid_invite_template: str = None
+    sendgrid_reset_template: str = None
 
     @property
     def access_token_expiry(self) -> int:

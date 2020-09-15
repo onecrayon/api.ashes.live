@@ -60,6 +60,8 @@ def request_invite(
             "email": invitation.email,
         },
     ):
+        if settings.debug:
+            logger.debug(f"INVITE TOKEN FOR {email}: {invitation.uuid}")
         raise APIException(
             detail="Unable to send invitation email; please contact the site owner."
         )
