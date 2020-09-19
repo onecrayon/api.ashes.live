@@ -7,6 +7,7 @@ from api import db
 from api.models import Invite, User
 from api.services.user import get_invite_for_email
 import api.views.players
+from api.utils.auth import verify_password
 from . import utils
 
 # Basic `/v2/players/new` behavior is tested by the default auth dependency checks in `test_auth.py`
@@ -100,6 +101,60 @@ def test_register_user(client: TestClient, session: db.Session):
 
 
 # `/v2/players/me` is tested by the default auth dependency checks in `test_auth.py`
+
+
+def test_user_post_password_mismatch_passwords(client: TestClient, session: db.Session):
+    """Cannot update own password if new passwords do not match"""
+    user, current_password = utils.create_user_password(session)
+    user, token = utils.create_user_token(session, user=user)
+    password = utils.generate_random_chars(8)
+    password2 = f"a{password}"
+    response = client.post(
+        "/v2/players/me/password",
+        json={
+            "current_password": current_password,
+            "password": password,
+            "password_confirm": password2,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_user_post_password_wrong_password(client: TestClient, session: db.Session):
+    """Cannot update own password if current password is wrong"""
+    user, current_password = utils.create_user_password(session)
+    user, token = utils.create_user_token(session, user=user)
+    password = utils.generate_random_chars(8)
+    response = client.post(
+        "/v2/players/me/password",
+        json={
+            "current_password": f"a{current_password}",
+            "password": password,
+            "password_confirm": password,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_user_post_password(client: TestClient, session: db.Session):
+    """Can update own password"""
+    user, current_password = utils.create_user_password(session)
+    user, token = utils.create_user_token(session, user=user)
+    password = utils.generate_random_chars(8)
+    response = client.post(
+        "/v2/players/me/password",
+        json={
+            "current_password": current_password,
+            "password": password,
+            "password_confirm": password,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    session.refresh(user)
+    assert verify_password(password, user.password) is True
 
 
 def test_get_user(client: TestClient, session: db.Session):

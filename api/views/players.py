@@ -1,7 +1,9 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.exceptions import RequestValidationError
 from pydantic import UUID4
+from pydantic.error_wrappers import ErrorWrapper
 
 from api import db
 from api.depends import (
@@ -17,6 +19,7 @@ from api.models import Invite, User
 from api.schemas import DetailResponse, user as schema
 from api.schemas.auth import AuthTokenOut
 from api.services.user import access_token_for_user, get_invite_for_email, create_user
+from api.utils.auth import generate_password_hash, verify_password
 from api.utils.email import send_message
 
 
@@ -127,6 +130,31 @@ def update_my_data(
         setattr(current_user, key, value)
     session.commit()
     return current_user
+
+
+@router.post(
+    "/players/me/password", response_model=DetailResponse, responses=AUTH_RESPONSES
+)
+def update_my_password(
+    updates: schema.UserSelfPasswordIn,
+    current_user: "User" = Depends(login_required),
+    session: db.Session = Depends(get_session),
+):
+    """Update logged-in user's password"""
+    if not verify_password(updates.current_password, current_user.password):
+        # We need to fake a normal validation error, because we can't really do this in the schema
+        #  (need access to the database session for the password verification)
+        raise RequestValidationError(
+            errors=(
+                ErrorWrapper(
+                    exc=ValueError("Current password is invalid."),
+                    loc="current_password",
+                ),
+            )
+        )
+    current_user.password = generate_password_hash(updates.password)
+    session.commit()
+    return {"detail": "Your password has been updated!"}
 
 
 @router.get(

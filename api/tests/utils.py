@@ -1,7 +1,7 @@
 from datetime import timedelta
 import random
 import string
-from typing import Tuple
+from typing import Optional, Tuple
 
 from api import db, models
 from api.environment import settings
@@ -23,9 +23,12 @@ def create_user_password(session: db.Session) -> Tuple[models.User, str]:
     return user, password
 
 
-def create_user_token(session: db.Session) -> Tuple[models.User, str]:
+def create_user_token(
+    session: db.Session, user: Optional["models.User"] = None
+) -> Tuple[models.User, str]:
     """Returns a new user, and their associated bearer token"""
-    user, _ = create_user_password(session)
+    if not user:
+        user, _ = create_user_password(session)
     token = create_access_token(
         data={"sub": user.badge}, expires_delta=timedelta(minutes=15)
     )

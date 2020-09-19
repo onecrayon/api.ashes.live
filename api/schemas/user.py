@@ -18,8 +18,14 @@ class UserSetPasswordIn(BaseModel):
     @validator("password_confirm")
     def passwords_match(cls, v, values, **kwargs):
         if "password" in values and v != values["password"]:
-            raise ValueError("passwords do not match")
+            raise ValueError("Passwords do not match.")
         return v
+
+
+class UserSelfPasswordIn(UserSetPasswordIn):
+    """Update password while logged in"""
+
+    current_password: str = Field(..., min_length=8, max_length=50)
 
 
 class UserRegistrationIn(UserSetPasswordIn):
