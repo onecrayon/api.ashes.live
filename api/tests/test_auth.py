@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import random
 import string
 from typing import Tuple
+import uuid
 
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -163,3 +164,119 @@ def test_admin_required_normal_user(client: TestClient, session: db.Session):
     assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
     session.refresh(user2)
     assert user2.username == "oldname"
+
+
+def test_request_password_reset_banned_user(client: TestClient, session: db.Session):
+    """Banned users cannot request password resets"""
+    user, _ = utils.create_user_token(session)
+    user.is_banned = True
+    session.commit()
+    response = client.post("/v2/reset", json={"email": user.email})
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_request_password_reset_bad_email(client: TestClient, session: db.Session):
+    """Nonexistent emails cannot obtain password resets"""
+    email = utils.generate_random_email()
+    response = client.post("/v2/reset", json={"email": email})
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_request_password_reset_local_debugging(
+    client: TestClient, session: db.Session, monkeypatch
+):
+    """Reset UUIDs are properly generated for password reset requests when debugging locally"""
+
+    def _always_false(*args, **kwargs):
+        return False
+
+    # send_email is covered by unit tests, so it's safe to patch the whole function
+    monkeypatch.setattr(api.views.auth, "send_message", _always_false)
+    utils.monkeypatch_settings(monkeypatch, {"debug": True})
+    user, _ = utils.create_user_token(session)
+    assert user.reset_uuid is None
+    response = client.post("/v2/reset", json={"email": user.email})
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    session.refresh(user)
+    assert user.reset_uuid is not None
+
+
+def test_request_password_reset(client: TestClient, session: db.Session, monkeypatch):
+    """Password reset works properly when emailing the request"""
+
+    def _always_true(*args, **kwargs):
+        return True
+
+    # send_email is covered by unit tests, so it's safe to patch the whole function
+    monkeypatch.setattr(api.views.auth, "send_message", _always_true)
+    user, _ = utils.create_user_token(session)
+    assert user.reset_uuid is None
+    response = client.post("/v2/reset", json={"email": user.email})
+    assert response.status_code == status.HTTP_200_OK
+    session.refresh(user)
+    assert user.reset_uuid is not None
+
+
+def test_request_password_reset_twice(
+    client: TestClient, session: db.Session, monkeypatch
+):
+    """Password reset token is regenerated when requesting a second time"""
+
+    def _always_true(*args, **kwargs):
+        return True
+
+    # send_email is covered by unit tests, so it's safe to patch the whole function
+    monkeypatch.setattr(api.views.auth, "send_message", _always_true)
+    user, _ = utils.create_user_token(session)
+    assert user.reset_uuid is None
+    response = client.post("/v2/reset", json={"email": user.email})
+    assert response.status_code == status.HTTP_200_OK
+    session.refresh(user)
+    assert user.reset_uuid is not None
+    original_token = user.reset_uuid
+    # Send a second reset request
+    response = client.post("/v2/reset", json={"email": user.email})
+    assert response.status_code == status.HTTP_200_OK
+    session.refresh(user)
+    assert original_token != user.reset_uuid
+
+
+def test_reset_password_bad_token(client: TestClient, session: db.Session):
+    """Cannot change password with a bad token"""
+    bad_token = uuid.uuid4()
+    password = utils.generate_random_chars(8)
+    response = client.post(
+        f"/v2/reset/{bad_token}",
+        json={"password": password, "password_confirm": password},
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_reset_password_bad_passwords(client: TestClient, session: db.Session):
+    """Password must match confirmation value"""
+    user, _ = utils.create_user_token(session)
+    user.reset_uuid = uuid.uuid4()
+    session.commit()
+    password = utils.generate_random_chars(8)
+    password2 = f"a{password}"
+    response = client.post(
+        f"/v2/reset/{user.reset_uuid}",
+        json={"password": password, "password_confirm": password2},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_reset_password(client: TestClient, session: db.Session):
+    """Password reset must reset the password"""
+    user, _ = utils.create_user_token(session)
+    user.reset_uuid = uuid.uuid4()
+    session.commit()
+    new_password = utils.generate_random_chars(8)
+    original_hash = user.password
+    response = client.post(
+        f"/v2/reset/{user.reset_uuid}",
+        json={"password": new_password, "password_confirm": new_password},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    session.refresh(user)
+    assert original_hash != user.password
