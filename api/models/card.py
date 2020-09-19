@@ -37,10 +37,14 @@ conjurations_table = db.Table(
 
 class Card(db.AlchemyBase):
     __tablename__ = "card"
+    __table_args__ = (
+        db.UniqueConstraint("name", "is_legacy"),
+        db.UniqueConstraint("stub", "is_legacy"),
+    )
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     entity_id = db.Column(db.Integer, nullable=False, index=True, unique=True)
-    name = db.Column(db.String(30), nullable=False, index=True, unique=True)
-    stub = db.Column(db.String(30), nullable=False, index=True, unique=True)
+    name = db.Column(db.String(30), nullable=False, index=True)
+    stub = db.Column(db.String(30), nullable=False, index=True)
     phoenixborn = db.Column(db.String(25), nullable=True, index=True)
     release_id = db.Column(
         db.Integer, db.ForeignKey(Release.id), nullable=False, index=True, default=0
@@ -49,6 +53,7 @@ class Card(db.AlchemyBase):
     version = db.Column(db.Integer, nullable=False, default=1)
     card_type = db.Column(db.String(25), nullable=False, index=True)
     is_summon_spell = db.Column(db.Boolean, nullable=False, default=False)
+    is_legacy = db.Column(db.Boolean, nullable=False, default=False, index=True)
     cost_weight = db.Column(db.Integer, nullable=False, index=True, default=0)
     dice_flags = db.Column(db.Integer, nullable=False, index=True, default=0)
     alt_dice_flags = db.Column(db.Integer, nullable=False, index=True, default=0)

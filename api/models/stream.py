@@ -20,6 +20,7 @@ class Stream(db.AlchemyBase):
     entity_type = db.Column(db.String(16), index=True)
     source_entity_id = db.Column(db.Integer, nullable=False, index=True)
     posted = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    is_legacy = db.Column(db.Boolean, nullable=False, default=False, index=True)
 
 
 class Subscription(db.AlchemyBase):
