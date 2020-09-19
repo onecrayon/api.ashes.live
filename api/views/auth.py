@@ -3,6 +3,7 @@ import logging
 
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import UUID4
 
 from api import db
 from api.depends import AUTH_RESPONSES, get_session, anonymous_required
@@ -16,8 +17,8 @@ from api.exceptions import (
 from api.models import User
 from api.services.user import access_token_for_user
 from api.schemas import DetailResponse, auth as schema
-from api.schemas.user import UserEmailIn
-from api.utils.auth import verify_password
+from api.schemas.user import UserEmailIn, UserSetPasswordIn
+from api.utils.auth import verify_password, generate_password_hash, create_access_token
 from api.utils.email import send_message
 
 
@@ -61,7 +62,7 @@ def log_in(
         **AUTH_RESPONSES,
     },
 )
-def reset_password(
+def request_password_reset(
     data: UserEmailIn,
     session: db.Session = Depends(get_session),
     _=Depends(anonymous_required),
@@ -69,10 +70,10 @@ def reset_password(
     """Request a reset password link for the given email."""
     email = data.email.lower()
     user: User = session.query(User).filter(User.email == email).first()
-    if user.is_banned:
-        raise BannedUserException()
     if not user:
         raise NotFoundException(detail="No account found for email.")
+    if user.is_banned:
+        raise BannedUserException()
     user.reset_uuid = uuid.uuid4()
     session.commit()
     if not send_message(
@@ -86,3 +87,30 @@ def reset_password(
             detail="Unable to send password reset email; please contact the site owner."
         )
     return {"detail": "A link to reset your password has been sent to your email!"}
+
+
+@router.post(
+    "/reset/{token}",
+    response_model=schema.AuthTokenOut,
+    responses={
+        404: {"model": DetailResponse, "description": "Bad invitation token"},
+        **AUTH_RESPONSES,
+    },
+)
+def reset_password(
+    token: UUID4,
+    data: UserSetPasswordIn,
+    session: db.Session = Depends(get_session),
+    _=Depends(anonymous_required),
+):
+    """Reset the password for account associated with the given reset token."""
+    user = session.query(User).filter(User.reset_uuid == token).first()
+    if user is None:
+        raise NotFoundException(
+            detail="Token not found. Please request a new password reset."
+        )
+    user.password = generate_password_hash(data.password)
+    user.reset_uuid = None
+    session.commit()
+    access_token = access_token_for_user(user)
+    return {"access_token": access_token, "token_type": "bearer"}
