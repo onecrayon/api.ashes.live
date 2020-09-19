@@ -69,6 +69,7 @@ from sqlalchemy import (
     union,
     union_all,
     within_group,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
@@ -153,6 +154,7 @@ __all__ = (
     # Schema
     Index,
     Table,
+    UniqueConstraint,
 )
 
 # Setup base engine and session class

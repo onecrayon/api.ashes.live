@@ -9,6 +9,7 @@ class Release(db.AlchemyBase):
     is_phg = db.Column(db.Boolean, nullable=False, default=False)
     is_promo = db.Column(db.Boolean, nullable=False, default=False)
     is_retiring = db.Column(db.Boolean, nullable=False, default=False)
+    is_legacy = db.Column(db.Boolean, nullable=False, default=False, index=True)
     # These fields are specifically for Project Phoenix
     designer_name = db.Column(db.String(100), nullable=True)
     designer_url = db.Column(db.String(255), nullable=True)

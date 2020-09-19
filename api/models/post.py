@@ -28,6 +28,7 @@ class Post(db.AlchemyBase):
     is_pinned = db.Column(db.Boolean, nullable=False, default=False, index=True)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False, index=True)
     is_moderated = db.Column(db.Boolean, nullable=False, default=False)
+    is_legacy = db.Column(db.Boolean, nullable=False, default=False, index=True)
     original_title = db.Column(db.String(255))
     original_text = db.Column(db.Text)
     moderation_notes = db.Column(db.Text)
