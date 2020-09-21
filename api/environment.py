@@ -21,6 +21,9 @@ class ApplicationSettings(BaseSettings):
     access_token_expiry_hours: int = 24
     secret_key: str
 
+    pagination_default_limit: int = 30
+    pagination_max_limit: int = 100
+
     # Email properties
     mail_sender_address: str = None
     mail_debug_recipient: str = None

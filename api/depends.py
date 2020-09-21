@@ -9,6 +9,7 @@ from .environment import settings
 from .exceptions import CredentialsException, BannedUserException
 from .models import AnonymousUser, User
 from .schemas import DetailResponse
+from .schemas.pagination import PaginationOptions
 
 # Setup common global dependencies
 def get_session():  # pragma: no cover
@@ -74,3 +75,10 @@ def admin_required(current_user: "User" = Depends(login_required)) -> "User":
     if not current_user.is_admin:
         raise CredentialsException()
     return current_user
+
+
+def paging_options(
+    limit: int = settings.pagination_default_limit, offset: int = 0
+) -> PaginationOptions:
+    """Standard pagination options"""
+    return PaginationOptions(limit=limit, offset=offset)

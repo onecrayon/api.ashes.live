@@ -73,7 +73,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session, backref, relationship, sessionmaker
+from sqlalchemy.orm import Session, backref, relationship, sessionmaker, Query
+from sqlalchemy.engine import RowProxy
 
 from .environment import settings
 
@@ -155,6 +156,8 @@ __all__ = (
     Index,
     Table,
     UniqueConstraint,
+    Query,
+    RowProxy,
 )
 
 # Setup base engine and session class
