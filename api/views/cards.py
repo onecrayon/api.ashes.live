@@ -1,4 +1,3 @@
-import json
 from enum import Enum
 from typing import List
 
@@ -175,5 +174,4 @@ def list_cards(
         query=query,
         paging=paging,
         url=str(request.url),
-        row_to_dict=lambda x: json.loads(x.json),
     )

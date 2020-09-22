@@ -71,7 +71,7 @@ from sqlalchemy import (
     within_group,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, backref, relationship, sessionmaker, Query
 from sqlalchemy.engine import RowProxy
@@ -109,6 +109,7 @@ __all__ = (
     Unicode,
     UnicodeText,
     UUID,
+    JSONB,
     # Relationships
     relationship,
     backref,

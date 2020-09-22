@@ -58,7 +58,7 @@ class Card(db.AlchemyBase):
     dice_flags = db.Column(db.Integer, nullable=False, index=True, default=0)
     alt_dice_flags = db.Column(db.Integer, nullable=False, index=True, default=0)
     copies = db.Column(db.SmallInteger, nullable=True, default=None)
-    json = db.Column(db.Text)
+    json = db.Column(db.JSONB)
     text = db.Column(db.Text)
     # These fields are specifically for Project Phoenix-designed cards
     artist_name = db.Column(db.String(100), nullable=True)
