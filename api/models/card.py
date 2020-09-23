@@ -1,5 +1,7 @@
 from enum import Enum
 
+from sqlalchemy.ext.declarative import declared_attr
+
 from api import db
 from .release import Release
 
@@ -37,14 +39,10 @@ conjurations_table = db.Table(
 
 class Card(db.AlchemyBase):
     __tablename__ = "card"
-    __table_args__ = (
-        db.UniqueConstraint("name", "is_legacy"),
-        db.UniqueConstraint("stub", "is_legacy"),
-    )
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     entity_id = db.Column(db.Integer, nullable=False, index=True, unique=True)
-    name = db.Column(db.String(30), nullable=False, index=True)
-    stub = db.Column(db.String(30), nullable=False, index=True)
+    name = db.Column(db.String(30), nullable=False)
+    stub = db.Column(db.String(30), nullable=False)
     phoenixborn = db.Column(db.String(25), nullable=True, index=True)
     release_id = db.Column(
         db.Integer, db.ForeignKey(Release.id), nullable=False, index=True, default=0
@@ -59,7 +57,7 @@ class Card(db.AlchemyBase):
     alt_dice_flags = db.Column(db.Integer, nullable=False, index=True, default=0)
     copies = db.Column(db.SmallInteger, nullable=True, default=None)
     json = db.Column(db.JSONB)
-    text = db.Column(db.Text)
+    search_text = db.Column(db.Text)
     # These fields are specifically for Project Phoenix-designed cards
     artist_name = db.Column(db.String(100), nullable=True)
     artist_url = db.Column(db.String(255), nullable=True)
@@ -72,6 +70,20 @@ class Card(db.AlchemyBase):
         backref="summons",
     )
     release = db.relationship(Release)
+
+    @declared_attr
+    def __table_args__(cls):
+        return (
+            db.UniqueConstraint(cls.name, cls.is_legacy),
+            db.UniqueConstraint(cls.stub, cls.is_legacy),
+            # Defining this here is technically unnecessary, because alembic can't autogenerate
+            #  the index anyway; I like having the database structure fully defined in code, though
+            db.Index(
+                "ix_card_text_tsv",
+                db.func.to_tsvector(cls.search_text),
+                postgresql_using="gin",
+            ),
+        )
 
     @staticmethod
     def dice_to_flags(dice_list):
@@ -121,7 +133,3 @@ class Card(db.AlchemyBase):
             for die in dice
         ]
         return db.and_(*filters)
-
-
-# Define our index to ensure Alembic can automatically generate future migrations
-db.Index("ix_card_text", Card.name, Card.text)
