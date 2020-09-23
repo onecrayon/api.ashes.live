@@ -1,8 +1,6 @@
 from enum import Enum
 from typing import List, Optional
 
-from sqlalchemy.ext.declarative import declared_attr
-
 from api import db
 from .release import Release
 
@@ -40,6 +38,18 @@ conjurations_table = db.Table(
 
 class Card(db.AlchemyBase):
     __tablename__ = "card"
+    __table_args__ = (
+        db.UniqueConstraint("name", "is_legacy"),
+        db.UniqueConstraint("stub", "is_legacy"),
+        # There is an additional index defined by the migrations that looks something like this:
+        #     db.Index(
+        #         "ix_card_text_tsv",
+        #         db.func.to_tsvector(cls.search_text),
+        #         postgresql_using="gin",
+        #     ),
+        # It is not included here because it kills the test suite (not compatible with create_all
+        # evidently) and because alembic ignores it, anyway.
+    )
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     entity_id = db.Column(db.Integer, nullable=False, index=True, unique=True)
     name = db.Column(db.String(30), nullable=False)
@@ -72,22 +82,9 @@ class Card(db.AlchemyBase):
     )
     release = db.relationship(Release)
 
-    @declared_attr
-    def __table_args__(cls):
-        return (
-            db.UniqueConstraint(cls.name, cls.is_legacy),
-            db.UniqueConstraint(cls.stub, cls.is_legacy),
-            # Defining this here is technically unnecessary, because alembic can't autogenerate
-            #  the index anyway; I like having the database structure fully defined in code, though
-            db.Index(
-                "ix_card_text_tsv",
-                db.func.to_tsvector(cls.search_text),
-                postgresql_using="gin",
-            ),
-        )
-
     @staticmethod
     def dice_to_flags(dice_list: Optional[List[str]]) -> int:
+        """Converts from a list of dice names to an integer flag; basic == 0"""
         flags = 0
         if not dice_list:
             return flags
@@ -97,5 +94,10 @@ class Card(db.AlchemyBase):
 
     @staticmethod
     def flags_to_dice(flags_int: int) -> Optional[List[str]]:
-        dice = [die.name for die in DiceFlags if die.value & flags_int == die.value]
+        """Converts from a dice flag to a list of dice names; always excludes basic dice"""
+        dice = [
+            die.name
+            for die in DiceFlags
+            if die.value and die.value & flags_int == die.value
+        ]
         return dice if dice else None
