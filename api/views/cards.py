@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from api import db
 from api.depends import get_current_user, get_session, paging_options
-from api.models.card import Card
+from api.models.card import Card, DiceFlags
 from api.models.release import Release
 from api.models.user import User
 from api.schemas.pagination import PaginationOptions, PaginatedResultsBase
@@ -118,7 +118,8 @@ def list_cards(
     """
     # First build our query
     query = session.query(Card.json)
-    # TODO: implement full text search using q (need to look up how Postgres handles this)
+    if q:
+        query = query.filter(db.func.to_tsvector("english", Card.search_text).match(q))
     # Only include legacy cards, if we're in legacy mode
     if show_legacy:
         query = query.filter(Card.is_legacy.is_(True))
@@ -157,11 +158,43 @@ def list_cards(
             query = query.filter(Card.release_id.in_(my_release_subquery))
     # Filter against required dice costs
     if dice:
-        # TODO: embed this logic here instead of in the model
+        dice_set = set(dice)
         if dice_logic is CardsFilterDiceLogic.any_:
-            query = query.filter(Card.has_any_dice_filter(dice))
+            # Required dice are stored in the database as bitwise flags, so we can check for the
+            #  existence of a dice type by doing an & bitwise operation and comparing with the flag
+            #  value (because & only includes 1 for bits that match in both numbers, so you end up
+            #  with just the flag value for that given flag, if it exists)
+            dice_filters = []
+            if "basic" in dice_set:
+                dice_filters.append(
+                    db.and_(Card.dice_flags == 0, Card.alt_dice_flags == 0)
+                )
+                dice_set.remove("basic")
+            dice_filters = (
+                dice_filters
+                + [
+                    Card.dice_flags.op("&")(DiceFlags[die].value)
+                    == DiceFlags[die].value
+                    for die in dice_set
+                ]
+                + [
+                    Card.alt_dice_flags.op("&")(DiceFlags[die].value)
+                    == DiceFlags[die].value
+                    for die in dice_set
+                ]
+            )
+            query = query.filter(db.or_(*dice_filters))
         else:
-            query = query.filter(Card.has_all_dice_filter(dice))
+            dice_filters = [
+                db.or_(
+                    Card.dice_flags.op("&")(DiceFlags[die].value)
+                    == DiceFlags[die].value,
+                    Card.alt_dice_flags.op("&")(DiceFlags[die].value)
+                    == DiceFlags[die].value,
+                )
+                for die in dice_set
+            ]
+            query = query.filter(*dice_filters)
     # Only Include Phoenixborn uniques for the given Phoenixborn
     if include_uniques_for:
         query = query.filter(

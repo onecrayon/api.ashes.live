@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import List, Optional
 
 from sqlalchemy.ext.declarative import declared_attr
 
@@ -86,7 +87,7 @@ class Card(db.AlchemyBase):
         )
 
     @staticmethod
-    def dice_to_flags(dice_list):
+    def dice_to_flags(dice_list: Optional[List[str]]) -> int:
         flags = 0
         if not dice_list:
             return flags
@@ -95,41 +96,6 @@ class Card(db.AlchemyBase):
         return flags
 
     @staticmethod
-    def flags_to_dice(flags_int):
+    def flags_to_dice(flags_int: int) -> Optional[List[str]]:
         dice = [die.name for die in DiceFlags if die.value & flags_int == die.value]
         return dice if dice else None
-
-    @staticmethod
-    def has_any_dice_filter(dice):
-        if not dice:
-            dice = ["basic"]
-        filters = []
-        if "basic" in dice:
-            filters.append(db.and_(Card.dice_flags == 0, Card.alt_dice_flags == 0))
-            dice.remove("basic")
-        filters = (
-            filters
-            + [
-                Card.dice_flags.op("&")(DiceFlags[die].value) == DiceFlags[die].value
-                for die in dice
-            ]
-            + [
-                Card.alt_dice_flags.op("&")(DiceFlags[die].value)
-                == DiceFlags[die].value
-                for die in dice
-            ]
-        )
-        return db.or_(*filters)
-
-    @staticmethod
-    def has_all_dice_filter(dice):
-        flags = Card.dice_to_flags(dice)
-        filters = [
-            db.or_(
-                Card.dice_flags.op("&")(DiceFlags[die].value) == DiceFlags[die].value,
-                Card.alt_dice_flags.op("&")(DiceFlags[die].value)
-                == DiceFlags[die].value,
-            )
-            for die in dice
-        ]
-        return db.and_(*filters)
