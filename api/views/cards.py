@@ -283,8 +283,8 @@ class CardIn(BaseModel):
             "The cost to play the card formatted with Ashes.live card codes as either a string with costs "
             "separated by ' - ' or a list of strings. Parallel costs should be separated by ' / ' or "
             "the word ' or '.\n\nFor instance, the following cost could be formatted as: `\"[[main]] - "
-            "1 [[ceremonial:class]] - 1 [[charm:class]] / 1 [[sympathy:class]]\"` or as `[\"[[main]]\",
-            "\"1 [[ceremonial:class]]\", \"1 [[charm:class]] or 1 [[sympathy:class]]\"]`"
+            '1 [[ceremonial:class]] - 1 [[charm:class]] / 1 [[sympathy:class]]"` or as `["[[main]]"'
+            '"1 [[ceremonial:class]]", "1 [[charm:class]] or 1 [[sympathy:class]]"]`'
         ),
     )
     effect_magic_cost: Union[List[str], str, None] = Field(
@@ -293,8 +293,8 @@ class CardIn(BaseModel):
             "The *magic* cost(s) to activate all card effects as either a string with costs separated by "
             "' - ' or a list of strings. Parallel costs are formatted exactly the same as in the play cost. "
             "\n\nFor instance, a card with two effects, one which costs `[[main]] - 1 [[ceremonial:class]]` "
-            "and one that costs `[[main]] - 1 [[sympathy:class]]` would have `\"effect_magic_cost\": "
-            "\"1 [[ceremonial:class]] - 1 [[sympathy:class]]\"`.\n\n"
+            'and one that costs `[[main]] - 1 [[sympathy:class]]` would have `"effect_magic_cost": '
+            '"1 [[ceremonial:class]] - 1 [[sympathy:class]]"`.\n\n'
             "(This is used in order to calculate the dice necessary to fully activate a card for First "
             "Five calculations and similar.)"
         ),
@@ -328,7 +328,7 @@ class CardIn(BaseModel):
 @router.post(
     "/cards",
     response_model=DetailResponse,
-    response_status=status.HTTP_201_CREATED,
+    status_code=status.HTTP_201_CREATED,
     responses=AUTH_RESPONSES,
 )
 def create_card(
