@@ -1,14 +1,16 @@
 from enum import Enum
-from typing import List
+from typing import List, Union
 
 from fastapi import APIRouter, Depends, status, Request, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api import db
 from api.depends import get_current_user, get_session, paging_options
 from api.models.card import Card, DiceFlags
 from api.models.release import Release
 from api.models.user import User
+from api.depends import AUTH_RESPONSES, admin_required
+from api.schemas import DetailResponse
 from api.schemas.pagination import (
     PaginationOptions,
     PaginatedResultsBase,
@@ -17,6 +19,19 @@ from api.schemas.pagination import (
 from api.utils.pagination import paginated_results_for_query
 
 router = APIRouter()
+
+
+# Generic use constants
+class CardDiceCosts(str, Enum):
+    """Card dice types."""
+
+    ceremonial = "ceremonial"
+    charm = "charm"
+    divine = "divine"
+    illusion = "illusion"
+    natural = "natural"
+    sympathy = "sympathy"
+    time = "time"
 
 
 # Constants or use with listing filters
@@ -62,18 +77,6 @@ class CardsFilterRelease(str, Enum):
     phg = "phg"
 
 
-class CardsFilterDice(str, Enum):
-    """Card dice costs for listing filters."""
-
-    ceremonial = "ceremonial"
-    charm = "charm"
-    divine = "divine"
-    illusion = "illusion"
-    natural = "natural"
-    sympathy = "sympathy"
-    time = "time"
-
-
 class CardsFilterDiceLogic(str, Enum):
     """Dice logic for card listing filters."""
 
@@ -114,7 +117,7 @@ def list_cards(
     mode: CardsFilterListingMode = CardsFilterListingMode.listing,
     show_summons: bool = False,
     releases: CardsFilterRelease = CardsFilterRelease.all_,
-    dice: List[CardsFilterDice] = Query(None),
+    dice: List[CardDiceCosts] = Query(None),
     dice_logic: CardsFilterDiceLogic = CardsFilterDiceLogic.any_,
     include_uniques_for: str = None,
     sort: CardsSortingMode = CardsSortingMode.name,
@@ -164,7 +167,7 @@ def list_cards(
         )
     # Check if we're filtering by "Summon" cards
     if show_summons:
-        query = query.filter(Card.name.like("Summon %"))
+        query = query.filter(Card.is_summon_spell.is_(True))
     # Filter by releases, if requested
     if releases:
         if show_legacy and releases is CardsFilterRelease.phg:
@@ -236,3 +239,105 @@ def list_cards(
         paging=paging,
         url=str(request.url),
     )
+
+
+class CardType(str, Enum):
+    """The various card types in Ashes"""
+
+    ally = "Ally"
+    alteration_spell = "Alteration Spell"
+    action_spell = "Action Spell"
+    reaction_spell = "Reaction Spell"
+    ready_spell = "Ready Spell"
+    phoenixborn = "Phoenixborn"
+    conjuration = "Conjuration"
+    conjured_alteration_spell = "Conjured Alteration Spell"
+
+
+class CardPlacement(str, Enum):
+    """The various card placements in Ashes"""
+
+    battlefield = "Battlefield"
+    unit = "Unit"
+    discard = "Discard"
+    spellboard = "Spellboard"
+    phoenixborn = "Phoenixborn"
+
+
+class CardIn(BaseModel):
+    name: str = Field(..., min_length=3, max_length=30)
+    card_type: CardType
+    placement: CardPlacement
+    release: str = Field(
+        ...,
+        max_length=60,
+        description="The full name of the release this card belongs to.",
+    )
+    text: str = Field(
+        ...,
+        description="The card effect text, formatting using standard Ashes.live card codes.",
+    )
+    cost: Union[List[str], str, None] = Field(
+        None,
+        description=(
+            "The cost to play the card formatted with Ashes.live card codes as either a string with costs "
+            "separated by ' - ' or a list of strings. Parallel costs should be separated by ' / ' or "
+            "the word ' or '.\n\nFor instance, the following cost could be formatted as: `\"[[main]] - "
+            "1 [[ceremonial:class]] - 1 [[charm:class]] / 1 [[sympathy:class]]\"` or as `[\"[[main]]\",
+            "\"1 [[ceremonial:class]]\", \"1 [[charm:class]] or 1 [[sympathy:class]]\"]`"
+        ),
+    )
+    effect_magic_cost: Union[List[str], str, None] = Field(
+        None,
+        description=(
+            "The *magic* cost(s) to activate all card effects as either a string with costs separated by "
+            "' - ' or a list of strings. Parallel costs are formatted exactly the same as in the play cost. "
+            "\n\nFor instance, a card with two effects, one which costs `[[main]] - 1 [[ceremonial:class]]` "
+            "and one that costs `[[main]] - 1 [[sympathy:class]]` would have `\"effect_magic_cost\": "
+            "\"1 [[ceremonial:class]] - 1 [[sympathy:class]]\"`.\n\n"
+            "(This is used in order to calculate the dice necessary to fully activate a card for First "
+            "Five calculations and similar.)"
+        ),
+    )
+    can_effect_repeat: bool = Field(
+        None,
+        description="If an effect can be repeated (i.e. only costs dice and does not exhaust the card), then this should be true (very rare).",
+    )
+    dice: List[CardDiceCosts] = Field(
+        [],
+        description="Dice types that are required to play the card or activate its effects.",
+    )
+    alt_dice: List[CardDiceCosts] = Field(
+        [],
+        description="Dice types that are only required by parallel costs, optional effect costs, etc.",
+    )
+    phoenixborn: str = Field(
+        None,
+        min_length=3,
+        max_length=30,
+        description="The full name of the Phoenixborn for whom this card is unique.",
+    )
+    attack: Union[int, str] = None
+    battlefield: Union[int, str] = None
+    life: Union[int, str] = None
+    recover: Union[int, str] = None
+    spellboard: Union[int, str] = None
+    copies: Union[int, str] = None
+
+
+@router.post(
+    "/cards",
+    response_model=DetailResponse,
+    response_status=status.HTTP_201_CREATED,
+    responses=AUTH_RESPONSES,
+)
+def create_card(
+    data: CardIn, session: db.Session = Depends(get_session), _=Depends(admin_required)
+):
+    # TODO: parse card cost to determine cost weight
+    # TODO: convert dice and alt dice listings into dice flags
+    # TODO: reparse cost listings to generate magicCost and effectMagicCost
+    # TODO: create a release if one is missing, and lookup the details if not
+    # TODO: figure out how the heck to manage conjurations, since those cards may or may not exist yet
+    # TODO: construct JSON and save everything to the database
+    pass
