@@ -9,7 +9,11 @@ from api.depends import get_current_user, get_session, paging_options
 from api.models.card import Card, DiceFlags
 from api.models.release import Release
 from api.models.user import User
-from api.schemas.pagination import PaginationOptions, PaginatedResultsBase
+from api.schemas.pagination import (
+    PaginationOptions,
+    PaginatedResultsBase,
+    PaginationOrderOptions,
+)
 from api.utils.pagination import paginated_results_for_query
 
 router = APIRouter()
@@ -77,6 +81,22 @@ class CardsFilterDiceLogic(str, Enum):
     any_ = "any"
 
 
+class CardsSortingMode(str, Enum):
+    """Sorting modes for card listings"""
+
+    name = "name"
+    type_ = "type"
+    # TODO: should I enable these sorting strategies on the server?
+    # cost = 'cost'
+    # dice = 'dice'
+    # # Stats
+    # attack = 'attack'
+    # battlefield = 'battlefield'
+    # life = 'life'
+    # spellboard = 'spellboard'
+    # recover = 'recover'
+
+
 class CardListingOut(PaginatedResultsBase):
     """Filtered listing of cards"""
 
@@ -97,6 +117,8 @@ def list_cards(
     dice: List[CardsFilterDice] = Query(None),
     dice_logic: CardsFilterDiceLogic = CardsFilterDiceLogic.any_,
     include_uniques_for: str = None,
+    sort: CardsSortingMode = CardsSortingMode.name,
+    order: PaginationOrderOptions = PaginationOrderOptions.asc,
     # Standard dependencies
     paging: PaginationOptions = Depends(paging_options),
     current_user: "User" = Depends(get_current_user),
@@ -203,6 +225,12 @@ def list_cards(
                 Card.phoenixborn == include_uniques_for,
             )
         )
+    if sort == CardsSortingMode.type_:
+        # This calls the proper ordering function (result is `Card.card_type.asc()`)
+        query = query.order_by(getattr(Card.card_type, paging.order)())
+    else:
+        # Defaults to ordering by name
+        query = query.order_by(getattr(Card.name, paging.order)())
     return paginated_results_for_query(
         query=query,
         paging=paging,

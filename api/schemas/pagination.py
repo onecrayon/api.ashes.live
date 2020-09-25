@@ -1,8 +1,16 @@
+from enum import Enum
 from typing import Any, List
 
 from pydantic import BaseModel, Field
 
 from api.environment import settings
+
+
+class PaginationOrderOptions(str, Enum):
+    """Options for ordering"""
+
+    asc = "asc"
+    desc = "desc"
 
 
 class PaginationOptions(BaseModel):
