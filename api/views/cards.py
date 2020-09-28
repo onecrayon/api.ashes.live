@@ -283,7 +283,7 @@ class CardIn(BaseModel):
             "The cost to play the card formatted with Ashes.live card codes as either a string with costs "
             "separated by ' - ' or a list of strings. Parallel costs should be separated by ' / ' or "
             "the word ' or '.\n\nFor instance, the following cost could be formatted as: `\"[[main]] - "
-            '1 [[ceremonial:class]] - 1 [[charm:class]] / 1 [[sympathy:class]]"` or as `["[[main]]"'
+            '1 [[ceremonial:class]] - 1 [[charm:class]] / 1 [[sympathy:class]]"` or as `["[[main]]", '
             '"1 [[ceremonial:class]]", "1 [[charm:class]] or 1 [[sympathy:class]]"]`'
         ),
     )
@@ -304,12 +304,12 @@ class CardIn(BaseModel):
         description="If an effect can be repeated (i.e. only costs dice and does not exhaust the card), then this should be true (very rare).",
     )
     dice: List[CardDiceCosts] = Field(
-        [],
-        description="Dice types that are required to play the card or activate its effects.",
+        None,
+        description="Dice types that are required to play the card or activate its effects. If `null`, will be calculated based on `cost` and `effect_magic_cost`.",
     )
     alt_dice: List[CardDiceCosts] = Field(
-        [],
-        description="Dice types that are only required by parallel costs, optional effect costs, etc.",
+        None,
+        description="Dice types that are only required by parallel costs, optional effect costs, etc. If `null` will be calculated based on `cost` and `effect_magic_cost`.",
     )
     phoenixborn: str = Field(
         None,
