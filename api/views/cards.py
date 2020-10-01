@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from api import db
 from api.depends import get_current_user, get_session, paging_options
+from api.exceptions import APIException
 from api.models.card import Card, DiceFlags
 from api.models.release import Release
 from api.models.user import User
@@ -16,7 +17,9 @@ from api.schemas.pagination import (
     PaginatedResultsBase,
     PaginationOrderOptions,
 )
+from api.services.card import create_card as create_card_service, MissingConjurations
 from api.utils.pagination import paginated_results_for_query
+from api.utils.helpers import stubify
 
 router = APIRouter()
 
@@ -329,15 +332,57 @@ class CardIn(BaseModel):
     "/cards",
     response_model=DetailResponse,
     status_code=status.HTTP_201_CREATED,
-    responses=AUTH_RESPONSES,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Card creation failed (likely due to missing conjurations).",
+        },
+        **AUTH_RESPONSES,
+    },
 )
 def create_card(
     data: CardIn, session: db.Session = Depends(get_session), _=Depends(admin_required)
 ):
-    # TODO: parse card cost to determine cost weight
-    # TODO: convert dice and alt dice listings into dice flags
-    # TODO: reparse cost listings to generate magicCost and effectMagicCost
-    # TODO: create a release if one is missing, and lookup the details if not
-    # TODO: figure out how the heck to manage conjurations, since those cards may or may not exist yet
-    # TODO: construct JSON and save everything to the database
-    pass
+    """Admin-only. Adds a new card to the database.
+
+    Releases will be implicitly created (and marked as private), if they do not already exist.
+    There is no need to create the release ahead, as a result, which means you can populate a
+    release entirely with this endpoint, and then just publish it when ready.
+
+    Note that you must create conjurations *before* the cards that reference them.
+    """
+    release_stub = stubify(data.release)
+    if not (
+        release := (
+            session.query(Release)
+            .filter(Release.stub == release_stub, is_legacy.is_(False))
+            .one_or_none()
+        )
+    ):
+        release = Release(name=data.release, stub=release_stub)
+        session.add(release)
+        session.commit()
+    try:
+        card = create_card_service(
+            session,
+            name=data.name,
+            card_type=data.card_type,
+            placement=data.placement,
+            release=release,
+            text=data.text,
+            cost=data.cost,
+            effect_magic_cost=data.effect_magic_cost,
+            can_effect_repeat=data.can_effect_repeat,
+            dice=data.dice,
+            alt_dice=data.alt_dice,
+            phoenixborn=data.phoenixborn,
+            attack=data.attack,
+            battlefield=data.battlefield,
+            life=data.life,
+            recover=data.recover,
+            spellboard=data.spellboard,
+            copies=data.copies,
+        )
+    except MissingConjurations as e:
+        raise APIException(detail=e.message)
+    return {"detail": "Card successfully created!"}

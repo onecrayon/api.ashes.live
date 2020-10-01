@@ -6,6 +6,8 @@ from api.models.card import Card
 from api.models.release import Release
 from api.utils.helpers import stubify
 
+from .stream import create_entity
+
 
 MAGIC_COSTS = (
     "basic",
@@ -17,6 +19,10 @@ MAGIC_COSTS = (
     "sympathy",
     "time",
 )
+
+
+class MissingConjurations(Exception):
+    pass
 
 
 def parse_cost_to_weight(cost: str) -> int:
@@ -110,10 +116,30 @@ def create_card(
         card.search_text += re.sub(
             r"\n+", " ", text.replace("[[", "").replace("]]", "")
         )
+        # Check for conjurations before we do any more work
+        conjuration_stubs = set()
+        for match in re.finditer(
+            r"\[\[([A-Z][A-Za-z' ]+)\]\](?=[ ](?:(?:conjuration|conjured alteration spell)s?|or))",
+            text,
+        ):
+            conjurations.add(stubify(match.group(1)))
+        existing_stubs = set(
+            x.stub
+            for x in session.query(Card.stub)
+            .filter(Card.stub.in_(conjuration_stubs), Card.is_legacy.is_(False))
+            .all()
+        )
+        missing_conjurations = conjuration_stubs.symmetric_difference(existing_stubs)
+        if missing:
+            raise MissingConjurations(
+                f"The following conjurations must be added first: {', '.join([x for x in missing_conjurations])}"
+            )
+        # TODO: add conjurations to the card JSON and conjuration relationships to the outer record
+
     if copies is not None:
         card.copies = copies
     card.phoenixborn = phoenixborn
-    # TODO: look up and add entity ID
+    card.entity_id = create_entity()
     cost_list = re.split(r"\s+-\s+", cost) if isinstance(cost, str) else cost
     weight = 0
     json_cost_list = []
