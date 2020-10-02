@@ -23,8 +23,14 @@ run:      ## Run development server
 test:     ## Execute test suite
 	@docker-compose $(DOCKER_COMPOSE_TEST) -p asheslive_tests run --rm -w /code api
 
-migrate:  ## Run database migrations
-	@$(DOCKER_RUN_DB) alembic upgrade head
+
+# This ensures that even if they pass in an empty value, we default to "head"
+ifndef REV
+override REV = head
+endif
+
+migrate:  ## Run database migrations; or specify a revision: `make migrate REV='head'`
+	@$(DOCKER_RUN_DB) alembic upgrade $(REV)
 
 ##
 ##=== Access internals ===
@@ -52,5 +58,5 @@ clean:    ## Clean up Docker containers, images, etc.
 ##
 ##=== Rarely used ===
 
-example-data: ## Populate an empty database with example data
+example-data: ## Populate an empty database with example data (requires first revision!)
 	@docker-compose $(DOCKER_COMPOSE_DEV) run -v `pwd`/docker/scripts:/scripts -u postgres --rm postgres /scripts/example_data.sh

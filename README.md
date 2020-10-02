@@ -40,8 +40,9 @@ execute with `make`.
 
 Now that you have a functional API stack, you need data in your database:
 
-1. Run `make migrate` to initialize empty tables in your database
+1. Run `make migrate REV='c58a815a71a0'` to initialize empty tables in your database
 2. Run `make example-data` to populate your database with card and deck data from Ashes 1.0
+3. Run `make migrate` to run all subsequent migrations
 
 At this point, you can execute `make run` to start a local development server, and view your
 site's API documentation at <http:localhost:8000>.
