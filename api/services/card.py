@@ -88,8 +88,8 @@ def create_card(
     session: db.Session,
     name: str,
     card_type: str,
-    placement: str,
     release: "Release",
+    placement: str = None,
     text: str = None,
     cost: Union[List[str], str, None] = None,
     effect_magic_cost: Union[List[str], str, None] = None,
@@ -197,12 +197,13 @@ def create_card(
         "name": card.name,
         "stub": card.stub,
         "type": card.card_type,
-        "placement": card.placement,
         "release": {
             "name": release.name,
             "stub": release.stub,
         },
     }
+    if placement:
+        json_data["placement"] = placement
     if json_cost_list:
         json_data["cost"] = json_cost_list
     if dice:

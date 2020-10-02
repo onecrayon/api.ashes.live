@@ -82,6 +82,14 @@ class Card(db.AlchemyBase):
     )
     release = db.relationship(Release)
 
+    @db.hybrid_property
+    def dice_weight(self):
+        return self.dice_flags | self.alt_dice_flags
+
+    @dice_weight.expression
+    def dice_weight(cls):
+        return cls.dice_flags.op("|")(cls.alt_dice_flags)
+
     @staticmethod
     def dice_to_flags(dice_list: Optional[List[str]]) -> int:
         """Converts from a list of dice names to an integer flag; basic == 0"""

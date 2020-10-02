@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Union
+from typing import Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, status, Request, Query
 from pydantic import BaseModel, Field
@@ -92,9 +92,9 @@ class CardsSortingMode(str, Enum):
 
     name = "name"
     type_ = "type"
+    cost = "cost"
+    dice = "dice"
     # TODO: should I enable these sorting strategies on the server?
-    # cost = 'cost'
-    # dice = 'dice'
     # # Stats
     # attack = 'attack'
     # battlefield = 'battlefield'
@@ -103,14 +103,52 @@ class CardsSortingMode(str, Enum):
     # recover = 'recover'
 
 
+class CardReleaseEmbeddedOut(BaseModel):
+    """The release information embedded in card listings"""
+
+    # These are included with all types of cards
+    name: str
+    stub: str
+    # These are only include on legacy cards
+    is_phg: bool = None
+    is_promo: bool = None
+    is_retiring: bool = None
+
+
+class CardOut(BaseModel):
+    """The standard JSON output for a card.
+
+    Optional properties may not exist!
+    """
+
+    name: str
+    stub: str
+    type: str
+    release: CardReleaseEmbeddedOut
+    placement: str = None
+    cost: List[Union[List[str], str]] = None
+    dice: List[str] = None
+    altDice: List[str] = None
+    magicCost: Dict[str, int] = None
+    effectMagicCost: Dict[str, int] = None
+    text: str = None
+    phoenixborn: str = None
+    attack: Union[int, str] = None
+    battlefield: int = None
+    life: Union[int, str] = None
+    recover: Union[int, str] = None
+    spellboard: int = None
+    effectRepeats: bool = None
+    is_legacy: bool = None
+
+
 class CardListingOut(PaginatedResultsBase):
     """Filtered listing of cards"""
 
-    # TODO: define the output schema for cards
-    pass
+    results: List[CardOut] = []
 
 
-@router.get("/cards", response_model=CardListingOut)
+@router.get("/cards", response_model=CardListingOut, response_model_exclude_unset=True)
 def list_cards(
     request: Request,
     # Filtration query string options
@@ -137,20 +175,26 @@ def list_cards(
     * `q`: text search
     * `show_legacy` (default: false): if true, legacy 1.0 card data will be returned
     * `mode` (default: `listing`): if `deckbuilder`, Phoenixborn, uniques, and conjurations will not be included
-    * `type`: list of types to include in filtered cards
+    * `types`: list of types to include in filtered cards
     * `show_summons` (default: false): if true, will only show cards whose name starts with "Summon "
     * `releases` (default: `all`): if `mine` will show only releases owned by the current user
     * `dice`: list of dice costs that cards in the listing must use
     * `dice_logic` (default: `any`): if `all` the cards returned must include all costs in `dice`
     * `include_uniques_for`: if set to a Phoenixborn name, listing will also include uniques belonging to the given Phoenixborn
+      (only applicable to deckbuilder mode)
     """
-    # First build our query
-    query = session.query(Card.json)
-    if q:
-        query = query.filter(db.func.to_tsvector("english", Card.search_text).match(q))
+    # First build our base query
+    query = (
+        session.query(Card.json).join(Card.release).filter(Release.is_public.is_(True))
+    )
     # Only include legacy cards, if we're in legacy mode
     if show_legacy:
         query = query.filter(Card.is_legacy.is_(True))
+    else:
+        query = query.filter(Card.is_legacy.is_(False))
+    # Add a search term, if we're using one
+    if q:
+        query = query.filter(db.func.to_tsvector("english", Card.search_text).match(q))
     # Filter by particular card types
     if types:
         types = set()
@@ -233,10 +277,27 @@ def list_cards(
         )
     if sort == CardsSortingMode.type_:
         # This calls the proper ordering function (result is `Card.card_type.asc()`)
-        query = query.order_by(getattr(Card.card_type, paging.order)())
+        query = query.order_by(
+            getattr(Card.card_type, order)(), getattr(Card.name, order)()
+        )
+    elif sort == CardsSortingMode.cost:
+        query = query.order_by(
+            getattr(Card.cost_weight, order)(), getattr(Card.name, order)()
+        )
+    elif sort == CardsSortingMode.dice:
+        # This one is trickier: when sorting by dice, we want cards to show up grouped first by
+        #  required dice types (ceremonial, charm, illusion, natural, divine, sympathy, time)
+        #  then by their relative cost, and finally falling back on name. The latter two are simple,
+        #  but to order by dice types we need to first bitwise OR dice and alt_dice (so we get a
+        #  number representing all possible dice types you could spend), then order by that
+        query = query.order_by(
+            getattr(Card.dice_weight, order)(),
+            getattr(Card.cost_weight, order)(),
+            getattr(Card.name, order)(),
+        )
     else:
         # Defaults to ordering by name
-        query = query.order_by(getattr(Card.name, paging.order)())
+        query = query.order_by(getattr(Card.name, order)())
     return paginated_results_for_query(
         query=query,
         paging=paging,
@@ -270,7 +331,7 @@ class CardPlacement(str, Enum):
 class CardIn(BaseModel):
     name: str = Field(..., min_length=3, max_length=30)
     card_type: CardType
-    placement: CardPlacement
+    placement: CardPlacement = None
     release: str = Field(
         ...,
         max_length=60,
