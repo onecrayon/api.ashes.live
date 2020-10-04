@@ -456,5 +456,5 @@ def create_card(
             copies=data.copies,
         )
     except MissingConjurations as e:
-        raise APIException(detail=e.message)
+        raise APIException(detail=str(e))
     return {"detail": "Card successfully created!"}

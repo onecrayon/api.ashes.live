@@ -4,6 +4,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from api import db
+from api.models.release import Release
 
 from .utils import create_admin_token
 
@@ -98,3 +99,34 @@ def test_create_card_placement_optional_phoenixborn(
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_201_CREATED, response.json()
+
+
+def test_create_card_implicit_release(client: TestClient, session: db.Session):
+    """Creating a card implicitly creates an unpublished release"""
+    admin, token = create_admin_token(session)
+    response = client.post(
+        "/v2/cards",
+        json=MINIMUM_VALID_CARD,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+    release_query = session.query(Release)
+    assert release_query.count() == 1
+    release: Release = release_query.first()
+    assert release.name == MINIMUM_VALID_CARD["release"]
+    assert release.is_public == False
+
+
+def test_create_card_missing_conjuration(client: TestClient, session: db.Session):
+    """Creating a card requires all conjurations to be created first"""
+    admin, token = create_admin_token(session)
+    card_data = copy(MINIMUM_VALID_CARD)
+    card_data[
+        "text"
+    ] = "Place a [[Missing Conjuration]] conjuration on your battlefield."
+    response = client.post(
+        "/v2/cards",
+        json=card_data,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
