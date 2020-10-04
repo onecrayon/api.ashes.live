@@ -2,7 +2,7 @@ import re
 from typing import List, Union
 
 from api import db
-from api.models.card import Card
+from api.models.card import Card, conjurations_table
 from api.models.release import Release
 from api.utils.helpers import stubify
 
@@ -112,6 +112,7 @@ def create_card(
     card.placement = placement
     card.release_id = release.id
     card.search_text = f"{card.name}\n"
+    existing_conjurations = None
     if text:
         card.search_text += re.sub(
             r"\n+", " ", text.replace("[[", "").replace("]]", "")
@@ -122,19 +123,18 @@ def create_card(
             r"\[\[([A-Z][A-Za-z' ]+)\]\](?=[ ](?:(?:conjuration|conjured alteration spell)s?|or))",
             text,
         ):
-            conjurations.add(stubify(match.group(1)))
-        existing_stubs = set(
-            x.stub
-            for x in session.query(Card.stub)
+            conjuration_stubs.add(stubify(match.group(1)))
+        existing_conjurations = (
+            session.query(Card.id, Card.stub, Card.name)
             .filter(Card.stub.in_(conjuration_stubs), Card.is_legacy.is_(False))
             .all()
         )
+        existing_stubs = set(x.stub for x in existing_conjurations)
         missing_conjurations = conjuration_stubs.symmetric_difference(existing_stubs)
-        if missing:
+        if missing_conjurations:
             raise MissingConjurations(
                 f"The following conjurations must be added first: {', '.join([x for x in missing_conjurations])}"
             )
-        # TODO: add conjurations to the card JSON and conjuration relationships to the outer record
 
     if copies is not None:
         card.copies = copies
@@ -202,6 +202,10 @@ def create_card(
             "stub": release.stub,
         },
     }
+    if existing_conjurations:
+        json_data["conjurations"] = [
+            {"name": x.name, "stub": x.stub} for x in existing_conjurations
+        ]
     if placement:
         json_data["placement"] = placement
     if json_cost_list:
@@ -235,3 +239,11 @@ def create_card(
     card.json = json_data
     session.add(card)
     session.commit()
+    # Now that we have a card entry, we can populate the conjuration relationship(s)
+    if existing_conjurations:
+        for conjuration in existing_conjurations:
+            session.execute(
+                conjurations_table.insert().values(
+                    card_id=card.id, conjuration_id=conjuration.id
+                )
+            )
