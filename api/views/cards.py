@@ -339,7 +339,7 @@ class CardIn(BaseModel):
         description="The full name of the release this card belongs to.",
     )
     text: str = Field(
-        ...,
+        None,
         description="The card effect text, formatting using standard Ashes.live card codes.",
     )
     cost: Union[List[str], str, None] = Field(
