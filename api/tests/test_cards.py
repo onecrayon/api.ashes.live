@@ -115,6 +115,16 @@ def test_create_card_implicit_release(client: TestClient, session: db.Session):
     release: Release = release_query.first()
     assert release.name == MINIMUM_VALID_CARD["release"]
     assert release.is_public == False
+    # And verify we don't end up with multiple releases on subsequent cards
+    card_data = copy(MINIMUM_VALID_CARD)
+    card_data["name"] += " 2"
+    response = client.post(
+        "/v2/cards",
+        json=card_data,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+    assert release_query.count() == 1
 
 
 def test_create_card_missing_conjuration(client: TestClient, session: db.Session):
@@ -127,6 +137,47 @@ def test_create_card_missing_conjuration(client: TestClient, session: db.Session
     response = client.post(
         "/v2/cards",
         json=card_data,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
+
+
+def test_create_card_conjuration_copies_required(
+    client: TestClient, session: db.Session
+):
+    """Copies is a required field when creating a conjuration"""
+    admin, token = create_admin_token(session)
+    card_data = copy(MINIMUM_VALID_CARD)
+    card_data["card_type"] = "Conjuration"
+    response = client.post(
+        "/v2/cards",
+        json=card_data,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
+    # And verify that it works when copies is passed in
+    card_data["copies"] = 1
+    response = client.post(
+        "/v2/cards",
+        json=card_data,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+
+
+def test_create_card_duplicate(client: TestClient, session: db.Session):
+    """Creating a duplicate card fails properly"""
+    admin, token = create_admin_token(session)
+    response = client.post(
+        "/v2/cards",
+        json=MINIMUM_VALID_CARD,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED, response.json()
+    # And try to duplicate
+    response = client.post(
+        "/v2/cards",
+        json=MINIMUM_VALID_CARD,
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()

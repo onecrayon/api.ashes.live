@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, status, Request, Query
 from pydantic import BaseModel, Field, validator
+from sqlalchemy.exc import IntegrityError
 
 from api import db
 from api.depends import get_current_user, get_session, paging_options
@@ -399,6 +400,18 @@ class CardIn(BaseModel):
             raise ValueError("required for non-Phoenixborn cards")
         return val
 
+    @validator("copies", always=True)
+    def copies_required_for_conjurations(cls, val, values):
+        """Copies is required for all conjured cards"""
+        if (
+            not val
+            and "card_type" in values
+            and values["card_type"]
+            in (CardType.conjuration, CardType.conjured_alteration_spell)
+        ):
+            raise ValueError("required for conjurations and conjured alteration spells")
+        return val
+
 
 @router.post(
     "/cards",
@@ -423,6 +436,7 @@ def create_card(
 
     Note that you must create conjurations *before* the cards that reference them.
     """
+    # Implicitly create the release, if necessary
     release_stub = stubify(data.release)
     if not (
         release := (
@@ -434,6 +448,7 @@ def create_card(
         release = Release(name=data.release, stub=release_stub)
         session.add(release)
         session.commit()
+
     try:
         card = create_card_service(
             session,
@@ -457,4 +472,6 @@ def create_card(
         )
     except MissingConjurations as e:
         raise APIException(detail=str(e))
+    except IntegrityError as e:
+        raise APIException(detail="Card already exists!")
     return {"detail": "Card successfully created!"}
