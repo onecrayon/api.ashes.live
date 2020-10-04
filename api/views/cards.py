@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, status, Request, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 from api import db
 from api.depends import get_current_user, get_session, paging_options
@@ -388,6 +388,17 @@ class CardIn(BaseModel):
     spellboard: Union[int, str] = None
     copies: Union[int, str] = None
 
+    @validator("placement", always=True)
+    def placement_required_without_phoenixborn(cls, val, values):
+        """Placement is required if this isn't a Phoenixborn"""
+        if (
+            not val
+            and "card_type" in values
+            and values["card_type"] != CardType.phoenixborn
+        ):
+            raise ValueError("required for non-Phoenixborn cards")
+        return val
+
 
 @router.post(
     "/cards",
@@ -416,7 +427,7 @@ def create_card(
     if not (
         release := (
             session.query(Release)
-            .filter(Release.stub == release_stub, is_legacy.is_(False))
+            .filter(Release.stub == release_stub, Release.is_legacy.is_(False))
             .one_or_none()
         )
     ):

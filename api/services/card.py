@@ -139,24 +139,25 @@ def create_card(
     if copies is not None:
         card.copies = copies
     card.phoenixborn = phoenixborn
-    card.entity_id = create_entity()
+    card.entity_id = create_entity(session)
     cost_list = re.split(r"\s+-\s+", cost) if isinstance(cost, str) else cost
     weight = 0
     json_cost_list = []
-    for cost_entry in cost_list:
-        split_cost = (
-            re.split(r"\s+(?:/|or)\s+", cost_entry)
-            if isinstance(cost_entry, str)
-            else cost_entry
-        )
-        if len(split_cost) > 1:
-            first_weight = parse_cost_to_weight(split_cost[0])
-            second_weight = parse_cost_to_weight(split_cost[1])
-            weight += max(first_weight, second_weight)
-            json_cost_list.append(split_cost)
-        else:
-            weight += parse_cost_to_weight(split_cost[0])
-            json_cost_list.append(split_cost[0])
+    if cost_list:
+        for cost_entry in cost_list:
+            split_cost = (
+                re.split(r"\s+(?:/|or)\s+", cost_entry)
+                if isinstance(cost_entry, str)
+                else cost_entry
+            )
+            if len(split_cost) > 1:
+                first_weight = parse_cost_to_weight(split_cost[0])
+                second_weight = parse_cost_to_weight(split_cost[1])
+                weight += max(first_weight, second_weight)
+                json_cost_list.append(split_cost)
+            else:
+                weight += parse_cost_to_weight(split_cost[0])
+                json_cost_list.append(split_cost[0])
     card.cost_weight = weight
     # Extract our effect costs into a list of strings and lists
     effect_cost_list = []
@@ -165,22 +166,23 @@ def create_card(
         if isinstance(effect_magic_cost, str)
         else effect_magic_cost
     )
-    for cost_entry in effect_costs:
-        split_cost = (
-            re.split(r"\s+(?:/|or)\s+", cost_entry)
-            if isinstance(cost_entry, str)
-            else cost_entry
-        )
-        effect_cost_list.append(split_cost) if len(
-            split_cost
-        ) > 1 else effect_cost_list.append(split_cost[0])
+    if effect_costs:
+        for cost_entry in effect_costs:
+            split_cost = (
+                re.split(r"\s+(?:/|or)\s+", cost_entry)
+                if isinstance(cost_entry, str)
+                else cost_entry
+            )
+            effect_cost_list.append(split_cost) if len(
+                split_cost
+            ) > 1 else effect_cost_list.append(split_cost[0])
     # Convert our cost lists into magicCost and effectMagicCost mappings
     json_magic_cost = parse_costs_to_mapping(json_cost_list)
     json_effect_cost = parse_costs_to_mapping(effect_cost_list)
     # And finally, convert our mappings into lists of required dice
     dice_set = set()
     alt_dice_set = set()
-    for dice_type in json_magic_cost.keys() + json_effect_cost.keys():
+    for dice_type in list(json_magic_cost.keys()) + list(json_effect_cost.keys()):
         both_types = dice_type.split(" / ")
         if len(both_types) > 1:
             alt_dice_set.add(both_types[0])
