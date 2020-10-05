@@ -63,8 +63,8 @@ def parse_costs_to_mapping(costs: List[Union[List[str], str]]) -> dict:
             split_2 = magic_cost_re.match(cost[1])
             if not split_1 or not split_2:
                 continue
-            split_key = "{} / {}".format(split_1.group(2), split_2.group(2))
-            alt_split_key = "{} / {}".format(split_2.group(2), split_1.group(2))
+            split_key = f"{split_1.group(2)} / {split_2.group(2)}"
+            alt_split_key = f"{split_2.group(2)} / {split_1.group(2)}"
             magic_cost = max(int(split_1.group(1)), int(split_2.group(1)))
             if split_key in data_object:
                 data_object[split_key] += magic_cost
@@ -82,6 +82,11 @@ def parse_costs_to_mapping(costs: List[Union[List[str], str]]) -> dict:
             else:
                 data_object[cost_match.group(2)] = int(cost_match.group(1))
     return data_object
+
+
+def dice_name_from_cost(cost: str) -> str:
+    """Given a string like `magic:face` returns just `magic`"""
+    return cost.split(":")[0]
 
 
 def create_card(
@@ -112,6 +117,7 @@ def create_card(
     card.placement = placement
     card.release_id = release.id
     card.search_text = f"{card.name}\n"
+    card.is_summon_spell = name.startswith("Summon ")
     existing_conjurations = None
     if text:
         card.search_text += re.sub(
@@ -185,10 +191,10 @@ def create_card(
     for dice_type in list(json_magic_cost.keys()) + list(json_effect_cost.keys()):
         both_types = dice_type.split(" / ")
         if len(both_types) > 1:
-            alt_dice_set.add(both_types[0])
-            alt_dice_set.add(both_types[1])
+            alt_dice_set.add(dice_name_from_cost(both_types[0]))
+            alt_dice_set.add(dice_name_from_cost(both_types[1]))
         else:
-            dice.add(both_types[0])
+            dice_set.add(dice_name_from_cost(both_types[0]))
     if dice is None:
         dice = list(dice_set)
     if alt_dice is None:
@@ -249,3 +255,4 @@ def create_card(
                     card_id=card.id, conjuration_id=conjuration.id
                 )
             )
+    return card

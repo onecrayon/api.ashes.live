@@ -34,6 +34,14 @@ def test_flags_to_dice():
     ) == [DiceFlags.illusion.name, DiceFlags.divine.name, DiceFlags.time.name]
 
 
+def test_dice_weight():
+    """Card.dice_weight property is all types of dice in either flag field"""
+    card = Card()
+    card.dice_flags = DiceFlags.ceremonial.value
+    card.alt_dice_flags = DiceFlags.charm.value + DiceFlags.ceremonial.value
+    assert card.dice_weight == DiceFlags.ceremonial.value + DiceFlags.charm.value
+
+
 def test_card_weights():
     """Card weights must be calculated properly"""
     # Nonsense is 0

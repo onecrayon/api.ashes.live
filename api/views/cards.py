@@ -29,6 +29,7 @@ router = APIRouter()
 class CardDiceCosts(str, Enum):
     """Card dice types."""
 
+    basic = "basic"
     ceremonial = "ceremonial"
     charm = "charm"
     divine = "divine"
@@ -198,14 +199,14 @@ def list_cards(
         query = query.filter(db.func.to_tsvector("english", Card.search_text).match(q))
     # Filter by particular card types
     if types:
-        types = set()
+        card_types = set()
         for card_type in types:
             if card_type is CardsFilterType.conjurations:
-                types.add("Conjuration")
-                types.add("Conjured Alteration Spell")
+                card_types.add("Conjuration")
+                card_types.add("Conjured Alteration Spell")
             else:
-                types.add(card_type.replace("_", " ").title())
-        query = query.filter(Card.card_type.in_(types))
+                card_types.add(card_type.replace("_", " ").title())
+        query = query.filter(Card.card_type.in_(card_types))
     # Exclude some types if we're in deckbuilder mode
     if mode is CardsFilterListingMode.deckbuilder:
         query = query.filter(
@@ -243,19 +244,21 @@ def list_cards(
                     db.and_(Card.dice_flags == 0, Card.alt_dice_flags == 0)
                 )
                 dice_set.remove("basic")
-            dice_filters = (
-                dice_filters
-                + [
-                    Card.dice_flags.op("&")(DiceFlags[die].value)
-                    == DiceFlags[die].value
-                    for die in dice_set
-                ]
-                + [
-                    Card.alt_dice_flags.op("&")(DiceFlags[die].value)
-                    == DiceFlags[die].value
-                    for die in dice_set
-                ]
-            )
+            # Only add additional filters if we requested more than basic cards
+            if dice_set:
+                dice_filters = (
+                    dice_filters
+                    + [
+                        Card.dice_flags.op("&")(DiceFlags[die].value)
+                        == DiceFlags[die].value
+                        for die in dice_set
+                    ]
+                    + [
+                        Card.alt_dice_flags.op("&")(DiceFlags[die].value)
+                        == DiceFlags[die].value
+                        for die in dice_set
+                    ]
+                )
             query = query.filter(db.or_(*dice_filters))
         else:
             dice_filters = [
@@ -268,13 +271,17 @@ def list_cards(
                 for die in dice_set
             ]
             query = query.filter(*dice_filters)
-    # Only Include Phoenixborn uniques for the given Phoenixborn
+    # Only Include Phoenixborn uniques for the given Phoenixborn (or no Phoenixborn, in deckbuilder)
     if include_uniques_for:
         query = query.filter(
             db.or_(
                 Card.phoenixborn.is_(None),
                 Card.phoenixborn == include_uniques_for,
             )
+        )
+    elif mode is CardsFilterListingMode.deckbuilder:
+        query = query.filter(
+            Card.phoenixborn.is_(None),
         )
     if sort == CardsSortingMode.type_:
         # This calls the proper ordering function (result is `Card.card_type.asc()`)
