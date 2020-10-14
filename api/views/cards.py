@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from api import db
 from api.depends import get_current_user, get_session, paging_options
-from api.exceptions import APIException
+from api.exceptions import APIException, NotFoundException
 from api.models.card import Card, DiceFlags
 from api.models.release import Release, UserRelease
 from api.models.user import User
@@ -117,6 +117,13 @@ class CardReleaseEmbeddedOut(BaseModel):
     is_retiring: bool = None
 
 
+class CardConjurationsEmbeddedOut(BaseModel):
+    """The conjuration information embedded in card listings"""
+
+    name: str
+    stub: str
+
+
 class CardOut(BaseModel):
     """The standard JSON output for a card.
 
@@ -134,6 +141,7 @@ class CardOut(BaseModel):
     magicCost: Dict[str, int] = None
     effectMagicCost: Dict[str, int] = None
     text: str = None
+    conjurations: List[CardConjurationsEmbeddedOut] = None
     phoenixborn: str = None
     attack: Union[str, int] = None
     battlefield: int = None
@@ -314,6 +322,21 @@ def list_cards(
         paging=paging,
         url=str(request.url),
     )
+
+
+@router.get("/cards/{stub}", response_model=CardOut, response_model_exclude_unset=True)
+def get_card(
+    stub: str, show_legacy: bool = False, session: db.Session = Depends(get_session)
+):
+    query = session.query(Card.json).filter(Card.stub == stub)
+    if show_legacy:
+        query = query.filter(Card.is_legacy.is_(True))
+    else:
+        query = query.filter(Card.is_legacy.is_(False))
+    card_json = query.scalar()
+    if not card_json:
+        raise NotFoundException(detail="Card not found.")
+    return card_json
 
 
 class CardType(str, Enum):
