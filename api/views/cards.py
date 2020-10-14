@@ -20,7 +20,7 @@ from api.schemas.pagination import (
 )
 from api.services.card import create_card as create_card_service, MissingConjurations
 from api.utils.pagination import paginated_results_for_query
-from api.utils.helpers import stubify
+from api.utils.helpers import stubify, str_or_int
 
 router = APIRouter()
 
@@ -135,13 +135,18 @@ class CardOut(BaseModel):
     effectMagicCost: Dict[str, int] = None
     text: str = None
     phoenixborn: str = None
-    attack: Union[int, str] = None
+    attack: Union[str, int] = None
     battlefield: int = None
-    life: Union[int, str] = None
-    recover: Union[int, str] = None
+    life: Union[str, int] = None
+    recover: Union[str, int] = None
     spellboard: int = None
     effectRepeats: bool = None
     is_legacy: bool = None
+
+    # Custom parsing to ensure proper stats output
+    _parse_attack = validator("attack", allow_reuse=True)(str_or_int)
+    _parse_life = validator("life", allow_reuse=True)(str_or_int)
+    _parse_recover = validator("recover", allow_reuse=True)(str_or_int)
 
 
 class CardListingOut(PaginatedResultsBase):
@@ -387,12 +392,12 @@ class CardIn(BaseModel):
         max_length=30,
         description="The full name of the Phoenixborn for whom this card is unique.",
     )
-    attack: Union[int, str] = None
-    battlefield: Union[int, str] = None
-    life: Union[int, str] = None
-    recover: Union[int, str] = None
-    spellboard: Union[int, str] = None
-    copies: Union[int, str] = None
+    attack: str = None
+    battlefield: str = None
+    life: str = None
+    recover: str = None
+    spellboard: str = None
+    copies: int = None
 
     @validator("placement", always=True)
     def placement_required_without_phoenixborn(cls, val, values):

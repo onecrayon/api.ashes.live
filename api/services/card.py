@@ -4,7 +4,7 @@ from typing import List, Union
 from api import db
 from api.models.card import Card, conjurations_table
 from api.models.release import Release
-from api.utils.helpers import stubify
+from api.utils.helpers import stubify, str_or_int
 
 from .stream import create_entity
 
@@ -94,12 +94,12 @@ def create_card(
     dice: List[str] = None,
     alt_dice: List[str] = None,
     phoenixborn: str = None,
-    attack: Union[int, str] = None,
-    battlefield: Union[int, str] = None,
-    life: Union[int, str] = None,
-    recover: Union[int, str] = None,
-    spellboard: Union[int, str] = None,
-    copies: Union[int, str] = None,
+    attack: str = None,
+    battlefield: str = None,
+    life: str = None,
+    recover: str = None,
+    spellboard: str = None,
+    copies: int = None,
 ) -> "Card":
     """Creates a card, generating the necessary JSON and cost info"""
     card = Card()
@@ -223,15 +223,15 @@ def create_card(
     if phoenixborn is not None:
         json_data["phoenixborn"] = phoenixborn
     if attack is not None:
-        json_data["attack"] = attack
+        json_data["attack"] = str_or_int(attack)
     if battlefield is not None:
-        json_data["battlefield"] = battlefield
+        json_data["battlefield"] = str_or_int(battlefield)
     if life is not None:
-        json_data["life"] = life
+        json_data["life"] = str_or_int(life)
     if recover is not None:
-        json_data["recover"] = recover
+        json_data["recover"] = str_or_int(recover)
     if spellboard is not None:
-        json_data["spellboard"] = spellboard
+        json_data["spellboard"] = str_or_int(spellboard)
     if copies is not None:
         json_data["copies"] = copies
     if can_effect_repeat:
