@@ -61,26 +61,18 @@ def parse_costs_to_mapping(costs: List[Union[List[str], str]]) -> dict:
         if isinstance(cost, list):
             split_1 = magic_cost_re.match(cost[0])
             split_2 = magic_cost_re.match(cost[1])
-            if not split_1 or not split_2:
+            # This line is reached in the tests, but can be missed by coverage due to how the code
+            #  execution is optimized: https://github.com/nedbat/coveragepy/issues/198
+            if not split_1 or not split_2:  # pragma: no cover
                 continue
-            split_key = f"{split_1.group(2)} / {split_2.group(2)}"
-            alt_split_key = f"{split_2.group(2)} / {split_1.group(2)}"
             magic_cost = max(int(split_1.group(1)), int(split_2.group(1)))
-            if split_key in data_object:
-                data_object[split_key] += magic_cost
-            elif alt_split_key in data_object:
-                data_object[alt_split_key] += magic_cost
-            else:
-                data_object[split_key] = magic_cost
+            data_object[f"{split_1.group(2)} / {split_2.group(2)}"] = magic_cost
         else:
             # Normal cost, so just add it to our object
             cost_match = magic_cost_re.match(cost)
             if not cost_match:
                 continue
-            if cost_match.group(2) in data_object:
-                data_object[cost_match.group(2)] += int(cost_match.group(1))
-            else:
-                data_object[cost_match.group(2)] = int(cost_match.group(1))
+            data_object[cost_match.group(2)] = int(cost_match.group(1))
     return data_object
 
 
