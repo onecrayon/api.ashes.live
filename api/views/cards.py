@@ -9,7 +9,7 @@ from api import db
 from api.depends import get_current_user, get_session, paging_options
 from api.exceptions import APIException
 from api.models.card import Card, DiceFlags
-from api.models.release import Release
+from api.models.release import Release, UserRelease
 from api.models.user import User
 from api.depends import AUTH_RESPONSES, admin_required
 from api.schemas import DetailResponse
@@ -220,9 +220,7 @@ def list_cards(
     # Filter by releases, if requested
     if releases:
         if show_legacy and releases is CardsFilterRelease.phg:
-            query = query.join(Release, Release.id == Card.release_id).filter(
-                Release.is_phg.is_(True)
-            )
+            query = query.filter(Release.is_phg.is_(True))
         elif releases is CardsFilterRelease.mine and not current_user.is_anonymous():
             my_release_subquery = (
                 session.query(UserRelease.release_id)

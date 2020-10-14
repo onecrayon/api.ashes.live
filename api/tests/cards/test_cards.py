@@ -5,9 +5,9 @@ from fastapi.testclient import TestClient
 
 from api import db
 from api.models.card import Card
-from api.models.release import Release
+from api.models.release import Release, UserRelease
 from api.services.card import create_card
-from ..utils import create_card_database, create_admin_token
+from ..utils import create_card_database, create_admin_token, create_user_token
 
 
 def names_from_results(response):
@@ -128,7 +128,7 @@ def test_card_filters(client: TestClient, session: db.Session):
 
 
 def test_pagination(client: TestClient, session: db.Session):
-    """Verify pagination logic"""
+    """Pagination logic works as expected."""
     # We don't need real cards to test, we just need a known quantity that sorts predictably
     release = Release(name="Example")
     release.is_public = True
@@ -143,7 +143,7 @@ def test_pagination(client: TestClient, session: db.Session):
                 "placement": "Discard",
                 "release": release,
                 "text": "Text.",
-            }
+            },
         )
     # Verify that we have ten items and they all come back by default
     response = client.get("/v2/cards")
@@ -170,5 +170,81 @@ def test_pagination(client: TestClient, session: db.Session):
     assert "offset=" not in data["previous"]
 
 
-# TODO: test filtering by owned collection for logged-in user
-# TODO: test filtering for "phg" releases for legacy cards only
+def test_release_filtration(client: TestClient, session: db.Session):
+    """Filtering cards by owned releases works properly."""
+    # Create a pair of releases with an associated card each
+    release_1 = Release(name="First")
+    release_1.is_public = True
+    session.add(release_1)
+    release_2 = Release(name="Second")
+    release_2.is_public = True
+    session.add(release_2)
+    session.commit()
+    create_card(
+        session,
+        name="A",
+        card_type="Action Spell",
+        placement="Discard",
+        release=release_1,
+        text="Text.",
+    )
+    create_card(
+        session,
+        name="B",
+        card_type="Action Spell",
+        placement="Discard",
+        release=release_2,
+        text="Text.",
+    )
+
+    # Create our user, and setup their collection
+    user, token = create_user_token(session)
+    user_release = UserRelease(user_id=user.id, release_id=release_1.id)
+    session.add(user_release)
+    session.commit()
+
+    # Verify that the filter works
+    response = client.get(
+        "/v2/cards",
+        params={"releases": "mine"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200, response.json()
+    assert len(response.json()["results"]) == 1, response.json()
+
+
+def test_phg_release_filtration(client: TestClient, session: db.Session):
+    """Must be able to filter for only PHG release when looking at legacy cards."""
+    release = Release(name="PHG")
+    release.is_public = True
+    release.is_legacy = True
+    release.is_phg = True
+    session.add(release)
+    fan_release = Release(name="Fan")
+    fan_release.is_public = True
+    fan_release.is_legacy = True
+    session.add(fan_release)
+    session.commit()
+    phg_card = create_card(
+        session,
+        name="A",
+        card_type="Action Spell",
+        placement="Discard",
+        release=release,
+        text="Text.",
+    )
+    fan_card = create_card(
+        session,
+        name="B",
+        card_type="Action Spell",
+        placement="Discard",
+        release=fan_release,
+        text="Text.",
+    )
+    phg_card.is_legacy = True
+    fan_card.is_legacy = True
+    session.commit()
+
+    response = client.get("/v2/cards", params={"show_legacy": True, "releases": "phg"})
+    assert response.status_code == 200
+    assert len(response.json()["results"]) == 1, response.json()
