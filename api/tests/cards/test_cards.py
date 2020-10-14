@@ -4,6 +4,9 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from api import db
+from api.models.card import Card
+from api.models.release import Release
+from api.services.card import create_card
 from ..utils import create_card_database, create_admin_token
 
 
@@ -124,6 +127,48 @@ def test_card_filters(client: TestClient, session: db.Session):
     ), names_from_results(response)
 
 
+def test_pagination(client: TestClient, session: db.Session):
+    """Verify pagination logic"""
+    # We don't need real cards to test, we just need a known quantity that sorts predictably
+    release = Release(name="Example")
+    release.is_public = True
+    session.add(release)
+    session.commit()
+    for letter in "ABCDEFGHIJ":
+        create_card(
+            session,
+            **{
+                "name": letter,
+                "card_type": "Action Spell",
+                "placement": "Discard",
+                "release": release,
+                "text": "Text.",
+            }
+        )
+    # Verify that we have ten items and they all come back by default
+    response = client.get("/v2/cards")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] == 10
+    assert len(data["results"]) == 10
+    assert data["previous"] is None
+    assert data["next"] is None
+
+    # Verify that we can page through things properly
+    response = client.get("/v2/cards", params={"offset": 3, "limit": 3})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] == 10
+    assert len(data["results"]) == 3
+    assert data["previous"] is not None
+    assert data["next"] is not None
+
+    # Verify that previous links work properly with arbitrary offsets that would make them negative
+    response = client.get("/v2/cards", params={"offset": 2, "limit": 3})
+    assert response.status_code == 200
+    data = response.json()
+    assert "offset=" not in data["previous"]
+
+
 # TODO: test filtering by owned collection for logged-in user
 # TODO: test filtering for "phg" releases for legacy cards only
-# TODO: test pagination handling
