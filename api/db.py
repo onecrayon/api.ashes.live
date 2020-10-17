@@ -75,6 +75,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Session, backref, relationship, sessionmaker, Query
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.engine import RowProxy
 
 from .environment import settings
@@ -161,6 +162,8 @@ __all__ = (
     Query,
     RowProxy,
     hybrid_property,
+    # ORM
+    flag_modified,
 )
 
 # Setup base engine and session class

@@ -333,7 +333,7 @@ def get_card(
         query = query.filter(Card.is_legacy.is_(True))
     else:
         query = query.filter(Card.is_legacy.is_(False))
-    card_json = query.scalar()
+    card_json = query.join(Card.release).filter(Release.is_public == True).scalar()
     if not card_json:
         raise NotFoundException(detail="Card not found.")
     return card_json
