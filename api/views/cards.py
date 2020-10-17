@@ -163,7 +163,11 @@ class CardListingOut(PaginatedResultsBase):
     results: List[CardOut] = []
 
 
-@router.get("/cards", response_model=CardListingOut, response_model_exclude_unset=True)
+@router.get(
+    "/cards",
+    response_model=CardListingOut,
+    response_model_exclude_unset=True,
+)
 def list_cards(
     request: Request,
     # Filtration query string options
@@ -324,7 +328,12 @@ def list_cards(
     )
 
 
-@router.get("/cards/{stub}", response_model=CardOut, response_model_exclude_unset=True)
+@router.get(
+    "/cards/{stub}",
+    response_model=CardOut,
+    response_model_exclude_unset=True,
+    responses={404: {"model": DetailResponse}},
+)
 def get_card(
     stub: str, show_legacy: bool = False, session: db.Session = Depends(get_session)
 ):
