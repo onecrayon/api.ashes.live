@@ -11,7 +11,7 @@ readme = "README.md"
 authors = ["Ian Beck <ian@onecrayon.com>"]
 
 [tool.poetry.dependencies]
-python = "3.8.5"
+python = "3.8.6"
 fastapi = "^0.61.1"
 uvicorn = "^0.11.8"
 gunicorn = "^20.0.4"
