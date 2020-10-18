@@ -6,7 +6,7 @@
 
     def test_endpoint(client: TestClient):
         response = client.get("/my-endpoint/")
-        assert response.status == status.HTTP_200_OK
+        assert response.status_code == status.HTTP_200_OK
 """
 import pytest
 from fastapi.testclient import TestClient

@@ -71,9 +71,12 @@ from sqlalchemy import (
     within_group,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session, backref, relationship, sessionmaker
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import Session, backref, relationship, sessionmaker, Query
+from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy.engine import RowProxy
 
 from .environment import settings
 
@@ -108,6 +111,7 @@ __all__ = (
     Unicode,
     UnicodeText,
     UUID,
+    JSONB,
     # Relationships
     relationship,
     backref,
@@ -155,6 +159,11 @@ __all__ = (
     Index,
     Table,
     UniqueConstraint,
+    Query,
+    RowProxy,
+    hybrid_property,
+    # ORM
+    flag_modified,
 )
 
 # Setup base engine and session class
