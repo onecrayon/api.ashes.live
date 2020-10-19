@@ -14,6 +14,7 @@ authors = ["Ian Beck <ian@onecrayon.com>"]
 python = "3.8.5"
 fastapi = "^0.61.1"
 uvicorn = "^0.11.8"
+gunicorn = "^20.0.4"
 sqlalchemy = "^1.3.19"
 alembic = "^1.4.2"
 psycopg2 = "^2.8.5"

@@ -86,6 +86,7 @@ without needing to run a make command). To do so:
 	},
 	"remoteUser": "root",
 	"extensions": [
+		"EditorConfig.EditorConfig",
 		"ms-python.python"
 	]
 }

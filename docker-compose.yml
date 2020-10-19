@@ -10,18 +10,15 @@
 
 version: '3.7'
 services:
-    postgres:
-        image: postgres:12.4
-        restart: unless-stopped
-        env_file: .env
-
     api:
+        image: "api_ashes_live:dev"
         build:
             context: .
             dockerfile: ./docker/Dockerfile
-        depends_on:
-            - postgres
-        restart: unless-stopped
+            cache_from:
+                - "api_ashes_live:dev"
+                - "api_ashes_live:latest"
+                - "*"
         # env_file populates environment variables at runtime
         env_file: .env
         healthcheck:
@@ -37,3 +34,4 @@ services:
             timeout: 5s
             retries: 5
             start_period: 30s
+        restart: unless-stopped

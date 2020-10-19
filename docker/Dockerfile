@@ -1,4 +1,4 @@
-FROM python:3.8.5 as development_build
+FROM python:3.8.6 as development_build
 
 # This is only available at build, and is a required variable
 ARG ENV
@@ -80,7 +80,7 @@ USER web
 ENTRYPOINT ["tini", "--", "/entrypoint.sh"]
 
 
-# The following stage is only for Prod (CURRENTLY UNUSED):
+# The following stage is only for production deployments:
 # See: <https://wemake-django-template.readthedocs.io/en/latest/pages/template/production.html>
 FROM development_build as production_build
 COPY --chown=web:web ./api /code/api
