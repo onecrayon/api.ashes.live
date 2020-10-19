@@ -64,11 +64,12 @@ RUN echo "$ENV" \
   # Cleaning poetry installation's cache for production:
   && if [ "$ENV" = 'production' ]; then rm -rf "$POETRY_CACHE_DIR"; fi
 
-# This is a special case. We need to run this script as an entry point:
-COPY ./docker/entrypoint.sh /entrypoint.sh
+# These are special cases used as code entrypoints:
+COPY ./docker/entrypoint.sh ./docker/gunicorn.sh /
 
 # Setting up proper permissions:
 RUN chmod +x '/entrypoint.sh' \
+  && chmod +x '/gunicorn.sh' \
   && groupadd -r web && mkdir -p /home/web \
   && useradd -d /home/web -r -g web web \
   && chown web:web -R /code && chown web:web -R /home/web
@@ -76,11 +77,12 @@ RUN chmod +x '/entrypoint.sh' \
 # Running as non-root user:
 USER web
 
-# We customize how our app is loaded with the custom entrypoint:
+# Custom entrypoint ensures that full stack is up and running in local development environment:
 ENTRYPOINT ["tini", "--", "/entrypoint.sh"]
 
 
-# The following stage is only for production deployments:
-# See: <https://wemake-django-template.readthedocs.io/en/latest/pages/template/production.html>
+# The following stage is only for production deployments.
+# (The development_build sets things up for a full local stack; this step
+# copies in the code so we don't need volumes)
 FROM development_build as production_build
-COPY --chown=web:web ./api /code/api
+COPY --chown=web:web ./api ./alembic.ini ./migrations /code/

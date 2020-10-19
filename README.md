@@ -185,5 +185,5 @@ The underlying Dockerfile uses the following tools, pinned to specific release v
 * [Tini](https://github.com/krallin/tini)
 * [Poetry](https://python-poetry.org/)
 
-In order to update these tools, you must update their pinned version in `docker/Dockerfile`
+In order to update these tools, you must update their pinned version in `Dockerfile`
 and (for Poetry) in `pyproject.toml` then rebuild your API container using `make build`.

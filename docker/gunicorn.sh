@@ -17,6 +17,8 @@ fi
 
 export ENV
 
+# TODO: implement automatic migrations on startup (needs to support multiple concurrently launched nodes)
+
 # Start gunicorn:
 # Docs: http://docs.gunicorn.org/en/stable/settings.html
 # Concerning `workers` setting see:
@@ -24,7 +26,7 @@ export ENV
 /usr/local/bin/gunicorn api:app \
   -k uvicorn.workers.UvicornWorker `# Establish Uvicorn as our worker class` \
   --workers=3 `# Workers generally should be (2 x $num_cores) + 1` \
-  --bind='0.0.0.0:8000' `# Run API on 8000 port` \
+  --bind='0.0.0.0:10000' `# Run API on 10000 port (Render's default)` \
   --chdir='/code'       `# Locations` \
   --log-file=- \
   --worker-tmp-dir='/dev/shm'

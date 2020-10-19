@@ -14,7 +14,6 @@ services:
         image: "api_ashes_live:dev"
         build:
             context: .
-            dockerfile: ./docker/Dockerfile
             cache_from:
                 - "api_ashes_live:dev"
                 - "api_ashes_live:latest"
