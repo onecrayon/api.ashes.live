@@ -85,6 +85,6 @@ ENTRYPOINT ["tini", "--", "/entrypoint.sh"]
 # (The development_build sets things up for a full local stack; this step
 # copies in the code so we don't need volumes)
 FROM development_build as production_build
-COPY --chown=web:web ./alembic.ini /code/
+COPY --chown=web:web ./alembic.ini ./.env /code/
 COPY --chown=web:web ./api /code/api
 COPY --chown=web:web ./migrations /code/migrations
