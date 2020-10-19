@@ -21,8 +21,6 @@ export ENV
 
 # Start gunicorn:
 # Docs: http://docs.gunicorn.org/en/stable/settings.html
-# Concerning `workers` setting see:
-# https://github.com/wemake-services/wemake-django-template/issues/1022
 /usr/local/bin/gunicorn api:app \
   -k uvicorn.workers.UvicornWorker `# Establish Uvicorn as our worker class` \
   --workers=3 `# Workers generally should be (2 x $num_cores) + 1` \
