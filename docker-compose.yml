@@ -10,17 +10,27 @@
 
 version: '3.7'
 services:
-    postgres:
-        image: postgres:12.4
-        restart: always
-        env_file: .env
-
     api:
+        image: "api_ashes_live:dev"
         build:
             context: .
-            dockerfile: ./docker/Dockerfile
-        depends_on:
-            - postgres
-        restart: always
+            cache_from:
+                - "api_ashes_live:dev"
+                - "api_ashes_live:latest"
+                - "*"
         # env_file populates environment variables at runtime
         env_file: .env
+        healthcheck:
+            # We use `$$` here because:
+            # one `$` goes to shell,
+            # one `$` goes to `docker-compose.yml` escaping
+            test: |
+              /usr/bin/test $$(
+                /usr/bin/curl --fail http://localhost:8000/health-check
+                --write-out "%{http_code}" --silent --output /dev/null
+              ) -eq 200
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 30s
+        restart: unless-stopped

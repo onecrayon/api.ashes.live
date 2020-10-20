@@ -1,19 +1,20 @@
 [build-system]
-requires = ["poetry==1.1.0"]
+requires = ["poetry==1.1.3"]
 build-backend = "poetry.masonry.api"
 
 [tool.poetry]
 name = "Ashes.live"
 description = "API backend for a fan-developed deckbuilder and community website for the card game Ashes Reborn"
-version = "0.1.0"
+version = "2.0.0a1"
 license = "ISC"
 readme = "README.md"
 authors = ["Ian Beck <ian@onecrayon.com>"]
 
 [tool.poetry.dependencies]
-python = "3.8.5"
+python = "3.8.6"
 fastapi = "^0.61.1"
 uvicorn = "^0.11.8"
+gunicorn = "^20.0.4"
 sqlalchemy = "^1.3.19"
 alembic = "^1.4.2"
 psycopg2 = "^2.8.5"

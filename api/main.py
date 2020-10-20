@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from . import views
 from .environment import settings
 
-__version__ = "2.0.0a0"
+__version__ = "2.0.0a1"
 
 logging.basicConfig(level=logging.WARNING if not settings.debug else logging.DEBUG)
 

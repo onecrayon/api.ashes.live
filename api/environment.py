@@ -45,9 +45,6 @@ class ApplicationSettings(BaseSettings):
             f":{self.postgres_port}/{self.postgres_db}"
         )
 
-    class Config:
-        env_file = "../.env"
-
 
 # Configure settings object from environment variables
 settings = ApplicationSettings()
