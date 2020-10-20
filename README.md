@@ -187,3 +187,33 @@ The underlying Dockerfile uses the following tools, pinned to specific release v
 
 In order to update these tools, you must update their pinned version in `Dockerfile`
 and (for Poetry) in `pyproject.toml` then rebuild your API container using `make build`.
+
+## Deployment
+
+Ashes.live is currently setup for deployment to [Render.com](https://render.com). To deploy
+a copy of the site:
+
+1. Create a managed Postgres database
+2. Create a new Docker service pointing to your Ashes.live GitHub repo with the following settings:
+    * **Docker Command:** `/bin/bash -c cd /code && /gunicorn.sh`
+	* **Health Check Path:** `/health-check`
+	* **Environment Variables:** at minimum, you must set the following environment variables (you
+	  can set others, if you like; the available keys are in `.env.example`):
+	    - **ENV:** `production`
+		- **POSTGRES_DB**
+		- **POSTGRES_HOST**
+		- **POSTGRES_PASSWORD**
+		- **POSTGRES_USER**
+		- **SECRET_KEY**
+3. Once your Docker service has deployed, you can use the Shell tab to run Alembic migrations, or
+   otherwise populate your database with initial data.
+
+That's it!
+
+### Environment variables
+
+Please note that the `.env` file is *not* populated in your production images. The `.env` file
+works locally because Docker Compose automatically loads its contents as environment variables, but
+when running in production mode Pydantic is not capable of reading an `.env` file with the current
+setup (which is why you must define your environment variables one-by-one in the Render control
+panel).
