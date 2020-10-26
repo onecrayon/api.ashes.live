@@ -1,6 +1,7 @@
 """Configures the main FastAPI app and routes"""
 import logging
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from . import views
 from .environment import settings
@@ -19,6 +20,17 @@ app = FastAPI(
     version=__version__,
     docs_url="/",
     redoc_url="/redoc",
+)
+
+# Setup CORS rules to ensure that we can access the API from our front-end apps
+# We have to use the regex option, because for some reason the proper header isn't sent otherwise.
+# This setup allows access from local development servers and the official Ashes.live URL
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex="https://ashes\.live|https?://localhost:300[0-9]",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Setup our application routes
