@@ -2,6 +2,7 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from . import views
 from .environment import settings
@@ -21,6 +22,9 @@ app = FastAPI(
     docs_url="/",
     redoc_url="/redoc",
 )
+
+# Include ProxyHeadersMiddleware to ensure that we use an HTTPS scheme even when we're behind proxies
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts='0.0.0.0')
 
 # Setup CORS rules to ensure that we can access the API from our front-end apps
 # We have to use the regex option, because for some reason the proper header isn't sent otherwise.
