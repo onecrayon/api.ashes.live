@@ -22,7 +22,7 @@ def replace_offset(url: str, offset: int) -> str:
     #  as HTTP internally)
     scheme = "https" if settings.env == "production" else url.scheme
     return urllib.parse.ParseResult(
-        url.scheme, url.netloc, url.path, url.params, encoded_query, url.fragment
+        scheme, url.netloc, url.path, url.params, encoded_query, url.fragment
     ).geturl()
 
 
