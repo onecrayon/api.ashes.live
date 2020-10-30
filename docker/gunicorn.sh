@@ -24,6 +24,8 @@ export ENV
 /usr/local/bin/gunicorn api:app \
   -k uvicorn.workers.UvicornWorker `# Establish Uvicorn as our worker class` \
   --workers=3 `# Workers generally should be (2 x $num_cores) + 1` \
+  --max-requests=2000 `# Each process will be restarted after this many requests (keep memory in check)`\
+  --max-requests-jitter=400 `# This ensures not all processes are restarted at the same time` \
   --bind='0.0.0.0:10000' `# Run API on 10000 port (Render's default)` \
   --chdir='/code'       `# Locations` \
   --log-file=- \
