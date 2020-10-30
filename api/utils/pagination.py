@@ -5,6 +5,7 @@ import urllib.parse
 from pydantic import AnyHttpUrl
 
 from api import db
+from api.environment import settings
 from api.schemas.pagination import PaginationOptions, PaginatedResultsBase
 
 
@@ -17,6 +18,9 @@ def replace_offset(url: str, offset: int) -> str:
     else:
         query_params["offset"] = [offset]
     encoded_query = urllib.parse.urlencode(query_params, doseq=True)
+    # Force HTTPS (unfortunately Render performs some hijinks that result in the scheme improperly being reported
+    #  as HTTP internally)
+    scheme = "https" if settings.env == "production" else url.scheme
     return urllib.parse.ParseResult(
         url.scheme, url.netloc, url.path, url.params, encoded_query, url.fragment
     ).geturl()
