@@ -148,6 +148,7 @@ class CardOut(BaseModel):
     life: Union[str, int] = None
     recover: Union[str, int] = None
     spellboard: int = None
+    copies: int = None
     effectRepeats: bool = None
     is_legacy: bool = None
 
