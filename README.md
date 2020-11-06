@@ -18,10 +18,14 @@ the standard [3 Musketeers](https://3musketeers.io/) pattern.
 ### Running on Windows
 
 **Please note:** in order to run Docker Desktop on Windows you will either need a recent copy of
-Windows 10 Home with [WSL 2 enabled](https://docs.microsoft.com/en-us/windows/wsl/install-win10),
-or Windows 10 Pro.
+Windows 10 with [WSL 2 enabled](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
 
-One easy way to install `make` on Windows:
+Because WSL 2 runs faster when files are living under the Linux filesystem, you will probably
+want to clone this repo into your Linux file system, install `make` under your Linux distro
+(if necessary) and then execute your make commands from the WSL command line (accessible via
+`wsl` in PowerShell, or by opening the Linux terminal directly).
+
+However, if for whatever reason you do want to install `make` on Windows, this is an easy way:
 
 1. Install the [Chocolatey](https://chocolatey.org/install) package manager
 2. Run `choco install make` in an elevated command prompt
