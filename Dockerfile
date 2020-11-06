@@ -20,7 +20,7 @@ ENV ENV=${ENV} \
   # tini:
   TINI_VERSION=v0.19.0 \
   # poetry:
-  POETRY_VERSION=1.1.3 \
+  POETRY_VERSION=1.1.4 \
   POETRY_VIRTUALENVS_CREATE=false \
   POETRY_CACHE_DIR='/var/cache/pypoetry'
 
