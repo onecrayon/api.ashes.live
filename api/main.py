@@ -25,7 +25,7 @@ app = FastAPI(
 # Setup CORS rules to ensure that we can access the API from our front-end apps
 # We have to use the regex option, because for some reason the proper header isn't sent otherwise.
 # This setup allows access from local development servers or the official Ashes.live domain
-cors_regex = "https://([a-z0-9_-]+\.)?ashes\.live"
+cors_regex = "https://([a-z0-9_-]+\.)?(ashes\.live|onrender\.com)"
 if settings.env != "production":
     cors_regex = "https?://localhost:300[0-9]"
 
