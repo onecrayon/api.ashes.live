@@ -51,7 +51,7 @@ def get_decks_query(
 )
 def list_decks(
     request: Request,
-    filters: DeckFilters = Depends(DeckFilters),
+    filters: DeckFilters = Depends(),
     order: PaginationOrderOptions = PaginationOrderOptions.desc,
     # Standard dependencies
     paging: PaginationOptions = Depends(paging_options),

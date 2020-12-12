@@ -7,15 +7,22 @@ from pydantic import BaseModel
 from api.schemas.pagination import PaginatedResultsBase
 
 
-class DeckFilters(BaseModel):
+class DeckFilters:
     """Query string parameters to filter a deck listing"""
 
-    q: str = None
-    # TODO: figure out how to get these darn things into the actual query string in the docs
-    phoenixborn: Optional[List[str]] = Query(None)
-    card: Optional[List[str]] = Query(None)
-    player: Optional[List[str]] = Query(None)
-    show_legacy: bool = False
+    def __init__(
+        self,
+        q: str = None,
+        phoenixborn: Optional[List[str]] = Query(None),
+        card: Optional[List[str]] = Query(None),
+        player: Optional[List[str]] = Query(None),
+        show_legacy: bool = False,
+    ):
+        self.q = q
+        self.phoenixborn = phoenixborn
+        self.card = card
+        self.player = player
+        self.show_legacy = show_legacy
 
 
 class DeckOut(BaseModel):
