@@ -82,6 +82,7 @@ from sqlalchemy.orm import (
     Query,
     aliased,
     joinedload,
+    contains_eager,
 )
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.engine import RowProxy
@@ -174,6 +175,7 @@ __all__ = (
     flag_modified,
     aliased,
     joinedload,
+    contains_eager,
 )
 
 # Setup base engine and session class
