@@ -28,7 +28,7 @@ from api.schemas.pagination import (
 )
 from api.services.card import create_card as create_card_service, MissingConjurations
 from api.utils.pagination import paginated_results_for_query
-from api.utils.helpers import stubify
+from api.utils.helpers import stubify, to_prefixed_tsquery
 
 router = APIRouter()
 
@@ -82,8 +82,8 @@ def list_cards(
     else:
         query = query.filter(Card.is_legacy.is_(False))
     # Add a search term, if we're using one
-    if q:
-        query = query.filter(db.func.to_tsvector("english", Card.search_text).match(q))
+    if q and q.strip():
+        query = query.filter(db.func.to_tsvector("english", Card.search_text).match(to_prefixed_tsquery(q)))
     # Filter by particular card types
     if types:
         card_types = set()

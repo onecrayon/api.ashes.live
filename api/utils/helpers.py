@@ -17,3 +17,11 @@ def str_or_int(value: str) -> Union[str, int]:
     if re.fullmatch(r"\d+", value):
         return int(value)
     return value
+
+
+def to_prefixed_tsquery(text: str) -> str:
+    """If `text` has no spaces, ensures that our TSQUERY tests for prefixes"""
+    text = text.strip()
+    if " " in text:
+        return text
+    return f"{text} | {text}:*"
