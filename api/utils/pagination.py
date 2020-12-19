@@ -29,7 +29,7 @@ def paginated_results_for_query(
     paging: PaginationOptions,
     url: str,
     row_to_dict: Callable[[db.RowProxy], dict] = None,
-) -> PaginatedResultsBase:
+) -> dict:
     """Generic pagination results output"""
     # Fetch count and actual query data
     total_rows = query.count()

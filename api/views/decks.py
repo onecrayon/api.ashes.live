@@ -1,3 +1,5 @@
+from collections import defaultdict, OrderedDict
+from operator import itemgetter
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, Request
@@ -5,6 +7,7 @@ from fastapi import APIRouter, Depends, Request
 from api import db
 from api.depends import paging_options, get_current_user, get_session
 from api.models import User, Deck, Card, DeckCard, DeckDie
+from api.models.card import CardConjuration, DiceFlags
 from api.schemas.decks import DeckFilters, DeckListingOut
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.utils.helpers import to_prefixed_tsquery
@@ -72,9 +75,166 @@ def get_decks_query(
     return query.order_by(getattr(Deck.created, order)())
 
 
+def add_conjurations(card_id_to_conjuration_mapping, root_card_id, conjuration_set):
+    """Grabs out all necessary conjurations, updating the mapping and set by in place"""
+    conjurations = card_id_to_conjuration_mapping.get(root_card_id)
+    if not conjurations:
+        return
+    for conjuration in conjurations:
+        conjuration_set.add(conjuration)
+        # In the rare instance that we have a conjuration chain, we'll do a further lookup
+        #  then cache the results
+        if conjuration.json.get("conjurations"):
+            # Trigger our implicit SQL lookup if we haven't cached it before
+            if not card_id_to_conjuration_mapping.get(conjuration.id):
+                card_id_to_conjuration_mapping[
+                    conjuration.id
+                ] = conjuration.conjurations
+            add_conjurations(
+                card_id_to_conjuration_mapping, conjuration.id, conjuration_set
+            )
+
+
+def paginate_deck_listing(
+    query: db.Query, session: db.Session, request: Request, paging: PaginationOptions
+) -> dict:
+    # Gather our paginated results
+    output = paginated_results_for_query(
+        query=query, paging=paging, url=str(request.url)
+    )
+    # Parse through the decks so that we can load their cards en masse with a single query
+    deck_ids = set()
+    needed_cards = set()
+    for deck_row in output["results"]:
+        deck_ids.add(deck_row.id)
+        # Ensure we lookup our Phoenixborn cards
+        needed_cards.add(deck_row.phoenixborn_id)
+    # Fetch and collate our dice information for all decks
+    deck_dice = session.query(DeckDie).filter(DeckDie.deck_id.in_(deck_ids)).all()
+    deck_id_to_dice = defaultdict(list)
+    for deck_die in deck_dice:
+        deck_id_to_dice[deck_die.deck_id].append(
+            {
+                "count": deck_die.count,
+                "name": DiceFlags(deck_die.die_flag).name,
+            }
+        )
+    # Now that we have all our basic deck information, look up the cards and quantities they include
+    deck_cards = session.query(DeckCard).filter(DeckCard.deck_id.in_(deck_ids)).all()
+    deck_id_to_deck_cards = defaultdict(list)
+    for deck_card in deck_cards:
+        needed_cards.add(deck_card.card_id)
+        deck_id_to_deck_cards[deck_card.deck_id].append(
+            {
+                "count": deck_card.count,
+                "card_id": deck_card.card_id,
+            }
+        )
+    # And finally we need to fetch all top-level conjurations
+    conjuration_results = (
+        session.query(Card, CardConjuration.card_id.label("root_card"))
+        .join(CardConjuration, Card.id == CardConjuration.conjuration_id)
+        .filter(CardConjuration.card_id.in_(needed_cards))
+        .all()
+    )
+    card_id_to_conjurations = defaultdict(list)
+    for result in conjuration_results:
+        card_id_to_conjurations[result.root_card].append(result.Card)
+    # Now that we have root-level conjurations, we can gather all our cards and setup our decks
+    cards = session.query(Card).filter(Card.id.in_(needed_cards)).all()
+    card_id_to_card = {x.id: x for x in cards}
+    deck_output = []
+    for deck in output["results"]:
+        section_map = OrderedDict(
+            [
+                ("Ready Spells", []),
+                ("Allies", []),
+                ("Alteration Spells", []),
+                ("Action Spells", []),
+                ("Reaction Spells", []),
+                ("Conjuration Pile", set()),
+            ]
+        )
+        for deck_card in deck_id_to_deck_cards.get(deck.id, []):
+            card = card_id_to_card[deck_card["card_id"]]
+            # Convert card type so that we can stick it in our section mapping
+            card_type = card.card_type
+            if card_type.endswith("y"):
+                card_type = card_type[:-1] + "ies"
+            else:
+                card_type = card_type + "s"
+            section_map[card_type].append(
+                {
+                    "count": deck_card["count"],
+                    "name": card.name,
+                    "stub": card.stub,
+                    "type": card.card_type,
+                    "phoenixborn": card.phoenixborn,
+                }
+            )
+            add_conjurations(
+                card_id_to_conjurations, card.id, section_map["Conjuration Pile"]
+            )
+
+        phoenixborn = card_id_to_card[deck.phoenixborn_id]
+        add_conjurations(
+            card_id_to_conjurations, phoenixborn.id, section_map["Conjuration Pile"]
+        )
+        section_map["Conjuration Pile"] = sorted(
+            [
+                {
+                    "count": x.copies,
+                    "name": x.name,
+                    "stub": x.stub,
+                    "type": x.card_type,
+                    "phoenixborn": x.phoenixborn,
+                }
+                for x in section_map["Conjuration Pile"]
+            ],
+            key=itemgetter("name"),
+        )
+
+        # Compose our basic deck output dictionary
+        deck_dict = {
+            "id": deck.id,
+            "entity_id": deck.entity_id,
+            "source_id": deck.source_id,
+            "title": deck.title,
+            "created": deck.created,
+            "modified": deck.modified,
+            "user": deck.user,
+            "dice": deck_id_to_dice.get(deck.id),
+            "phoenixborn": {
+                "name": phoenixborn.name,
+                "stub": phoenixborn.stub,
+                "battlefield": phoenixborn.json["battlefield"],
+                "life": phoenixborn.json["life"],
+                "spellboard": phoenixborn.json["spellboard"],
+            },
+            "deck": [
+                {
+                    "heading": key,
+                    "count": sum(x["count"] for x in value),
+                    "cards": value,
+                }
+                for key, value in section_map.items()
+                if value
+            ],
+        }
+        # Legacy-only data
+        if deck.is_legacy:
+            deck_dict["is_legacy"] = True
+            deck_dict["ashes_500_score"] = deck.ashes_500_score
+            deck_dict["ashes_500_revision_id"] = deck.ashes_500_revision_id
+        deck_output.append(deck_dict)
+    output["results"] = deck_output
+    return output
+
+
 @router.get(
     "/decks",
     response_model=DeckListingOut,
+    response_model_exclude_unset=True,
 )
 def list_decks(
     request: Request,
@@ -82,7 +242,6 @@ def list_decks(
     order: PaginationOrderOptions = PaginationOrderOptions.desc,
     # Standard dependencies
     paging: PaginationOptions = Depends(paging_options),
-    current_user: "User" = Depends(get_current_user),
     session: db.Session = Depends(get_session),
 ):
     """Get a paginated listing of decks with optional filters.
@@ -104,11 +263,4 @@ def list_decks(
         cards=filters.card,
         players=filters.player,
     )
-    # TODO: figure out how to gather up cards, conjurations, etc. and compile them in our output
-    # .options(
-    #     db.joinedload("phoenixborn").joinedload("conjurations"),
-    #     db.joinedload("cards").joinedload("card").joinedload("conjurations"),
-    #     db.joinedload("dice"),
-    #     db.joinedload("user"),
-    # )
-    return paginated_results_for_query(query=query, paging=paging, url=str(request.url))
+    return paginate_deck_listing(query, session, request, paging)

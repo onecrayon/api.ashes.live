@@ -40,15 +40,20 @@ class UserRegistrationIn(UserSetPasswordIn):
     newsletter_opt_in: bool = False
 
 
-class UserPublicOut(BaseModel):
-    """Public user information"""
+class UserBasicOut(BaseModel):
+    """Basic public user information"""
 
     username: str
     badge: str
-    description: Optional[str]
 
     class Config:
         orm_mode = True
+
+
+class UserPublicOut(UserBasicOut):
+    """Public user information"""
+
+    description: Optional[str]
 
 
 class UserSelfOut(UserPublicOut):

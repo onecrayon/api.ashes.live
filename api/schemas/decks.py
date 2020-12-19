@@ -5,6 +5,7 @@ from fastapi import Query
 from pydantic import BaseModel
 
 from api.schemas.pagination import PaginatedResultsBase
+from api.schemas.user import UserBasicOut
 
 
 class DeckFilters:
@@ -25,13 +26,57 @@ class DeckFilters:
         self.show_legacy = show_legacy
 
 
+class PhoenixbornCardOut(BaseModel):
+    """Minimal card output information"""
+
+    name: str
+    stub: str
+    battlefield: int
+    life: int
+    spellboard: int
+
+
+class DeckCardOut(BaseModel):
+    """Output for cards that are included in a deck"""
+
+    count: int
+    name: str
+    stub: str
+    type: str
+    phoenixborn: str = None
+
+
+class CardSectionOut(BaseModel):
+    """Cards sorted by type"""
+
+    heading: str
+    count: int
+    cards: List[DeckCardOut]
+
+
+class DeckDiceOut(BaseModel):
+    """Dice associated with the deck"""
+
+    count: int
+    name: str
+
+
 class DeckOut(BaseModel):
     """The standard JSON output for a deck."""
 
+    id: int
+    entity_id: int
+    source_id: int = None
     title: str
     created: datetime
-    description: str = None
+    modified: datetime
+    user: UserBasicOut
+    dice: List[DeckDiceOut]
+    phoenixborn: PhoenixbornCardOut
+    deck: List[CardSectionOut]
     is_legacy: bool = None
+    ashes_500_score: int = None
+    ashes_500_revision_id: int = None
 
     class Config:
         orm_mode = True
