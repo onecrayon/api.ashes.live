@@ -152,9 +152,10 @@ def paginate_deck_listing(
                 ("Alteration Spells", []),
                 ("Action Spells", []),
                 ("Reaction Spells", []),
-                ("Conjuration Pile", set()),
+                ("Conjuration Pile", []),
             ]
         )
+        conjuration_set = set()
         for deck_card in deck_id_to_deck_cards.get(deck.id, []):
             card = card_id_to_card[deck_card["card_id"]]
             # Convert card type so that we can stick it in our section mapping
@@ -172,27 +173,20 @@ def paginate_deck_listing(
                     "phoenixborn": card.phoenixborn,
                 }
             )
-            add_conjurations(
-                card_id_to_conjurations, card.id, section_map["Conjuration Pile"]
-            )
+            add_conjurations(card_id_to_conjurations, card.id, conjuration_set)
 
         phoenixborn = card_id_to_card[deck.phoenixborn_id]
-        add_conjurations(
-            card_id_to_conjurations, phoenixborn.id, section_map["Conjuration Pile"]
-        )
-        section_map["Conjuration Pile"] = sorted(
-            [
-                {
-                    "count": x.copies,
-                    "name": x.name,
-                    "stub": x.stub,
-                    "type": x.card_type,
-                    "phoenixborn": x.phoenixborn,
-                }
-                for x in section_map["Conjuration Pile"]
-            ],
-            key=itemgetter("name"),
-        )
+        add_conjurations(card_id_to_conjurations, phoenixborn.id, conjuration_set)
+        section_map["Conjuration Pile"] = [
+            {
+                "count": x.copies,
+                "name": x.name,
+                "stub": x.stub,
+                "type": x.card_type,
+                "phoenixborn": x.phoenixborn,
+            }
+            for x in conjuration_set
+        ]
 
         # Compose our basic deck output dictionary
         deck_dict = {
@@ -215,7 +209,7 @@ def paginate_deck_listing(
                 {
                     "heading": key,
                     "count": sum(x["count"] for x in value),
-                    "cards": value,
+                    "cards": sorted(value, key=itemgetter("name")),
                 }
                 for key, value in section_map.items()
                 if value
