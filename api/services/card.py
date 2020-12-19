@@ -2,7 +2,7 @@ import re
 from typing import List, Union
 
 from api import db
-from api.models.card import Card, conjurations_table
+from api.models.card import Card, CardConjuration
 from api.models.release import Release
 from api.utils.helpers import stubify, str_or_int
 
@@ -242,9 +242,6 @@ def create_card(
     # Now that we have a card entry, we can populate the conjuration relationship(s)
     if existing_conjurations:
         for conjuration in existing_conjurations:
-            session.execute(
-                conjurations_table.insert().values(
-                    card_id=card.id, conjuration_id=conjuration.id
-                )
-            )
+            session.add(CardConjuration(card_id=card.id, conjuration_id=conjuration.id))
+        session.commit()
     return card
