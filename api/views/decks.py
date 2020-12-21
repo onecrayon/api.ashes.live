@@ -145,26 +145,11 @@ def paginate_deck_listing(
     card_id_to_card = {x.id: x for x in cards}
     deck_output = []
     for deck in output["results"]:
-        section_map = OrderedDict(
-            [
-                ("Ready Spells", []),
-                ("Allies", []),
-                ("Alteration Spells", []),
-                ("Action Spells", []),
-                ("Reaction Spells", []),
-                ("Conjuration Pile", []),
-            ]
-        )
+        card_output = []
         conjuration_set = set()
         for deck_card in deck_id_to_deck_cards.get(deck.id, []):
             card = card_id_to_card[deck_card["card_id"]]
-            # Convert card type so that we can stick it in our section mapping
-            card_type = card.card_type
-            if card_type.endswith("y"):
-                card_type = card_type[:-1] + "ies"
-            else:
-                card_type = card_type + "s"
-            section_map[card_type].append(
+            card_output.append(
                 {
                     "count": deck_card["count"],
                     "name": card.name,
@@ -177,7 +162,7 @@ def paginate_deck_listing(
 
         phoenixborn = card_id_to_card[deck.phoenixborn_id]
         add_conjurations(card_id_to_conjurations, phoenixborn.id, conjuration_set)
-        section_map["Conjuration Pile"] = [
+        conjuration_output = [
             {
                 "count": x.copies,
                 "name": x.name,
@@ -205,15 +190,8 @@ def paginate_deck_listing(
                 "life": phoenixborn.json["life"],
                 "spellboard": phoenixborn.json["spellboard"],
             },
-            "deck": [
-                {
-                    "heading": key,
-                    "count": sum(x["count"] for x in value),
-                    "cards": sorted(value, key=itemgetter("name")),
-                }
-                for key, value in section_map.items()
-                if value
-            ],
+            "cards": sorted(card_output, key=itemgetter("name")),
+            "conjurations": sorted(conjuration_output, key=itemgetter("name")),
         }
         # Legacy-only data
         if deck.is_legacy:

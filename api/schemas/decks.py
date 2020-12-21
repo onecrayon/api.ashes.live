@@ -46,15 +46,7 @@ class DeckCardOut(BaseModel):
     phoenixborn: str = None
 
 
-class CardSectionOut(BaseModel):
-    """Cards sorted by type"""
-
-    heading: str
-    count: int
-    cards: List[DeckCardOut]
-
-
-class DeckDiceOut(BaseModel):
+class DeckDice(BaseModel):
     """Dice associated with the deck"""
 
     count: int
@@ -71,9 +63,10 @@ class DeckOut(BaseModel):
     created: datetime
     modified: datetime
     user: UserBasicOut
-    dice: List[DeckDiceOut]
+    dice: List[DeckDice]
     phoenixborn: PhoenixbornCardOut
-    deck: List[CardSectionOut]
+    cards: List[DeckCardOut]
+    conjurations: List[DeckCardOut]
     is_legacy: bool = None
     ashes_500_score: int = None
     ashes_500_revision_id: int = None
