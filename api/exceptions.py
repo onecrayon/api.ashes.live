@@ -35,6 +35,13 @@ class BannedUserException(APIException):
     )
 
 
+class NoUserAccessException(APIException):
+    """Default exception when a user tries to access something they do not have permission for"""
+
+    status_code = status.HTTP_403_FORBIDDEN
+    detail = "You do not have access to this resource."
+
+
 class NotFoundException(APIException):
     """Standard "item not found" exception."""
 

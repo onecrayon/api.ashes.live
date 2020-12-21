@@ -5,11 +5,20 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, Request
 
 from api import db
-from api.depends import paging_options, get_current_user, get_session
+from api.depends import (
+    paging_options,
+    get_current_user,
+    get_session,
+    login_required,
+    AUTH_RESPONSES,
+)
+from api.exceptions import NoUserAccessException, APIException, NotFoundException
 from api.models import User, Deck, Card, DeckCard, DeckDie
 from api.models.card import CardConjuration, DiceFlags
-from api.schemas.decks import DeckFilters, DeckListingOut
+from api.schemas import DetailResponse
+from api.schemas.decks import DeckFilters, DeckListingOut, DeckOut, DeckIn
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
+from api.services.deck import create_or_update_deck, NoSuchDeck
 from api.utils.helpers import to_prefixed_tsquery
 from api.utils.pagination import paginated_results_for_query
 
@@ -236,3 +245,61 @@ def list_decks(
         players=filters.player,
     )
     return paginate_deck_listing(query, session, request, paging)
+
+
+@router.put(
+    "/decks",
+    response_model=DeckOut,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Deck creation failed.",
+        },
+        **AUTH_RESPONSES,
+    },
+)
+def save_deck(
+    data: DeckIn,
+    session: db.Session = Depends(get_session),
+    current_user: "User" = Depends(login_required),
+):
+    """Create or update a deck in place.
+
+    **This is not a patch!** You must pass the entire deck object in the body every time, and it
+    will only be treated as an update if there is an ID included.
+    """
+    # Verify that the user has access to this deck, if we're saving over an existing deck
+    if data.id:
+        deck_check = session.query(Deck.user_id).get(data.id)
+        if not deck_check or deck_check.user_id != current_user.id:
+            raise NoUserAccessException(detail="You cannot save a deck you do not own.")
+    # Ensure we have a Phoenixborn stub
+    phoenixborn_stub = (
+        data.phoenixborn
+        if isinstance(data.phoenixborn, str)
+        else data.phoenixborn.get("stub")
+    )
+    phoenixborn = (
+        session.query(Card.id)
+        .filter(Card.stub == phoenixborn_stub, Card.is_legacy.is_(False))
+        .first()
+    )
+    if not phoenixborn:
+        raise APIException(detail="Valid Phoenixborn is required.")
+    try:
+        deck = create_or_update_deck(
+            session,
+            phoenixborn_id=phoenixborn_id,
+            deck_id=data.id,
+            title=data.title,
+            description=data.description,
+            dice=[x.dict() for x in data.dice] if data.dice else None,
+            cards=[x.dict() for x in data.cards] if data.cards else None,
+        )
+    except NoSuchDeck:
+        raise NotFoundException()
+    except:
+        # TODO: handle specific exceptions raised by the service
+        pass
+    # TODO: format the deck into standard DeckOut output dict and return
+    return {"detail": "Worked!"}

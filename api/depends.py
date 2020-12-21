@@ -26,7 +26,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="v2/token", auto_error=False)
 
 AUTH_RESPONSES = {
     401: {"model": DetailResponse, "description": "Invalid credentials."},
-    403: {"model": DetailResponse, "description": "User has been banned."},
+    403: {
+        "model": DetailResponse,
+        "description": "User has been banned or otherwise lacks permission to access this resource.",
+    },
 }
 
 

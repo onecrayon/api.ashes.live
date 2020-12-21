@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union, Dict
 
 from fastapi import Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, validator
 
 from api.schemas.pagination import PaginatedResultsBase
 from api.schemas.user import UserBasicOut
@@ -49,8 +49,31 @@ class DeckCardOut(BaseModel):
 class DeckDice(BaseModel):
     """Dice associated with the deck"""
 
-    count: int
+    count: int = Field(
+        ...,
+        ge=1,
+        le=10,
+    )
     name: str
+
+    @validator("name")
+    def name_is_valid_dice_type(cls, value):
+        value = value.lower()
+        # This is a common mistake, so we'll just handle it (on the off chance people are using the
+        #  API by hand)
+        if value == "nature":
+            value = "natural"
+        if value not in (
+            "ceremonial",
+            "charm",
+            "illusion",
+            "natural",
+            "divine",
+            "sympathy",
+            "time",
+        ):
+            raise ValueError("invalid dice type.")
+        return value
 
 
 class DeckOut(BaseModel):
@@ -79,3 +102,32 @@ class DeckListingOut(PaginatedResultsBase):
     """Filtered listing of decks"""
 
     results: List[DeckOut] = []
+
+
+class DeckCardIn(BaseModel):
+    """The minimal information necessary to populate a deck with cards."""
+
+    count: int = Field(
+        ...,
+        description="The quantity of this card to include in the deck.",
+        ge=1,
+        le=3,
+    )
+    stub: str
+
+
+class DeckIn(BaseModel):
+    id: int = Field(
+        None, description="If no `id` is provided, a new deck will be created."
+    )
+    title: str = Field(
+        None,
+        max_length=255,
+    )
+    description: str = None
+    dice: List[DeckDice] = None
+    phoenixborn: Union[str, Dict[str, Union[str, int]]] = Field(
+        ...,
+        description="The stub or an object containing at minimum a `stub` property representing the Phoenixborn for this deck.",
+    )
+    cards: List[DeckCardIn]
