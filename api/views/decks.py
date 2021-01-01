@@ -1,6 +1,6 @@
 from collections import defaultdict, OrderedDict
 from operator import itemgetter
-from typing import Optional, List
+from typing import Optional, List, Dict, Set
 
 from fastapi import APIRouter, Depends, Request
 
@@ -104,9 +104,113 @@ def add_conjurations(card_id_to_conjuration_mapping, root_card_id, conjuration_s
             )
 
 
+def get_conjuration_mapping(session: db.Session, card_ids: Set[int]) -> dict:
+    """Gathers top-level conjurations into a mapping keyed off the root card ID"""
+    conjuration_results = (
+        session.query(Card, CardConjuration.card_id.label("root_card"))
+        .join(CardConjuration, Card.id == CardConjuration.conjuration_id)
+        .filter(CardConjuration.card_id.in_(card_ids))
+        .all()
+    )
+    card_id_to_conjurations = defaultdict(list)
+    for result in conjuration_results:
+        card_id_to_conjurations[result.root_card].append(result.Card)
+    return card_id_to_conjurations
+
+
+def generate_deck_dict(
+    deck: Deck,
+    card_id_to_card: Dict[int, Card],
+    card_id_to_conjurations: Dict[int, List[Card]],
+    deck_cards: List[DeckCard] = None,
+    deck_dice: List[DeckDie] = None,
+) -> dict:
+    """Formats a deck into the standard deck output dict after looking up card data beforehand.
+
+    Requires all cards used by the deck to be looked up ahead of time and passed as the
+    `card_id_to_card` mapping (ensures that we limit the number of SQL queries by preventing
+    implicit lookups through SQLAlchemy).
+
+    Similarly, requires all top-level conjurations for cards in `card_id_to_card` to be included in
+    the `card_id_to_conjurations` mapping (which will be modified in place as conjuration chains are
+    discovered).
+
+    Also, all DeckCards and DeckDice must be looked up ahead of time and passed through as
+    `deck_cards` and `deck_dice`, respectively.
+    """
+    card_output = []
+    conjuration_set = set()
+    if deck_cards:
+        for deck_card in deck_cards:
+            card = card_id_to_card[deck_card.card_id]
+            card_output.append(
+                {
+                    "count": deck_card.count,
+                    "name": card.name,
+                    "stub": card.stub,
+                    "type": card.card_type,
+                    "phoenixborn": card.phoenixborn,
+                    "is_legacy": card.is_legacy,
+                }
+            )
+            add_conjurations(card_id_to_conjurations, card.id, conjuration_set)
+
+    phoenixborn = card_id_to_card[deck.phoenixborn_id]
+    add_conjurations(card_id_to_conjurations, phoenixborn.id, conjuration_set)
+    conjuration_output = [
+        {
+            "count": x.copies,
+            "name": x.name,
+            "stub": x.stub,
+            "type": x.card_type,
+            "phoenixborn": x.phoenixborn,
+            "is_legacy": x.is_legacy,
+        }
+        for x in conjuration_set
+    ]
+
+    # Compose our basic deck output dictionary
+    deck_dice_dict = None
+    if deck_dice:
+        deck_dice_dict = [
+            {
+                "count": deck_die.count,
+                "name": DiceFlags(deck_die.die_flag).name,
+            }
+            for deck_die in deck_dice
+        ]
+    deck_dict = {
+        "id": deck.id,
+        "entity_id": deck.entity_id,
+        "source_id": deck.source_id,
+        "title": deck.title,
+        "created": deck.created,
+        "modified": deck.modified,
+        "user": deck.user,
+        "dice": deck_dice_dict,
+        "phoenixborn": {
+            "name": phoenixborn.name,
+            "stub": phoenixborn.stub,
+            "battlefield": phoenixborn.json["battlefield"],
+            "life": phoenixborn.json["life"],
+            "spellboard": phoenixborn.json["spellboard"],
+            "is_legacy": phoenixborn.is_legacy,
+        },
+        "cards": sorted(card_output, key=itemgetter("name")),
+        "conjurations": sorted(conjuration_output, key=itemgetter("name")),
+    }
+    # Legacy-only data
+    if deck.is_legacy:
+        deck_dict["is_legacy"] = True
+        deck_dict["ashes_500_score"] = deck.ashes_500_score
+        deck_dict["ashes_500_revision_id"] = deck.ashes_500_revision_id
+    return deck_dict
+
+
 def paginate_deck_listing(
     query: db.Query, session: db.Session, request: Request, paging: PaginationOptions
 ) -> dict:
+    """Generates a paginated deck listing using as few queries as possible."""
     # Gather our paginated results
     output = paginated_results_for_query(
         query=query, paging=paging, url=str(request.url)
@@ -122,97 +226,57 @@ def paginate_deck_listing(
     deck_dice = session.query(DeckDie).filter(DeckDie.deck_id.in_(deck_ids)).all()
     deck_id_to_dice = defaultdict(list)
     for deck_die in deck_dice:
-        deck_id_to_dice[deck_die.deck_id].append(
-            {
-                "count": deck_die.count,
-                "name": DiceFlags(deck_die.die_flag).name,
-            }
-        )
+        deck_id_to_dice[deck_die.deck_id].append(deck_die)
     # Now that we have all our basic deck information, look up the cards and quantities they include
     deck_cards = session.query(DeckCard).filter(DeckCard.deck_id.in_(deck_ids)).all()
     deck_id_to_deck_cards = defaultdict(list)
     for deck_card in deck_cards:
         needed_cards.add(deck_card.card_id)
-        deck_id_to_deck_cards[deck_card.deck_id].append(
-            {
-                "count": deck_card.count,
-                "card_id": deck_card.card_id,
-            }
-        )
+        deck_id_to_deck_cards[deck_card.deck_id].append(deck_card)
     # And finally we need to fetch all top-level conjurations
-    conjuration_results = (
-        session.query(Card, CardConjuration.card_id.label("root_card"))
-        .join(CardConjuration, Card.id == CardConjuration.conjuration_id)
-        .filter(CardConjuration.card_id.in_(needed_cards))
-        .all()
+    card_id_to_conjurations = get_conjuration_mapping(
+        session=session, card_ids=needed_cards
     )
-    card_id_to_conjurations = defaultdict(list)
-    for result in conjuration_results:
-        card_id_to_conjurations[result.root_card].append(result.Card)
     # Now that we have root-level conjurations, we can gather all our cards and setup our decks
     cards = session.query(Card).filter(Card.id.in_(needed_cards)).all()
     card_id_to_card = {x.id: x for x in cards}
     deck_output = []
     for deck in output["results"]:
-        card_output = []
-        conjuration_set = set()
-        for deck_card in deck_id_to_deck_cards.get(deck.id, []):
-            card = card_id_to_card[deck_card["card_id"]]
-            card_output.append(
-                {
-                    "count": deck_card["count"],
-                    "name": card.name,
-                    "stub": card.stub,
-                    "type": card.card_type,
-                    "phoenixborn": card.phoenixborn,
-                    "is_legacy": card.is_legacy,
-                }
+        deck_output.append(
+            generate_deck_dict(
+                deck=deck,
+                card_id_to_card=card_id_to_card,
+                card_id_to_conjurations=card_id_to_conjurations,
+                deck_cards=deck_id_to_deck_cards[deck.id],
+                deck_dice=deck_id_to_dice.get(deck.id),
             )
-            add_conjurations(card_id_to_conjurations, card.id, conjuration_set)
-
-        phoenixborn = card_id_to_card[deck.phoenixborn_id]
-        add_conjurations(card_id_to_conjurations, phoenixborn.id, conjuration_set)
-        conjuration_output = [
-            {
-                "count": x.copies,
-                "name": x.name,
-                "stub": x.stub,
-                "type": x.card_type,
-                "phoenixborn": x.phoenixborn,
-                "is_legacy": x.is_legacy,
-            }
-            for x in conjuration_set
-        ]
-
-        # Compose our basic deck output dictionary
-        deck_dict = {
-            "id": deck.id,
-            "entity_id": deck.entity_id,
-            "source_id": deck.source_id,
-            "title": deck.title,
-            "created": deck.created,
-            "modified": deck.modified,
-            "user": deck.user,
-            "dice": deck_id_to_dice.get(deck.id),
-            "phoenixborn": {
-                "name": phoenixborn.name,
-                "stub": phoenixborn.stub,
-                "battlefield": phoenixborn.json["battlefield"],
-                "life": phoenixborn.json["life"],
-                "spellboard": phoenixborn.json["spellboard"],
-                "is_legacy": phoenixborn.is_legacy,
-            },
-            "cards": sorted(card_output, key=itemgetter("name")),
-            "conjurations": sorted(conjuration_output, key=itemgetter("name")),
-        }
-        # Legacy-only data
-        if deck.is_legacy:
-            deck_dict["is_legacy"] = True
-            deck_dict["ashes_500_score"] = deck.ashes_500_score
-            deck_dict["ashes_500_revision_id"] = deck.ashes_500_revision_id
-        deck_output.append(deck_dict)
+        )
     output["results"] = deck_output
     return output
+
+
+def deck_to_dict(session: db.Session, deck: Deck) -> dict:
+    """Converts a Deck object into an output dict using as few queries as possible."""
+    needed_cards = set()
+    needed_cards.add(deck.phoenixborn_id)
+    deck_cards = session.query(DeckCard).filter(DeckCard.deck_id == deck.id).all()
+    for deck_card in deck_cards:
+        needed_cards.add(deck_card.card_id)
+    deck_dice = session.query(DeckDie).filter(DeckDie.deck_id == deck.id).all()
+    # And finally we need to fetch all top-level conjurations
+    card_id_to_conjurations = get_conjuration_mapping(
+        session=session, card_ids=needed_cards
+    )
+    # Now that we have root-level conjurations, we can gather all our cards and generate deck output
+    cards = session.query(Card).filter(Card.id.in_(needed_cards)).all()
+    card_id_to_card = {x.id: x for x in cards}
+    return generate_deck_dict(
+        deck=deck,
+        card_id_to_card=card_id_to_card,
+        card_id_to_conjurations=card_id_to_conjurations,
+        deck_cards=deck_cards,
+        deck_dice=deck_dice,
+    )
 
 
 @router.get(
@@ -312,8 +376,4 @@ def save_deck(
         raise APIException(
             detail="Your deck listing includes a Phoenixborn. Please pass the Phoenixborn at the root level of the deck object."
         )
-    except:
-        # TODO: handle specific exceptions raised by the service
-        pass
-    # TODO: format the deck into standard DeckOut output dict and return
-    return {"detail": "Worked!"}
+    return deck_to_dict(deck)
