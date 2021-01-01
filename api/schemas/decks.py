@@ -34,6 +34,7 @@ class PhoenixbornCardOut(BaseModel):
     battlefield: int
     life: int
     spellboard: int
+    is_legacy: bool = None
 
 
 class DeckCardOut(BaseModel):
@@ -44,6 +45,7 @@ class DeckCardOut(BaseModel):
     stub: str
     type: str
     phoenixborn: str = None
+    is_legacy: bool = None
 
 
 class DeckDice(BaseModel):

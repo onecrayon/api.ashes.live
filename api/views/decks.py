@@ -165,6 +165,7 @@ def paginate_deck_listing(
                     "stub": card.stub,
                     "type": card.card_type,
                     "phoenixborn": card.phoenixborn,
+                    "is_legacy": card.is_legacy,
                 }
             )
             add_conjurations(card_id_to_conjurations, card.id, conjuration_set)
@@ -178,6 +179,7 @@ def paginate_deck_listing(
                 "stub": x.stub,
                 "type": x.card_type,
                 "phoenixborn": x.phoenixborn,
+                "is_legacy": x.is_legacy,
             }
             for x in conjuration_set
         ]
@@ -198,6 +200,7 @@ def paginate_deck_listing(
                 "battlefield": phoenixborn.json["battlefield"],
                 "life": phoenixborn.json["life"],
                 "spellboard": phoenixborn.json["spellboard"],
+                "is_legacy": phoenixborn.is_legacy,
             },
             "cards": sorted(card_output, key=itemgetter("name")),
             "conjurations": sorted(conjuration_output, key=itemgetter("name")),
