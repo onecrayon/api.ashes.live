@@ -302,6 +302,9 @@ def save_deck(
             description=data.description,
             dice=[x.dict() for x in data.dice] if data.dice else None,
             cards=[x.dict() for x in data.cards] if data.cards else None,
+            first_five=data.first_five,
+            effect_costs=data.effect_costs,
+            tutor_map=data.tutor_map,
         )
     except NoSuchDeck:
         raise NotFoundException()

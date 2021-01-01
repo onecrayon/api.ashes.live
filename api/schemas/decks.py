@@ -133,3 +133,15 @@ class DeckIn(BaseModel):
         description="The stub or an object containing at minimum a `stub` property representing the Phoenixborn for this deck.",
     )
     cards: List[DeckCardIn]
+    first_five: List[str] = Field(
+        None,
+        description="A list of up to five card stubs intended as the typical First Five.",
+    )
+    effect_costs: List[str] = Field(
+        None,
+        description="A list of card stubs in the First Five (or the Phoenixborn) whose effects are expected to be paid in the first round.",
+    )
+    tutor_map: Dict[str, str] = Field(
+        None,
+        description="An object with tutor card stubs in the First Five as keys, and the tutored card stubs as values.",
+    )
