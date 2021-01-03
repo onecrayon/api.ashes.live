@@ -95,10 +95,17 @@ class DeckOut(BaseModel):
     is_legacy: bool = None
     ashes_500_score: int = None
     ashes_500_revision_id: int = None
-    is_saved: bool = None
 
     class Config:
         orm_mode = True
+
+
+class DeckFullOut(DeckOut):
+    """Full deck information."""
+
+    description: str = None
+    is_public: bool
+    is_saved: bool = None
 
 
 class DeckRelease(BaseModel):
@@ -113,7 +120,7 @@ class DeckRelease(BaseModel):
 class DeckDetails(BaseModel):
     """JSON output for a deck's details, including required releases and card listing."""
 
-    deck: DeckOut
+    deck: DeckFullOut
     releases: List[DeckRelease]
 
 

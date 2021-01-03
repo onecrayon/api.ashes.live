@@ -117,13 +117,13 @@ def get_deck(
     #  conditionals to make things more readable)
     # Public snapshots simply get returned
     if source_deck.is_snapshot and source_deck.is_public:
-        deck_dict = deck_to_dict(session, deck=source_deck)
+        deck_dict = deck_to_dict(session, deck=source_deck, include_full_deck=True)
     # Private snapshots get returned if the user owns the deck
     elif source_deck.is_snapshot and own_deck:
-        deck_dict = deck_to_dict(session, deck=source_deck)
+        deck_dict = deck_to_dict(session, deck=source_deck, include_full_deck=True)
     # The actual deck gets returned if we are showing the latest saved copy
     elif not source_deck.is_snapshot and own_deck and show_saved:
-        deck_dict = deck_to_dict(session, deck=source_deck)
+        deck_dict = deck_to_dict(session, deck=source_deck, include_full_deck=True)
     # By default, re-route to the latest public snapshot
     else:
         deck = (
@@ -138,7 +138,7 @@ def get_deck(
         )
         if not deck:
             raise NotFoundException(detail="Deck not found.")
-        deck_dict = deck_to_dict(session, deck=deck)
+        deck_dict = deck_to_dict(session, deck=deck, include_full_deck=True)
 
     # Add our `is_saved` flag, if we're viewing a saved deck
     if not source_deck.is_snapshot and show_saved:
