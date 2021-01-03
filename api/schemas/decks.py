@@ -105,7 +105,9 @@ class DeckFullOut(DeckOut):
 
     description: str = None
     is_public: bool
+    # These are generated properties; not innate parts of the Deck model
     is_saved: bool = None
+    comments_entity_id: int
 
 
 class DeckRelease(BaseModel):

@@ -415,4 +415,8 @@ def deck_to_dict(session: db.Session, deck: Deck, include_full_deck=False) -> di
     if include_full_deck:
         deck_dict["description"] = deck.description
         deck_dict["is_public"] = deck.is_public
+        # This is an implicit SQL lookup, but it's going to require a lookup either way, so meh
+        deck_dict["comments_entity_id"] = (
+            deck.source.entity_id if deck.source_id else deck.entity_id
+        )
     return deck_dict
