@@ -100,6 +100,22 @@ class DeckOut(BaseModel):
         orm_mode = True
 
 
+class DeckRelease(BaseModel):
+    """Information about a release required to build a deck."""
+
+    name: str
+    stub: str
+    is_legacy: bool = None
+    preconstructed_deck_id: int = None
+
+
+class DeckDetails(BaseModel):
+    """JSON output for a deck's details, including required releases and card listing."""
+
+    deck: DeckOut
+    releases: List[DeckRelease]
+
+
 class DeckListingOut(PaginatedResultsBase):
     """Filtered listing of decks"""
 

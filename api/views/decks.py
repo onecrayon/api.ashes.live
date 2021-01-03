@@ -11,9 +11,9 @@ from api.depends import (
     get_current_user,
 )
 from api.exceptions import NoUserAccessException, APIException, NotFoundException
-from api.models import User, Deck, Card, AnonymousUser
+from api.models import User, Deck, Card, AnonymousUser, Release
 from api.schemas import DetailResponse
-from api.schemas.decks import DeckFilters, DeckListingOut, DeckOut, DeckIn
+from api.schemas.decks import DeckFilters, DeckListingOut, DeckOut, DeckIn, DeckDetails
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.deck import (
     create_or_update_deck,
@@ -64,7 +64,7 @@ def list_published_decks(
 
 @router.get(
     "/decks/{deck_id}",
-    response_model=DeckOut,
+    response_model=DeckDetails,
     responses={
         404: {
             "model": DetailResponse,
@@ -111,31 +111,82 @@ def get_deck(
         or (not own_deck and show_saved)
     ):
         raise NoUserAccessException(detail="You do not have access to this deck.")
+    deck_dict = None
     # Check for the instances where we just return the source deck (separated into discrete
     #  conditionals to make things more readable)
     # Public snapshots simply get returned
     if source_deck.is_snapshot and source_deck.is_public:
-        return deck_to_dict(session, deck=source_deck)
+        deck_dict = deck_to_dict(session, deck=source_deck)
     # Private snapshots get returned if the user owns the deck
-    if source_deck.is_snapshot and own_deck:
-        return deck_to_dict(session, deck=source_deck)
+    elif source_deck.is_snapshot and own_deck:
+        deck_dict = deck_to_dict(session, deck=source_deck)
     # The actual deck gets returned if we are showing the latest saved copy
-    if not source_deck.is_snapshot and own_deck and show_saved:
-        return deck_to_dict(session, deck=source_deck)
+    elif not source_deck.is_snapshot and own_deck and show_saved:
+        deck_dict = deck_to_dict(session, deck=source_deck)
     # By default, re-route to the latest public snapshot
-    deck = (
-        session.query(Deck)
-        .filter(
-            Deck.source_id == source_deck.id,
-            Deck.is_snapshot.is_(True),
-            Deck.is_public.is_(True),
+    else:
+        deck = (
+            session.query(Deck)
+            .filter(
+                Deck.source_id == source_deck.id,
+                Deck.is_snapshot.is_(True),
+                Deck.is_public.is_(True),
+            )
+            .order_by(Deck.created.desc())
+            .first()
         )
-        .order_by(Deck.created.desc())
-        .first()
+        if not deck:
+            raise NotFoundException(detail="Deck not found.")
+        deck_dict = deck_to_dict(session, deck=deck)
+
+    # And finally look up the releases that are required by this deck
+    card_stubs = set(x["stub"] for x in deck_dict["cards"])
+    card_stubs.add(deck_dict["phoenixborn"]["stub"])
+    release_stubs = set()
+    # Even if cards don't require a particular set, check for dice
+    dice_to_release = {
+        "ceremonial": "master-set",
+        "charm": "master-set",
+        "illusion": "master-set",
+        "natural": "master-set",
+        "divine": "the-law-of-lions",
+        "sympathy": "the-song-of-soaksend",
+        "time": "the-breaker-of-fate",
+    }
+    for die in deck_dict["dice"]:
+        release_stubs.add(dice_to_release[die["name"]])
+    release_results = (
+        session.query(Release, Deck)
+        .outerjoin(Card, Card.release_id == Release.id)
+        .outerjoin(Deck, Deck.preconstructed_release == Release.id)
+        .filter(
+            db.or_(
+                Release.stub.in_(release_stubs),
+                Card.stub.in_(card_stubs),
+            ),
+            Release.is_legacy.is_(bool(deck_dict.get("is_legacy"))),
+        )
+        .order_by(Release.id.asc())
+        .distinct(Release.id)
+        .all()
     )
-    if not deck:
-        raise NotFoundException(detail="Deck not found.")
-    return deck_to_dict(session, deck=deck)
+    release_data = []
+    for result in release_results:
+        release_data.append(
+            {
+                "name": result.Release.name,
+                "stub": result.Release.stub,
+                "is_legacy": result.Release.is_legacy,
+                "preconstructed_deck_id": (
+                    result.Deck.source_id if result.Deck else None
+                ),
+            }
+        )
+
+    return {
+        "releases": release_data,
+        "deck": deck_dict,
+    }
 
 
 @router.put(
