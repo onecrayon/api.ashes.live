@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Request
+from typing import Union
+
+from fastapi import APIRouter, Depends, Request, Query
 
 from api import db
 from api.depends import (
@@ -6,14 +8,21 @@ from api.depends import (
     get_session,
     login_required,
     AUTH_RESPONSES,
+    get_current_user,
 )
 from api.exceptions import NoUserAccessException, APIException, NotFoundException
-from api.models import User, Deck, Card
+from api.models import User, Deck, Card, AnonymousUser
 from api.schemas import DetailResponse
 from api.schemas.decks import DeckFilters, DeckListingOut, DeckOut, DeckIn
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
-from api.services.deck import create_or_update_deck, NoSuchDeck, PhoenixbornInDeck
-from api.services.decks import get_decks_query, paginate_deck_listing, deck_to_dict
+from api.services.deck import (
+    create_or_update_deck,
+    NoSuchDeck,
+    PhoenixbornInDeck,
+    get_decks_query,
+    paginate_deck_listing,
+    deck_to_dict,
+)
 
 router = APIRouter()
 
@@ -23,7 +32,7 @@ router = APIRouter()
     response_model=DeckListingOut,
     response_model_exclude_unset=True,
 )
-def list_decks(
+def list_published_decks(
     request: Request,
     filters: DeckFilters = Depends(),
     order: PaginationOrderOptions = PaginationOrderOptions.desc,
@@ -31,7 +40,7 @@ def list_decks(
     paging: PaginationOptions = Depends(paging_options),
     session: db.Session = Depends(get_session),
 ):
-    """Get a paginated listing of decks with optional filters.
+    """Get a paginated listing of published snapshots with optional filters.
 
     ## Available filters
 
@@ -51,6 +60,82 @@ def list_decks(
         players=filters.player,
     )
     return paginate_deck_listing(query, session, request, paging)
+
+
+@router.get(
+    "/decks/{deck_id}",
+    response_model=DeckOut,
+    responses={
+        404: {
+            "model": DetailResponse,
+            "description": "No public snapshot available for this source deck ID.",
+        },
+        **AUTH_RESPONSES,
+    },
+)
+def get_deck(
+    deck_id: int,
+    show_saved: bool = Query(
+        False,
+        description="When viewing a source deck ID, whether the actual latest save should be returned.",
+    ),
+    session: db.Session = Depends(get_session),
+    current_user: Union["User", "AnonymousUser"] = Depends(get_current_user),
+):
+    """Read a single deck's details.
+
+    This endpoint will return different information depending on the requesting user. For decks the
+    user did not create (and for anonymous users):
+
+    * passing a source deck's ID will always return the most recent published snapshot
+    * passing a published snapshot's ID will return that snapshot
+    * passing a private snapshot's ID (or a deck ID without any public snapshots) will throw an
+      authentication error
+
+    For authenticated users who own the deck:
+
+    * passing a source deck's ID will return the most recent published snapshot
+    * passing a source deck's ID with the query parameter `show_saved=true` will return the most
+      recent saved copy of that deck (allows previewing how a deck will display prior to creating
+      a public snapshot)
+    * passing any snapshot's ID will return that snapshot
+    """
+    source_deck = session.query(Deck).get(deck_id)
+    own_deck = (
+        not current_user.is_anonymous() and source_deck.user_id == current_user.id
+    )
+    if (
+        source_deck.is_snapshot
+        and not source_deck.is_public
+        and not own_deck
+        or (not own_deck and show_saved)
+    ):
+        raise NoUserAccessException(detail="You do not have access to this deck.")
+    # Check for the instances where we just return the source deck (separated into discrete
+    #  conditionals to make things more readable)
+    # Public snapshots simply get returned
+    if source_deck.is_snapshot and source_deck.is_public:
+        return deck_to_dict(session, deck=source_deck)
+    # Private snapshots get returned if the user owns the deck
+    if source_deck.is_snapshot and own_deck:
+        return deck_to_dict(session, deck=source_deck)
+    # The actual deck gets returned if we are showing the latest saved copy
+    if not source_deck.is_snapshot and own_deck and show_saved:
+        return deck_to_dict(session, deck=source_deck)
+    # By default, re-route to the latest public snapshot
+    deck = (
+        session.query(Deck)
+        .filter(
+            Deck.source_id == source_deck.id,
+            Deck.is_snapshot.is_(True),
+            Deck.is_public.is_(True),
+        )
+        .order_by(Deck.created.desc())
+        .first()
+    )
+    if not deck:
+        raise NotFoundException(detail="Deck not found.")
+    return deck_to_dict(session, deck=deck)
 
 
 @router.put(
@@ -115,4 +200,4 @@ def save_deck(
         raise APIException(
             detail="Your deck listing includes a Phoenixborn. Please pass the Phoenixborn at the root level of the deck object."
         )
-    return deck_to_dict(deck)
+    return deck_to_dict(session, deck=deck)
