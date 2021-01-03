@@ -95,6 +95,7 @@ class DeckOut(BaseModel):
     is_legacy: bool = None
     ashes_500_score: int = None
     ashes_500_revision_id: int = None
+    is_saved: bool = None
 
     class Config:
         orm_mode = True

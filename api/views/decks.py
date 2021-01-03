@@ -65,6 +65,7 @@ def list_published_decks(
 @router.get(
     "/decks/{deck_id}",
     response_model=DeckDetails,
+    response_model_exclude_unset=True,
     responses={
         404: {
             "model": DetailResponse,
@@ -138,6 +139,10 @@ def get_deck(
         if not deck:
             raise NotFoundException(detail="Deck not found.")
         deck_dict = deck_to_dict(session, deck=deck)
+
+    # Add our `is_saved` flag, if we're viewing a saved deck
+    if not source_deck.is_snapshot and show_saved:
+        deck_dict["is_saved"] = True
 
     # And finally look up the releases that are required by this deck
     card_stubs = set(x["stub"] for x in deck_dict["cards"])
