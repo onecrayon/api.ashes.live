@@ -127,33 +127,36 @@ def create_or_update_deck(
     #  tutor_card_id)
     stub_to_card = {x.stub: x for x in minimal_cards}
     selected_cards: List[DeckSelectedCard] = []
-    for card_stub in effect_costs:
-        card = stub_to_card.get(card_stub)
-        if not card:
-            continue
-        if card_stub not in first_five:
+    if effect_costs:
+        for card_stub in effect_costs:
+            card = stub_to_card.get(card_stub)
+            if not card:
+                continue
+            if first_five and card_stub not in first_five:
+                selected_cards.append(
+                    DeckSelectedCard(card_id=card.id, is_paid_effect=True)
+                )
+    if first_five:
+        for card_stub in first_five:
+            card = stub_to_card.get(card_stub)
+            if not card:
+                continue
             selected_cards.append(
-                DeckSelectedCard(card_id=card.id, is_paid_effect=True)
+                DeckSelectedCard(
+                    card_id=card.id,
+                    is_first_five=True,
+                    is_paid_effect=card.stub in effect_costs if effect_costs else False,
+                )
             )
-    for card_stub in first_five:
-        card = stub_to_card.get(card_stub)
-        if not card:
-            continue
-        selected_cards.append(
-            DeckSelectedCard(
-                card_id=card.id,
-                is_first_five=True,
-                is_paid_effect=card.stub in effect_costs,
+    if tutor_map:
+        for tutor_stub, card_stub in tutor_map.items():
+            tutor_card = stub_to_card.get(tutor_stub)
+            card = stub_to_card.get(card_stub)
+            if not tutor_card or not card:
+                continue
+            selected_cards.append(
+                DeckSelectedCard(card_id=card.id, tutor_card_id=tutor_card.id)
             )
-        )
-    for tutor_stub, card_stub in tutor_map.items():
-        tutor_card = stub_to_card.get(tutor_stub)
-        card = stub_to_card.get(card_stub)
-        if not tutor_card or not card:
-            continue
-        selected_cards.append(
-            DeckSelectedCard(card_id=card.id, tutor_card_id=tutor_card.id)
-        )
     deck.selected_cards = selected_cards
     session.commit()
 

@@ -240,6 +240,7 @@ def save_deck(
     try:
         deck = create_or_update_deck(
             session,
+            current_user,
             phoenixborn_id=phoenixborn.id,
             deck_id=data.id,
             title=data.title,
