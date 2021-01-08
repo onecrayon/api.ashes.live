@@ -18,9 +18,9 @@ _help:
 run:      ## Run development server
 	@docker-compose up
 
-test:     ## Execute test suite
+test:     ## Execute test suite; or specify target: `make test ARGS='api/tests/cards'`
 	@docker-compose -p asheslive_tests run --rm -w /code api \
-		pytest --cov=api --cov-config=.coveragerc --cov-report=term:skip-covered --cov-report=html
+		pytest --cov=api --cov-config=.coveragerc --cov-report=term:skip-covered --cov-report=html $(ARGS)
 
 
 # This ensures that even if they pass in an empty value, we default to "head"
