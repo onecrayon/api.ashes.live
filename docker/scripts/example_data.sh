@@ -10,7 +10,7 @@ export PGPASSWORD="${PGPASSWORD:-$POSTGRES_PASSWORD}"
 docker_temp_server_start "$@" > /dev/null
 
 # Process our SQL
-docker_process_sql -f /scripts/2020-09-10-example_data.sql  > /dev/null
+docker_process_sql -f /scripts/2021-01-07-example_data.sql  > /dev/null
 
 # Teardown the server and exit
 docker_temp_server_stop > /dev/null
