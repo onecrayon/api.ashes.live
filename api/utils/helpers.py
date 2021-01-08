@@ -22,6 +22,7 @@ def str_or_int(value: str) -> Union[str, int]:
 def to_prefixed_tsquery(text: str) -> str:
     """If `text` has no spaces, ensures that our TSQUERY tests for prefixes"""
     text = text.strip()
+    # If there are spaces in text, we assume that they're doing an exact phrase search
     if " " in text:
-        return text
+        return " <-> ".join(text.split())
     return f"{text} | {text}:*"
