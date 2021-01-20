@@ -171,3 +171,24 @@ class DeckIn(BaseModel):
         None,
         description="An object with tutor card stubs in the First Five as keys, and the tutored card stubs as values.",
     )
+
+
+class SnapshotIn(BaseModel):
+    """Optional information when creating a snapshot"""
+
+    title: str = Field(
+        None,
+        max_length=255,
+        description="The title to use specifically for this snapshot; defaults to the current save deck title.",
+    )
+    description: str = Field(
+        None,
+        description="The description to use specifically for this snapshot; defaults to the current saved deck description. Pass an empty string to force a blank description.",
+    )
+    is_public: bool = Field(
+        False, description="Whether this snapshot should be published publicly."
+    )
+    preconstructed_release: str = Field(
+        None,
+        description="The stub for the release for which this snapshot is the preconstructed deck. Can only be set by site admins.",
+    )

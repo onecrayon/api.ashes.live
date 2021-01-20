@@ -1,6 +1,6 @@
 from typing import Union
 
-from fastapi import APIRouter, Depends, Request, Query
+from fastapi import APIRouter, Depends, Request, Query, status
 
 from api import db
 from api.depends import (
@@ -11,9 +11,25 @@ from api.depends import (
     get_current_user,
 )
 from api.exceptions import NoUserAccessException, APIException, NotFoundException
-from api.models import User, Deck, Card, AnonymousUser, Release
+from api.models import (
+    User,
+    Deck,
+    Card,
+    AnonymousUser,
+    Release,
+    DeckCard,
+    DeckDie,
+    DeckSelectedCard,
+)
 from api.schemas import DetailResponse
-from api.schemas.decks import DeckFilters, DeckListingOut, DeckOut, DeckIn, DeckDetails
+from api.schemas.decks import (
+    DeckFilters,
+    DeckListingOut,
+    DeckOut,
+    DeckIn,
+    DeckDetails,
+    SnapshotIn,
+)
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.deck import (
     create_or_update_deck,
@@ -23,6 +39,7 @@ from api.services.deck import (
     paginate_deck_listing,
     deck_to_dict,
 )
+from api.services.stream import create_entity
 
 router = APIRouter()
 
@@ -262,3 +279,125 @@ def save_deck(
             detail="Your deck listing includes a Phoenixborn. Please pass the Phoenixborn at the root level of the deck object."
         )
     return deck_to_dict(session, deck=deck)
+
+
+@router.post(
+    "/decks/{deck_id}/snapshot",
+    response_model=DetailResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Snapshot creation failed.",
+        },
+        **AUTH_RESPONSES,
+    },
+)
+def create_snapshot(
+    deck_id: int,
+    data: SnapshotIn = None,
+    session: db.Session = Depends(get_session),
+    current_user: "User" = Depends(login_required),
+):
+    """Create a snapshot of the currently-saved version of the deck.
+
+    **Please note:** you must save the deck prior to calling this endpoint! This endpoint will create a snapshot from
+    the most recent saved copy of the deck (although it does allow you to set a custom title and description).
+    """
+    deck: Deck = (
+        session.query(Deck)
+        .options(
+            db.joinedload("cards"),
+            db.joinedload("dice"),
+            db.joinedload("selected_cards"),
+        )
+        .get(deck_id)
+    )
+    if not deck or deck.user_id != current_user.id:
+        raise NoUserAccessException(
+            detail="You cannot save a snapshot of a deck you do not own."
+        )
+    if deck.is_legacy:
+        raise APIException(detail="You cannot save snapshots for legacy decks.")
+    if deck.is_snapshot:
+        raise APIException(detail="You cannot a snapshot of another snapshot.")
+    if not data:
+        data = SnapshotIn()
+    preconstructed_release_id = None
+    if data.preconstructed_release:
+        if not current_user.is_admin:
+            raise NoUserAccessException(
+                detail="Only site admins may publish preconstructed decks."
+            )
+        preconstructed_release_id = (
+            session.query(Release.id)
+            .filter(
+                Release.stub == data.preconstructed_release,
+                Release.is_legacy.is_(True),
+                Release.is_public.is_(True),
+            )
+            .scalar()
+        )
+        if not preconstructed_release_id:
+            raise APIException(detail="No such release.")
+    title = data.title if data.title else deck.title
+    description = deck.description
+    if data.description:
+        description = data.description
+    elif data.description is not None:
+        # Falsey descriptions that aren't None mean they intentionally want a blank description
+        description = None
+    entity_id = create_entity(session)
+    logger.debug(f"Created entity_id: {entity_id}")
+    snapshot = Deck(
+        entity_id=entity_id,
+        title=title,
+        description=description,
+        # In the interim while we are saving the cards and dice and so forth, we mark this as private so that it doesn't
+        #  show up in any listings and break stuff in weird ways
+        is_public=False,
+        is_snapshot=True,
+        is_preconstructed=bool(preconstructed_release_id),
+        preconstructed_release=preconstructed_release_id,
+        source_id=deck.id,
+        user_id=current_user.id,
+        phoenixborn_id=deck.phoenixborn_id,
+    )
+    # Save our snapshot so that we have an ID
+    session.add(snapshot)
+    session.commit()
+    # Now duplicate the cards, dice, and selected cards for the given deck
+    if deck.cards:
+        for deck_card in deck.cards:
+            session.add(
+                DeckCard(
+                    deck_id=snapshot.id,
+                    card_id=deck_card.card_id,
+                    count=deck_card.count,
+                )
+            )
+    if deck.dice:
+        for deck_die in deck.dice:
+            session.add(
+                DeckDie(
+                    deck_id=snapshot.id,
+                    die_flag=deck_die.die_flag,
+                    count=deck_die.count,
+                )
+            )
+    if deck.selected_cards:
+        for deck_selected_card in deck.selected_cards:
+            session.add(
+                DeckSelectedCard(
+                    deck_id=snapshot.id,
+                    card_id=deck_selected_card.card_id,
+                    tutor_card_id=deck_selected_card.tutor_card_id,
+                    is_first_five=deck_selected_card.is_first_five,
+                    is_paid_effect=deck_selected_card.is_paid_effect,
+                )
+            )
+    # Flip our public flag now that we've populated the deck details, if necessary
+    if data.is_public:
+        snapshot.is_public = True
+    session.commit()
+    return {"detail": "Snapshot successfully created!"}
