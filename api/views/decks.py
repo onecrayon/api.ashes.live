@@ -217,7 +217,11 @@ def save_deck(
     """
     # Verify that the user has access to this deck, if we're saving over an existing deck
     if data.id:
-        deck_check: Deck = session.query(Deck.user_id).get(data.id)
+        deck_check: Deck = (
+            session.query(Deck.user_id, Deck.is_legacy, Deck.is_snapshot)
+            .filter(Deck.id == data.id)
+            .first()
+        )
         if not deck_check or deck_check.user_id != current_user.id:
             raise NoUserAccessException(detail="You cannot save a deck you do not own.")
         if deck_check.is_legacy:
