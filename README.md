@@ -17,7 +17,7 @@ the standard [3 Musketeers](https://3musketeers.io/) pattern.
 
 ### Running on Windows
 
-**Please note:** in order to run Docker Desktop on Windows you will either need a recent copy of
+**Please note:** in order to run Docker Desktop on Windows you will need a recent copy of
 Windows 10 with [WSL 2 enabled](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
 
 Because WSL 2 runs faster when files are living under the Linux filesystem, you will probably
