@@ -335,15 +335,19 @@ def create_snapshot(
             )
         preconstructed_release_id = (
             session.query(Release.id)
+            .outerjoin(Deck, deck.preconstructed_release == Release.id)
             .filter(
                 Release.stub == data.preconstructed_release,
                 Release.is_legacy.is_(True),
                 Release.is_public.is_(True),
+                Deck.id.is_(None),
             )
             .scalar()
         )
         if not preconstructed_release_id:
-            raise APIException(detail="No such release.")
+            raise APIException(
+                detail="No such release, or release already has a preconstructed deck."
+            )
     title = data.title if data.title else deck.title
     description = deck.description
     if data.description:
