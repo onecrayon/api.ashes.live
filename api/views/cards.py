@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 from fastapi import APIRouter, Depends, status, Request, Query
 from sqlalchemy.exc import IntegrityError
@@ -8,7 +8,7 @@ from api.depends import get_current_user, get_session, paging_options
 from api.exceptions import APIException, NotFoundException
 from api.models.card import Card, DiceFlags
 from api.models.release import Release, UserRelease
-from api.models.user import User
+from api.models.user import User, AnonymousUser
 from api.depends import AUTH_RESPONSES, admin_required
 from api.schemas import DetailResponse
 from api.schemas.cards import (
@@ -54,7 +54,7 @@ def list_cards(
     order: PaginationOrderOptions = PaginationOrderOptions.asc,
     # Standard dependencies
     paging: PaginationOptions = Depends(paging_options),
-    current_user: "User" = Depends(get_current_user),
+    current_user: Union["User", "AnonymousUser"] = Depends(get_current_user),
     session: db.Session = Depends(get_session),
 ):
     """Get a paginated listing of cards with optional filters.
