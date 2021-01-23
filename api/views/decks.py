@@ -39,7 +39,11 @@ from api.services.deck import (
     paginate_deck_listing,
     deck_to_dict,
 )
-from api.services.stream import create_entity
+from api.services.stream import (
+    create_entity,
+    refresh_stream_for_entity,
+    update_subscription_for_user,
+)
 
 router = APIRouter()
 
@@ -348,7 +352,6 @@ def create_snapshot(
         # Falsey descriptions that aren't None mean they intentionally want a blank description
         description = None
     entity_id = create_entity(session)
-    logger.debug(f"Created entity_id: {entity_id}")
     snapshot = Deck(
         entity_id=entity_id,
         title=title,
@@ -399,5 +402,19 @@ def create_snapshot(
     # Flip our public flag now that we've populated the deck details, if necessary
     if data.is_public:
         snapshot.is_public = True
+        # We also need to publish to the Stream for public snapshots
+        refresh_stream_for_entity(
+            session,
+            entity_id=snapshot.entity_id,
+            entity_type="deck",
+            source_entity_id=deck.entity_id,
+        )
+        # And finally we need to update the user's subscription to mark the last_seen_entity_id
+        update_subscription_for_user(
+            session,
+            user=current_user,
+            source_entity_id=deck.entity_id,
+            last_seen_entity_id=snapshot.entity_id,
+        )
     session.commit()
     return {"detail": "Snapshot successfully created!"}
