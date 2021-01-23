@@ -24,11 +24,21 @@ class DeckFiltersMine:
         self.show_legacy = show_legacy
 
 
-class DeckFilters(DeckFiltersMine):
+class DeckFilters:
     """Query string parameters to filter a deck listing"""
 
-    def __init__(self, player: Optional[List[str]] = Query(None), *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        q: str = None,
+        phoenixborn: Optional[List[str]] = Query(None),
+        card: Optional[List[str]] = Query(None),
+        show_legacy: bool = False,
+        player: Optional[List[str]] = Query(None),
+    ):
+        self.q = q
+        self.phoenixborn = phoenixborn
+        self.card = card
+        self.show_legacy = show_legacy
         self.player = player
 
 
