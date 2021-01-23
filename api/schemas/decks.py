@@ -8,22 +8,28 @@ from api.schemas.pagination import PaginatedResultsBase
 from api.schemas.user import UserBasicOut
 
 
-class DeckFilters:
-    """Query string parameters to filter a deck listing"""
+class DeckFiltersMine:
+    """Query string parameters to filter an individual user's deck listing"""
 
     def __init__(
         self,
         q: str = None,
         phoenixborn: Optional[List[str]] = Query(None),
         card: Optional[List[str]] = Query(None),
-        player: Optional[List[str]] = Query(None),
         show_legacy: bool = False,
     ):
         self.q = q
         self.phoenixborn = phoenixborn
         self.card = card
-        self.player = player
         self.show_legacy = show_legacy
+
+
+class DeckFilters(DeckFiltersMine):
+    """Query string parameters to filter a deck listing"""
+
+    def __init__(self, player: Optional[List[str]] = Query(None), *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.player = player
 
 
 class PhoenixbornCardOut(BaseModel):

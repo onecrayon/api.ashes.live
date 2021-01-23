@@ -191,6 +191,8 @@ def get_decks_query(
         ).filter(
             deck_comp.id.is_(None), Deck.is_snapshot.is_(True), Deck.is_public.is_(True)
         )
+    else:
+        query = query.filter(Deck.is_snapshot.is_(False))
     if q and q.strip():
         query = query.filter(
             db.func.to_tsvector("english", db.cast(Deck.title, db.Text)).match(

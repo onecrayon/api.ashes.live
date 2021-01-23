@@ -29,6 +29,7 @@ from api.schemas.decks import (
     DeckIn,
     DeckDetails,
     SnapshotIn,
+    DeckFiltersMine,
 )
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.deck import (
@@ -67,6 +68,7 @@ def list_published_decks(
 
     * `q`: deck title search
     * `phoenixborn`: list of Phoenixborn slugs
+    * `card`: list of card slugs
     * `player`: list of player badges
     * `show_legacy` (default: false): if true, legacy 1.0 decks will be returned
     """
@@ -79,6 +81,45 @@ def list_published_decks(
         phoenixborn=filters.phoenixborn,
         cards=filters.card,
         players=filters.player,
+    )
+    return paginate_deck_listing(query, session, request, paging)
+
+
+@router.get(
+    "/decks/mine",
+    response_model=DeckListingOut,
+    response_model_exclude_unset=True,
+    responses=AUTH_RESPONSES,
+)
+def list_my_decks(
+    request: Request,
+    filters: DeckFiltersMine = Depends(),
+    order: PaginationOrderOptions = PaginationOrderOptions.desc,
+    paging: PaginationOptions = Depends(paging_options),
+    session: db.Session = Depends(get_session),
+    current_user: "User" = Depends(login_required),
+):
+    """Get a paginated listing of private decks for the current logged-in user.
+
+    Please note that unlike the public-facing GET `/v2/decks` (which solely returns snapshots) this
+    endpoint solely returns the base deck listings (no snapshots are included in the list at all).
+
+    ## Available query parameter filters
+
+    * `q`: deck title search
+    * `phoenixborn`: list of Phoenixborn slugs
+    * `card`: list of card slugs
+    * `show_legacy` (default: false): if true, legacy 1.0 decks will be returned
+    """
+    query = get_decks_query(
+        session,
+        show_legacy=filters.show_legacy,
+        is_public=False,
+        order=order,
+        q=filters.q,
+        phoenixborn=filters.phoenixborn,
+        cards=filters.card,
+        players=[current_user.badge],
     )
     return paginate_deck_listing(query, session, request, paging)
 
