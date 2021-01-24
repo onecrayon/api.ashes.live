@@ -51,7 +51,7 @@ def log_in(
     if user.is_banned:
         raise BannedUserException()
     access_token = access_token_for_user(user)
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "user": user}
 
 
 @router.post(
