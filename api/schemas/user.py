@@ -65,6 +65,7 @@ class UserSelfOut(UserPublicOut):
     email_subscriptions: bool
     exclude_subscriptions: bool
     colorize_icons: bool
+    is_admin: bool
 
 
 class UserSelfIn(BaseModel):
