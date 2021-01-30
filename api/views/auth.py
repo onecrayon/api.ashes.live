@@ -143,4 +143,4 @@ def reset_password(
     user.reset_uuid = None
     session.commit()
     access_token = access_token_for_user(user)
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "user": user}

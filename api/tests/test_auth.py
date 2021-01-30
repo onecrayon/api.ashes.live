@@ -1,7 +1,4 @@
 from datetime import datetime, timedelta
-import random
-import string
-from typing import Tuple
 import uuid
 
 from fastapi import status
@@ -10,7 +7,7 @@ from freezegun import freeze_time
 from jose import jwt
 
 from api import db
-from api.models import Invite
+from api.models import Invite, UserRevokedToken
 from api.environment import settings
 import api.views.players
 from . import utils
@@ -67,7 +64,7 @@ def test_anonymous_required(client: TestClient, session: db.Session, monkeypatch
 
 
 def test_anonymous_required_authenticated_user(client: TestClient, session: db.Session):
-    """Authenicated users cannot access enpoints that require anonymity"""
+    """Authenticated users cannot access endpoints that require anonymity"""
     _, token = utils.create_user_token(session)
     fake_email = utils.generate_random_email()
     response = client.post(
@@ -108,7 +105,19 @@ def test_login_required_old_token(client: TestClient, session: db.Session):
 def test_login_required_missing_sub(client: TestClient, session: db.Session):
     """login_required dependency requires the user badge in the `sub`"""
     expire = datetime.utcnow() + timedelta(minutes=15)
-    fake_data = {"exp": expire}
+    fake_data = {"jti": uuid.uuid4().hex, "exp": expire}
+    fake_token = jwt.encode(fake_data, settings.secret_key)
+    response = client.get(
+        "/v2/players/me", headers={"Authorization": f"Bearer {fake_token}"}
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
+
+
+def test_login_required_missing_jti(client: TestClient, session: db.Session):
+    """login_required dependency requires a JWT ID in the `jti`"""
+    user, _ = utils.create_user_token(session)
+    expire = datetime.utcnow() + timedelta(minutes=15)
+    fake_data = {"sub": user.badge, "exp": expire}
     fake_token = jwt.encode(fake_data, settings.secret_key)
     response = client.get(
         "/v2/players/me", headers={"Authorization": f"Bearer {fake_token}"}
@@ -119,12 +128,12 @@ def test_login_required_missing_sub(client: TestClient, session: db.Session):
 def test_login_required_no_such_badge(client: TestClient, session: db.Session):
     """login_required dependency can handled badges that don't exist"""
     expire = datetime.utcnow() + timedelta(minutes=15)
-    fake_data = {"exp": expire, "sub": "nopers"}
+    fake_data = {"exp": expire, "sub": "nopers", "jti": uuid.uuid4().hex}
     fake_token = jwt.encode(fake_data, settings.secret_key)
     response = client.get(
         "/v2/players/me", headers={"Authorization": f"Bearer {fake_token}"}
     )
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED, resonse.json()
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
 
 
 def test_login_required_banned_user(client: TestClient, session: db.Session):
@@ -280,3 +289,25 @@ def test_reset_password(client: TestClient, session: db.Session):
     assert response.status_code == status.HTTP_200_OK
     session.refresh(user)
     assert original_hash != user.password
+
+
+def test_revoke_token(client: TestClient, session: db.Session):
+    """Revoking the token must disallow access to the API with that token"""
+    # Create a token, then revoke it
+    user, token = utils.create_user_token(session)
+    response = client.delete("/v2/token", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == status.HTTP_200_OK, response.json()
+    # Verify that we added the token to the "revert token" table
+    payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+    jwt_uuid = uuid.UUID(hex=payload["jti"])
+    assert (
+        session.query(UserRevokedToken)
+        .filter(UserRevokedToken.revoked_uuid == jwt_uuid)
+        .count()
+        == 1
+    )
+    # Verify that we cannot make further authenticated requests with this token
+    response = client.get(
+        "/v2/players/me", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
