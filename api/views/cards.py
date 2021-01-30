@@ -83,7 +83,11 @@ def list_cards(
         query = query.filter(Card.is_legacy.is_(False))
     # Add a search term, if we're using one
     if q and q.strip():
-        query = query.filter(db.func.to_tsvector("english", Card.search_text).match(to_prefixed_tsquery(q)))
+        query = query.filter(
+            db.func.to_tsvector("english", Card.search_text).match(
+                to_prefixed_tsquery(q)
+            )
+        )
     # Filter by particular card types
     if types:
         card_types = set()
