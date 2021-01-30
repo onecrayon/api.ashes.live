@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 from api import db
 from api.models.card import CardConjuration
 from api.models.release import Release
-
 from ..utils import create_admin_token
 
 MINIMUM_VALID_CARD = {

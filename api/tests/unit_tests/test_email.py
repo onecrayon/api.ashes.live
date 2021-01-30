@@ -2,10 +2,9 @@ from collections import namedtuple
 
 from sendgrid.helpers.mail.exceptions import SendGridException
 
-from api.environment import settings
 import api.utils.email as email_utils
+from api.environment import settings
 from .. import utils
-
 
 # Define utility functions
 Response = namedtuple("Response", ["status_code", "body"])

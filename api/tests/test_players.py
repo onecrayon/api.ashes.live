@@ -3,12 +3,13 @@ import uuid
 from fastapi import status
 from fastapi.testclient import TestClient
 
+import api.views.players
 from api import db
 from api.models import Invite, User
 from api.services.user import get_invite_for_email
-import api.views.players
 from api.utils.auth import verify_password
 from . import utils
+
 
 # Basic `/v2/players/new` behavior is tested by the default auth dependency checks in `test_auth.py`
 

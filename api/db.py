@@ -72,6 +72,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.engine import RowProxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
@@ -85,7 +86,6 @@ from sqlalchemy.orm import (
     contains_eager,
 )
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy.engine import RowProxy
 
 from .environment import settings
 

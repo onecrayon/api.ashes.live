@@ -1,15 +1,15 @@
-from datetime import datetime, timedelta
 import uuid
+from datetime import datetime, timedelta
 
 from fastapi import status
 from fastapi.testclient import TestClient
 from freezegun import freeze_time
 from jose import jwt
 
-from api import db
-from api.models import Invite, UserRevokedToken
-from api.environment import settings
 import api.views.players
+from api import db
+from api.environment import settings
+from api.models import Invite, UserRevokedToken
 from . import utils
 
 
