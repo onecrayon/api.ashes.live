@@ -311,3 +311,24 @@ def test_revoke_token(client: TestClient, session: db.Session):
         "/v2/players/me", headers={"Authorization": f"Bearer {token}"}
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
+
+
+def test_revoke_token_cleanup(client: TestClient, session: db.Session):
+    """Revoking a token must clean up old revoked tokens"""
+
+    def revoke_token(time):
+        with freeze_time(time):
+            user, token = utils.create_user_token(session)
+            response = client.delete(
+                "/v2/token", headers={"Authorization": f"Bearer {token}"}
+            )
+            assert response.status_code == status.HTTP_200_OK, response.json()
+
+    now = datetime.utcnow()
+    # Revoke a token 2 days ago
+    one_day = now - timedelta(days=2)
+    revoke_token(one_day)
+    assert session.query(UserRevokedToken).count() == 1
+    # Revoke a token now, so that the first token should get purged
+    revoke_token(now)
+    assert session.query(UserRevokedToken).count() == 1

@@ -72,6 +72,12 @@ def log_out(
     It's a good idea to invoke this whenever an authenticated user logs out, because tokens can otherwise be quite
     long-lived.
     """
+    # Do some quick clean-up to keep our table lean and mean; deletes any tokens that expired more than 24 hours ago
+    session.query(UserRevokedToken).filter(
+        UserRevokedToken.expires < dt.datetime.utcnow() - dt.timedelta(days=1)
+    ).delete(synchronize_session=False)
+    session.commit()
+    # Then add our newly revoked token
     expires_at = dt.datetime.fromtimestamp(jwt_payload["exp"], tz=dt.timezone.utc)
     # No need to do `.get("jti")` here because a missing JTI would result in a credentials error in the dependencies
     revoked_hex = jwt_payload["jti"]
