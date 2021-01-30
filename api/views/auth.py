@@ -1,12 +1,19 @@
 import uuid
 import logging
+import datetime as dt
 
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import UUID4
 
 from api import db
-from api.depends import AUTH_RESPONSES, get_session, anonymous_required
+from api.depends import (
+    AUTH_RESPONSES,
+    get_session,
+    anonymous_required,
+    login_required,
+    get_auth_token,
+)
 from api.environment import settings
 from api.exceptions import (
     APIException,
@@ -14,11 +21,11 @@ from api.exceptions import (
     BannedUserException,
     NotFoundException,
 )
-from api.models import User
+from api.models import User, UserRevokedToken
 from api.services.user import access_token_for_user
 from api.schemas import DetailResponse, auth as schema
 from api.schemas.user import UserEmailIn, UserSetPasswordIn
-from api.utils.auth import verify_password, generate_password_hash, create_access_token
+from api.utils.auth import verify_password, generate_password_hash
 from api.utils.email import send_message
 
 
@@ -52,6 +59,29 @@ def log_in(
         raise BannedUserException()
     access_token = access_token_for_user(user)
     return {"access_token": access_token, "token_type": "bearer", "user": user}
+
+
+@router.delete("/token", response_model=DetailResponse, responses=AUTH_RESPONSES)
+def log_out(
+    session: db.Session = Depends(get_session),
+    jwt_payload: dict = Depends(get_auth_token),
+    current_user: "User" = Depends(login_required),
+):
+    """Log a user out and revoke their JWT token's access rights.
+
+    It's a good idea to invoke this whenever an authenticated user logs out, because tokens can otherwise be quite
+    long-lived.
+    """
+    expires_at = dt.datetime.fromtimestamp(jwt_payload["exp"], tz=dt.timezone.utc)
+    # No need to do `.get("jti")` here because a missing JTI would result in a credentials error in the dependencies
+    revoked_hex = jwt_payload["jti"]
+    revoked_uuid = uuid.UUID(hex=revoked_hex)
+    revoked_token = UserRevokedToken(
+        revoked_uuid=revoked_uuid, user_id=current_user.id, expires=expires_at
+    )
+    session.add(revoked_token)
+    session.commit()
+    return {"detail": "Token successfully revoked."}
 
 
 @router.post(

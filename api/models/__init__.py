@@ -8,4 +8,4 @@ from .phoenix_dice import PhoenixDice
 from .post import Section, Post
 from .release import Release, UserRelease
 from .stream import Streamable, Stream, Subscription
-from .user import AnonymousUser, User
+from .user import AnonymousUser, User, UserRevokedToken
