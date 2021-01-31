@@ -10,7 +10,7 @@ help:     ## Show this help.
 	@$(DOCKER_RUN) make _help
 
 _help:
-	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -e 's/##//'
+	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -E -e 's/: [a-z][ a-z-]+?[a-z](\s+)##/:\1/' | sed -e 's/##//'
 
 ##
 ##=== Local development ===
@@ -19,7 +19,7 @@ run:      ## Run development server
 	@docker-compose up
 
 test:     ## Execute test suite; or specify target: `make test ARGS='api/tests/cards'`
-	@docker-compose -p asheslive_tests run --rm -w /code api \
+	@docker-compose -p asheslive_tests -f docker-compose.yml -f docker/docker-compose.test.yml run --rm -w /code api \
 		pytest --cov=api --cov-config=.coveragerc --cov-report=term:skip-covered --cov-report=html $(ARGS)
 
 
@@ -28,7 +28,7 @@ ifndef REV
 override REV = head
 endif
 
-migrate:  ## Run database migrations; or specify a revision: `make migrate REV='head'`
+migrate: clean-api  ## Run database migrations; or specify a revision: `make migrate REV='head'`
 	@$(DOCKER_RUN_DB) alembic upgrade $(REV)
 
 ##
@@ -49,13 +49,17 @@ shell-db: ## Open a bash shell to API with the database running
 build:    ## Rebuild the main app container
 	@docker-compose build --no-cache api
 
-clean:    ## Clean up Docker containers, images, etc.
+clean-api:
 	@docker-compose down --remove-orphans
+
+clean-tests:
 	@docker-compose -p asheslive_tests down --remove-orphans
+
+clean: clean-api clean-tests    ## Clean up Docker containers, images, etc.
 	@echo 'All clean!'
 
 ##
 ##=== Rarely used ===
 
-example-data: ## Populate an empty database with example data (requires first revision!)
+example-data: clean-api ## Populate example data (requires revision `6b6df338dfc3`!)
 	@docker-compose run -v `pwd`/docker/scripts:/scripts -u postgres --rm postgres /scripts/example_data.sh

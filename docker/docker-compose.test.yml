@@ -1,0 +1,34 @@
+---
+
+# This docker-compose file is required to bind ports and volumes for test running.
+# It duplicates a lot of the logic out of docker-compose.override.yml because the
+# merging logic wasn't working well (always conflicted over ports with the default
+# database if it were running).
+
+version: '3.7'
+services:
+    postgres:
+        image: postgres:11.7
+        restart: unless-stopped
+        networks:
+            - testnet
+        env_file: .env
+        ports:
+            - '5439:5432'
+
+    api:
+        build:
+            target: development_build
+            args:
+                ENV: development
+        depends_on:
+            - postgres
+        networks:
+            - testnet
+        volumes:
+            # We only mount source code in development:
+            - .:/code
+
+networks:
+    # Network for local internals
+    testnet:

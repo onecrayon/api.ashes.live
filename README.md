@@ -45,9 +45,7 @@ execute with `make`.
 Now that you have a functional API stack, you need data in your database:
 
 1. Run `make migrate REV='6b6df338dfc3'` to initialize tables in your database that match the example data
-2. Run `make clean` to ensure the database is shut down
-3. Run `make example-data` to populate your database with basic card and deck data
-4. Run `make clean` once more to ensure the database is shut down
+2. Run `make example-data` to populate your database with basic card and deck data
 3. Run `make migrate` to run any subsequent migrations
 
 At this point, you can execute `make run` to start a local development server, and view your
