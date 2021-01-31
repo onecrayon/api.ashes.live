@@ -26,7 +26,7 @@ def create_access_token(data: dict, expires_delta: timedelta) -> str:
     to_encode.update(
         {
             "jti": uuid.uuid4().hex,
-            "iss": datetime.utcnow().timestamp(),
+            "iat": datetime.utcnow(),
             "exp": expire,
         }
     )
