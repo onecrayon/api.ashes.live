@@ -32,7 +32,7 @@ def create_user_token(
     if not user:
         user, _ = create_user_password(session)
     token = create_access_token(
-        data={"sub": user.badge, "jti": uuid.uuid4().hex},
+        data={"sub": user.badge},
         expires_delta=timedelta(minutes=15),
     )
     return user, token

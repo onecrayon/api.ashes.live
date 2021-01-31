@@ -47,7 +47,10 @@ def log_in(
     """Log a user in and return a JWT authentication token to authenticate future requests.
 
     **Please note:** Only username and password are currently in use, and `username` must be the
-    user's registered email. You can ignore the other form fields.
+    user's registered email.
+
+    If you pass in `token:longterm` in the scopes, then you will be issued a long-lived token
+    (defaults to one year before expiring).
     """
     email = form_data.username.lower()
     user = session.query(User).filter(User.email == email).first()
@@ -57,7 +60,12 @@ def log_in(
         )
     if user.is_banned:
         raise BannedUserException()
-    access_token = access_token_for_user(user)
+    is_long_term = False
+    for scope in form_data.scopes:
+        if scope.lower() == "token:longterm":
+            is_long_term = True
+            break
+    access_token = access_token_for_user(user, is_long_term=is_long_term)
     return {"access_token": access_token, "token_type": "bearer", "user": user}
 
 

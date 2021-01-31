@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timedelta
 
 from jose import jwt
@@ -22,6 +23,12 @@ def create_access_token(data: dict, expires_delta: timedelta) -> str:
     """Returns a valid token wrapping the passed data plus the expiry (in minutes)"""
     to_encode = data.copy()
     expire = datetime.utcnow() + expires_delta
-    to_encode.update({"exp": expire})
+    to_encode.update(
+        {
+            "jti": uuid.uuid4().hex,
+            "iss": datetime.utcnow(),
+            "exp": expire,
+        }
+    )
     encoded_jwt = jwt.encode(to_encode, settings.secret_key)
     return encoded_jwt

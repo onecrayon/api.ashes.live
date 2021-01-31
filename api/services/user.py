@@ -1,4 +1,3 @@
-import uuid
 from datetime import timedelta
 from random import choice
 import re
@@ -9,11 +8,14 @@ from api.environment import settings
 from api.utils.auth import generate_password_hash, create_access_token
 
 
-def access_token_for_user(user: "models.User") -> str:
+def access_token_for_user(user: "models.User", is_long_term=False) -> str:
     """Returns an access token for the given user"""
-    access_token_expires = timedelta(minutes=settings.access_token_expiry)
+    if is_long_term:
+        access_token_expires = timedelta(days=settings.access_token_remember_me_days)
+    else:
+        access_token_expires = timedelta(minutes=settings.access_token_expiry)
     return create_access_token(
-        data={"sub": user.badge, "jti": uuid.uuid4().hex},
+        data={"sub": user.badge},
         expires_delta=access_token_expires,
     )
 
