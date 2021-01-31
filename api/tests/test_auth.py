@@ -49,6 +49,25 @@ def test_token(client: TestClient, session: db.Session):
     assert response.status_code == status.HTTP_200_OK, response.json()
 
 
+def test_longterm_token(client: TestClient, session: db.Session):
+    """Requesting a long-term token must return a long-term token"""
+    # Create a user
+    user, password = utils.create_user_password(session)
+    # Verify we can obtain a long-term token
+    response = client.post(
+        "/v2/token",
+        {"username": user.email, "password": password, "scope": "token:longterm"},
+    )
+    assert response.status_code == status.HTTP_200_OK, response.json()
+    # Verify that the token is actually long-term
+    with freeze_time(datetime.utcnow() + timedelta(days=60)):
+        response = client.get(
+            "/v2/players/me",
+            headers={"Authorization": f"Bearer {response.json()['access_token']}"},
+        )
+        assert response.status_code == status.HTTP_200_OK, response.json()
+
+
 def test_anonymous_required(client: TestClient, session: db.Session, monkeypatch):
     """Anonymous users can access endpoints that require anonymity"""
 
