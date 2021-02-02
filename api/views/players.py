@@ -66,7 +66,7 @@ def request_invite(
         if settings.debug:
             logger.debug(f"INVITE TOKEN FOR {email}: {invitation.uuid}")
         raise APIException(
-            detail="Unable to send invitation email; please contact the site owner."
+            detail="Unable to send invitation email; please report this!"
         )
     return {
         "detail": "Your invitation has been sent! Please follow the link in your email to set your password."
