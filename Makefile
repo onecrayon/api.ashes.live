@@ -3,6 +3,7 @@
 # Inspired by <https://gist.github.com/prwhite/8168133>
 DOCKER_RUN = docker-compose run --rm -e STANDALONE=true --no-deps -u root -w /code api
 DOCKER_RUN_DB = docker-compose run --rm -u root -w /code api
+DOCKER_COMPOSE_TESTS = docker-compose -p asheslive_tests -f docker-compose.yml -f docker/docker-compose.test.yml
 
 ##=== Welcome to Ashes.live! ===
 
@@ -19,7 +20,7 @@ run:      ## Run development server
 	@docker-compose up
 
 test:     ## Execute test suite; or specify target: `make test ARGS='api/tests/cards'`
-	@docker-compose -p asheslive_tests -f docker-compose.yml -f docker/docker-compose.test.yml run --rm -w /code api \
+	@$(DOCKER_COMPOSE_TESTS)  run --rm -w /code api \
 		pytest --cov=api --cov-config=.coveragerc --cov-report=term:skip-covered --cov-report=html $(ARGS)
 
 
@@ -53,7 +54,7 @@ clean-api:
 	@docker-compose down --remove-orphans
 
 clean-tests:
-	@docker-compose -p asheslive_tests down --remove-orphans
+	@$(DOCKER_COMPOSE_TESTS) down --remove-orphans
 
 clean: clean-api clean-tests    ## Clean up Docker containers, images, etc.
 	@echo 'All clean!'
