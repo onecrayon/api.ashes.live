@@ -81,7 +81,7 @@ def test_register_user_invalid_token(client: TestClient, session: db.Session):
     password = utils.generate_random_chars(10)
     response = client.post(
         f"/v2/players/new/{bad_token}",
-        json={"password": password, "password_confirm": password},
+        json={"username": "test", "password": password, "password_confirm": password},
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND, response.json()
     assert session.query(User).count() == 0
@@ -94,7 +94,7 @@ def test_register_user(client: TestClient, session: db.Session):
     password = utils.generate_random_chars(10)
     response = client.post(
         f"/v2/players/new/{invite.uuid}",
-        json={"password": password, "password_confirm": password},
+        json={"username": "test", "password": password, "password_confirm": password},
     )
     assert response.status_code == status.HTTP_201_CREATED, response.json()
     assert session.query(Invite).filter(Invite.email == email).count() == 0
