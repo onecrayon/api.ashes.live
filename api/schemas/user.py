@@ -32,7 +32,10 @@ class UserRegistrationIn(UserSetPasswordIn):
     """Registration details for a given user"""
 
     username: Optional[str] = Field(
-        None, description="How you wish to be known around the site.", max_length=42
+        ...,
+        description="How you wish to be known around the site.",
+        min_length=2,
+        max_length=42,
     )
     description: Optional[str] = Field(
         None, description="Supports card codes and star formatting."
@@ -72,7 +75,10 @@ class UserSelfIn(BaseModel):
     """Patch private user information"""
 
     username: str = Field(
-        None, description="How you wish to be known around the site.", max_length=42
+        None,
+        description="How you wish to be known around the site.",
+        min_length=2,
+        max_length=42,
     )
     description: str = Field(
         None, description="Supports card codes and star formatting."
