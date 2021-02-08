@@ -69,21 +69,22 @@ def create_or_update_deck(
     # Update the dice listing
     deck_dice: List[DeckDie] = []
     total_dice = 0
-    for die_dict in dice:
-        die = die_dict.get("name")
-        count = die_dict.get("count")
-        if count:
-            if total_dice + count > 10:
-                count = 10 - total_dice
-            if count == 0:
-                break
-            total_dice = total_dice + count
-            deck_dice.append(DeckDie(die_flag=DiceFlags[die].value, count=count))
+    if dice:
+        for die_dict in dice:
+            die = die_dict.get("name")
+            count = die_dict.get("count")
+            if count:
+                if total_dice + count > 10:
+                    count = 10 - total_dice
+                if count == 0:
+                    break
+                total_dice = total_dice + count
+                deck_dice.append(DeckDie(die_flag=DiceFlags[die].value, count=count))
     deck.dice = deck_dice
 
     # And then the card listing
     deck_cards: List[DeckCard] = []
-    card_stub_counts = {x["stub"]: x["count"] for x in cards}
+    card_stub_counts = {x["stub"]: x["count"] for x in (cards or [])}
     card_stubs = set(card_stub_counts.keys())
     if first_five:
         card_stubs.update(first_five)
@@ -310,7 +311,7 @@ def generate_deck_dict(
     ]
 
     # Compose our basic deck output dictionary
-    deck_dice_dict = None
+    deck_dice_dict = []
     if deck_dice:
         deck_dice_dict = [
             {
