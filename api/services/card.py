@@ -105,10 +105,13 @@ def create_card(
     card = Card()
     card.name = name
     card.stub = stubify(name)
+    card.phoenixborn = phoenixborn
     card.card_type = card_type
     card.placement = placement
     card.release_id = release.id
     card.search_text = f"{card.name}\n"
+    if card.phoenixborn:
+        card.search_text += f"{card.phoenixborn}\n"
     card.is_summon_spell = name.startswith("Summon ")
     existing_conjurations = None
     if text:
@@ -136,7 +139,6 @@ def create_card(
 
     if copies is not None:
         card.copies = copies
-    card.phoenixborn = phoenixborn
     card.entity_id = create_entity(session)
     cost_list = re.split(r"\s+-\s+", cost) if isinstance(cost, str) else cost
     weight = 0
