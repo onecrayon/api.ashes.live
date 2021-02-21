@@ -1,6 +1,6 @@
 from typing import Union
 
-from fastapi import APIRouter, Depends, Request, Query, status
+from fastapi import APIRouter, Depends, Request, Query, status, Response
 
 from api import db
 from api.depends import (
@@ -20,6 +20,7 @@ from api.models import (
     DeckCard,
     DeckDie,
     DeckSelectedCard,
+    Stream,
 )
 from api.schemas import DetailResponse
 from api.schemas.decks import (
@@ -467,3 +468,102 @@ def create_snapshot(
         )
     session.commit()
     return {"detail": "Snapshot successfully created!"}
+
+
+@router.delete(
+    "/decks/{deck_id}", status_code=status.HTTP_204_NO_CONTENT, responses=AUTH_RESPONSES
+)
+def delete_deck(
+    deck_id: int,
+    session: db.Session = Depends(get_session),
+    current_user: "User" = Depends(login_required),
+):
+    """Delete a deck.
+
+    When requested for a source deck:
+
+    * If there are no snapshots, the deck is truly deleted (unrecoverable). Intended use-case
+      is for decks that get auto-saved, but not completed.
+    * For decks with snapshots, it's a soft deletion that can potentially be recovered from (no
+      user-facing support for recovering deleted decks currently planned, though). Deleted decks
+      and their snapshots will be removed from all listings (including the stream).
+
+    When requested for a snapshot, it's a soft deletion and the snapshot will no longer show up
+    in any listings (including the stream).
+    """
+    deck: Deck = session.query(Deck).options(db.joinedload("source")).get(deck_id)
+    if not deck or deck.user_id != current_user.id:
+        raise NoUserAccessException(detail="You cannot delete a deck you do not own.")
+    if deck.is_legacy:
+        raise APIException(detail="You cannot delete legacy decks.")
+    success_response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    # If the deck was previously deleted, just claim success and call it good
+    if deck.is_deleted:
+        return success_response
+    # Check if we have any snapshots for source decks, and just delete that sucker for real if not
+    if (
+        not deck.is_snapshot
+        and session.query(Deck).filter(Deck.source_id == deck.id).count() == 0
+    ):
+        session.query(DeckCard).filter(DeckCard.deck_id == deck.id).delete(
+            synchronize_session=False
+        )
+        session.query(DeckDie).filter(DeckDie.deck_id == deck_id).delete(
+            synchronize_session=False
+        )
+        session.query(DeckSelectedCard).filter(
+            DeckSelectedCard.deck_id == deck_id
+        ).delete(synchronize_session=False)
+        session.query(Deck).filter(Deck.id == deck_id).delete(synchronize_session=False)
+        session.commit()
+        return success_response
+
+    # Otherwise, we're looking at a snapshot or a source deck that has snapshots
+    deck.is_deleted = True
+    # For snapshots, we need to remove only the Stream entries for that snapshot (leave the rest
+    #  of the source deck's snapshots alone).
+    if deck.is_snapshot and deck.is_public:
+        # Check to see if we have a Stream entry that needs updating
+        stream_entry: Stream = (
+            session.query(Stream)
+            .filter(
+                Stream.source_entity_id == deck.source.entity_id,
+                Stream.entity_type == "deck",
+                Stream.entity_id == deck.entity_id,
+            )
+            .first()
+        )
+        if stream_entry:
+            # We have a stream entry pointed to this snapshot, so check if we have an older snapshot
+            #  that we can swap in
+            previous_snapshot: Deck = (
+                session.query(Deck)
+                .filter(
+                    Deck.source_id == deck.source_id,
+                    Deck.created < deck.created,
+                    Deck.is_deleted.is_(False),
+                )
+                .order_by(Deck.created.desc())
+                .first()
+            )
+            if previous_snapshot:
+                stream_entry.entity_id = previous_snapshot.entity_id
+                stream_entry.posted = previous_snapshot.created
+            else:
+                # Otherwise, just delete the stream entry because this deck no longer has any public
+                #  snapshots
+                session.delete(stream_entry)
+    elif not deck.is_snapshot:
+        # If we're not deleting a snapshot, then we need to completely clear out the Stream entry
+        session.query(Stream).filter(
+            Stream.source_entity_id == deck.entity_id, Stream.entity_type == "deck"
+        ).delete(synchronize_session=False)
+        # And mark all snapshots as deleted
+        session.query(Deck).filter(
+            Deck.source_id == deck.id,
+            Deck.is_snapshot.is_(True),
+            Deck.is_deleted.is_(False),
+        ).update({"is_deleted": True}, synchronize_session=False)
+    # Commit any pending changes, and return success
+    session.commit()
+    return success_response
