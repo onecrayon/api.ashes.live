@@ -310,6 +310,26 @@ def test_reset_password(client: TestClient, session: db.Session):
     assert original_hash != user.password
 
 
+def test_reset_password_then_login(
+    client: TestClient, session: db.Session, monkeypatch
+):
+    """Users must be able to log in after requesting a password reset"""
+
+    def _always_true(*args, **kwargs):
+        return True
+
+    # send_email is covered by unit tests, so it's safe to patch the whole function
+    monkeypatch.setattr(api.views.auth, "send_message", _always_true)
+    user, password = utils.create_user_password(session)
+    response = client.post("/v2/reset", json={"email": user.email})
+    assert response.status_code == status.HTTP_200_OK
+    session.refresh(user)
+    assert user.reset_uuid is not None
+    # And then verify that we can login
+    response = client.post("/v2/token", {"username": user.email, "password": password})
+    assert response.status_code == status.HTTP_200_OK
+
+
 def test_revoke_token(client: TestClient, session: db.Session):
     """Revoking the token must disallow access to the API with that token"""
     # Create a token, then revoke it

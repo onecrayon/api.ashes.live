@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field, EmailStr, validator
+from pydantic import BaseModel, Field, EmailStr, validator, UUID4
 
 
 class UserEmailIn(BaseModel):
@@ -63,7 +63,7 @@ class UserSelfOut(UserPublicOut):
     """Private user information"""
 
     email: str
-    reset_uuid: Optional[str]
+    reset_uuid: Optional[UUID4]
     newsletter_opt_in: bool
     email_subscriptions: bool
     exclude_subscriptions: bool
