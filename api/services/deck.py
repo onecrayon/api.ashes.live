@@ -175,7 +175,9 @@ def get_decks_query(
     cards: Optional[List[str]] = None,
     players: Optional[List[str]] = None,
 ) -> db.Query:
-    query = session.query(Deck).filter(Deck.is_legacy.is_(show_legacy))
+    query = session.query(Deck).filter(
+        Deck.is_legacy.is_(show_legacy), Deck.is_deleted.is_(False)
+    )
     if is_public:
         deck_comp = db.aliased(Deck)
         query = query.outerjoin(
@@ -184,6 +186,7 @@ def get_decks_query(
                 Deck.source_id == deck_comp.source_id,
                 deck_comp.is_snapshot.is_(True),
                 deck_comp.is_public.is_(True),
+                deck_comp.is_deleted.is_(False),
                 db.or_(
                     Deck.created < deck_comp.created,
                     db.and_(Deck.created == deck_comp.created, Deck.id < deck_comp.id),

@@ -168,13 +168,11 @@ def get_deck(
         not current_user.is_anonymous() and source_deck.user_id == current_user.id
     )
     if (
-        source_deck.is_snapshot
-        and not source_deck.is_public
-        and not own_deck
+        source_deck.is_deleted
+        or (source_deck.is_snapshot and not source_deck.is_public and not own_deck)
         or (not own_deck and show_saved)
     ):
         raise NoUserAccessException(detail="You do not have access to this deck.")
-    deck_dict = None
     # Check for the instances where we just return the source deck (separated into discrete
     #  conditionals to make things more readable)
     # Public snapshots simply get returned
@@ -290,6 +288,8 @@ def save_deck(
             raise APIException(detail="Legacy decks cannot be saved.")
         if deck_check.is_snapshot:
             raise APIException(detail="You cannot save over a snapshot.")
+        if deck_check.is_deleted:
+            raise APIException(detail="This deck has been deleted.")
     # Ensure we have a Phoenixborn stub
     phoenixborn_stub = (
         data.phoenixborn
@@ -366,6 +366,10 @@ def create_snapshot(
         raise APIException(detail="You cannot save snapshots for legacy decks.")
     if deck.is_snapshot:
         raise APIException(detail="You cannot a snapshot of another snapshot.")
+    if deck.is_deleted:
+        raise APIException(
+            detail="This deck has been deleted and can no longer be updated."
+        )
     if not data:
         data = SnapshotIn()
     preconstructed_release_id = None
