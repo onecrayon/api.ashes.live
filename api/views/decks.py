@@ -279,7 +279,9 @@ def save_deck(
     # Verify that the user has access to this deck, if we're saving over an existing deck
     if data.id:
         deck_check: Deck = (
-            session.query(Deck.user_id, Deck.is_legacy, Deck.is_snapshot)
+            session.query(
+                Deck.user_id, Deck.is_legacy, Deck.is_snapshot, Deck.is_deleted
+            )
             .filter(Deck.id == data.id)
             .first()
         )
