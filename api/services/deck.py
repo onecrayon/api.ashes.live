@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import datetime
 from operator import itemgetter
 from typing import List, Dict, Union, Optional, Set
 
@@ -40,6 +41,7 @@ def create_or_update_deck(
     tutor_map: Dict[str, str] = None,
 ) -> "Deck":
     """Creates or updates a deck in place."""
+    now = datetime.utcnow()
     if deck_id:
         deck = (
             session.query(Deck)
@@ -55,6 +57,7 @@ def create_or_update_deck(
         deck.title = title
         deck.description = description
         deck.phoenixborn_id = phoenixborn_id
+        deck.modified = now
     else:
         deck = Deck(
             entity_id=create_entity(session),
