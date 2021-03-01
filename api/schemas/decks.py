@@ -116,6 +116,12 @@ class DeckOut(BaseModel):
         orm_mode = True
 
 
+class DeckSaveOut(DeckOut):
+    """Full deck information returned from saving endpoint"""
+
+    description: str = None
+
+
 class DeckFullOut(DeckOut):
     """Full deck information."""
 

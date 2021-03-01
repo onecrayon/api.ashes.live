@@ -31,6 +31,7 @@ from api.schemas.decks import (
     DeckDetails,
     SnapshotIn,
     DeckFiltersMine,
+    DeckSaveOut,
 )
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.deck import (
@@ -178,13 +179,13 @@ def get_deck(
     #  conditionals to make things more readable)
     # Public snapshots simply get returned
     if source_deck.is_snapshot and source_deck.is_public:
-        deck_dict = deck_to_dict(session, deck=source_deck, include_full_deck=True)
+        deck_dict = deck_to_dict(session, deck=source_deck, include_public_data=True)
     # Private snapshots get returned if the user owns the deck
     elif source_deck.is_snapshot and own_deck:
-        deck_dict = deck_to_dict(session, deck=source_deck, include_full_deck=True)
+        deck_dict = deck_to_dict(session, deck=source_deck, include_public_data=True)
     # The actual deck gets returned if we are showing the latest saved copy
     elif not source_deck.is_snapshot and own_deck and show_saved:
-        deck_dict = deck_to_dict(session, deck=source_deck, include_full_deck=True)
+        deck_dict = deck_to_dict(session, deck=source_deck, include_public_data=True)
     # By default, re-route to the latest public snapshot
     else:
         deck = (
@@ -199,7 +200,7 @@ def get_deck(
         )
         if not deck:
             raise NotFoundException(detail="Deck not found.")
-        deck_dict = deck_to_dict(session, deck=deck, include_full_deck=True)
+        deck_dict = deck_to_dict(session, deck=deck, include_public_data=True)
 
     # Add our `is_saved` flag, if we're viewing a saved deck
     if not source_deck.is_snapshot and show_saved:
@@ -257,7 +258,7 @@ def get_deck(
 
 @router.put(
     "/decks",
-    response_model=DeckOut,
+    response_model=DeckSaveOut,
     responses={
         400: {
             "model": DetailResponse,
