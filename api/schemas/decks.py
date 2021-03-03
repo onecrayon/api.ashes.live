@@ -146,6 +146,10 @@ class DeckDetails(BaseModel):
 
     deck: DeckFullOut
     releases: List[DeckRelease]
+    has_published_snapshot: bool = Field(
+        None,
+        description="Set to true for private decks and snapshots if they have a public snapshot available.",
+    )
 
 
 class DeckListingOut(PaginatedResultsBase):

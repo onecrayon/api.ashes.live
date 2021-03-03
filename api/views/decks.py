@@ -194,6 +194,7 @@ def get_deck(
                 Deck.source_id == source_deck.id,
                 Deck.is_snapshot.is_(True),
                 Deck.is_public.is_(True),
+                Deck.is_deleted.is_(False),
             )
             .order_by(Deck.created.desc())
             .first()
@@ -250,10 +251,26 @@ def get_deck(
             }
         )
 
-    return {
+    deck_details = {
         "releases": release_data,
         "deck": deck_dict,
     }
+    if show_saved:
+        source_id = (
+            source_deck.id if not source_deck.is_snapshot else source_deck.source_id
+        )
+        deck_details["has_published_snapshot"] = bool(
+            session.query(Deck.id)
+            .filter(
+                Deck.source_id == source_id,
+                Deck.is_snapshot.is_(True),
+                Deck.is_public.is_(True),
+                Deck.is_deleted.is_(False),
+            )
+            .count()
+        )
+
+    return deck_details
 
 
 @router.put(
