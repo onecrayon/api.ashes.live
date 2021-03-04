@@ -11,7 +11,7 @@ help:     ## Show this help.
 	@$(DOCKER_RUN) make _help
 
 _help:
-	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -E -e 's/: [a-z][ a-z-]+?[a-z](\s+)##/:\1/' | sed -e 's/##//'
+	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -E -e 's/:\s+\|?\s*[a-z_][ a-z_-]+?[a-z](\s+)##/:\1/' | sed -e 's/##//'
 
 ##
 ##=== Local development ===
@@ -62,5 +62,15 @@ clean: clean-api clean-tests    ## Clean up Docker containers, images, etc.
 ##
 ##=== Rarely used ===
 
-example-data: clean-api ## Populate example data (requires revision `6b6df338dfc3`!)
+_pre-example-data:
+	@$(DOCKER_RUN_DB) alembic upgrade 6b6df338dfc3
+
+_populate-example-data: clean-api
 	@docker-compose run -v `pwd`/docker/scripts:/scripts -u postgres --rm postgres /scripts/example_data.sh
+
+_post-example-data:
+	@$(DOCKER_RUN_DB) alembic upgrade head
+
+# Pipe causes these to be executed in strict order
+data: | _pre-example-data _populate-example-data _post-example-data     ## Populate example data (requires empty database!)
+

@@ -42,11 +42,8 @@ After installing the dependencies above:
 This will build your main Docker container and display the available commands you can
 execute with `make`.
 
-Now that you have a functional API stack, you need data in your database:
-
-1. Run `make migrate REV='6b6df338dfc3'` to initialize tables in your database that match the example data
-2. Run `make example-data` to populate your database with basic card and deck data
-3. Run `make migrate` to run any subsequent migrations
+Now that you have a functional API stack, you can run `make data` to create some example
+testing data in your database.
 
 At this point, you can execute `make run` to start a local development server, and view your
 site's API documentation at <http:localhost:8000>.
