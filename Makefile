@@ -32,6 +32,18 @@ endif
 migrate: clean-api  ## Run database migrations; or specify a revision: `make migrate REV='head'`
 	@$(DOCKER_RUN_DB) alembic upgrade $(REV)
 
+# This ensures that even if they pass in an empty value, we default to parsing the "api" folder
+ifndef FILEPATH
+override FILEPATH = api
+endif
+
+format:   ## Format via isort and black; or specify a file: `make format FILEPATH='api/main.py'`
+	@$(DOCKER_RUN) make _format FILEPATH="$(FILEPATH)"
+
+_format:
+	@black "$(FILEPATH)"
+	@isort "$(FILEPATH)"
+
 ##
 ##=== Access internals ===
 
