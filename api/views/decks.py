@@ -1,46 +1,46 @@
 from typing import Union
 
-from fastapi import APIRouter, Depends, Request, Query, status, Response
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from api import db
 from api.depends import (
-    paging_options,
-    get_session,
-    login_required,
     AUTH_RESPONSES,
     get_current_user,
+    get_session,
+    login_required,
+    paging_options,
 )
-from api.exceptions import NoUserAccessException, APIException, NotFoundException
+from api.exceptions import APIException, NotFoundException, NoUserAccessException
 from api.models import (
-    User,
-    Deck,
-    Card,
     AnonymousUser,
-    Release,
+    Card,
+    Deck,
     DeckCard,
     DeckDie,
     DeckSelectedCard,
+    Release,
     Stream,
+    User,
 )
 from api.schemas import DetailResponse
 from api.schemas.decks import (
+    DeckDetails,
     DeckFilters,
+    DeckFiltersMine,
+    DeckIn,
     DeckListingOut,
     DeckOut,
-    DeckIn,
-    DeckDetails,
-    SnapshotIn,
-    DeckFiltersMine,
     DeckSaveOut,
+    SnapshotIn,
 )
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.deck import (
-    create_or_update_deck,
     NoSuchDeck,
     PhoenixbornInDeck,
+    create_or_update_deck,
+    deck_to_dict,
     get_decks_query,
     paginate_deck_listing,
-    deck_to_dict,
 )
 from api.services.stream import (
     create_entity,

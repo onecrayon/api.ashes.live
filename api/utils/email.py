@@ -1,11 +1,10 @@
 import logging
 from typing import Optional
 
-from sendgrid import SendGridAPIClient
 import sendgrid.helpers.mail as sendgrid_helpers
+from sendgrid import SendGridAPIClient
 
 from api.environment import settings
-
 
 logger = logging.getLogger(__name__)
 

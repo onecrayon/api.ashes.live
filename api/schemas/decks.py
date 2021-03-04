@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional, Union, Dict
+from typing import Dict, List, Optional, Union
 
 from fastapi import Query
 from pydantic import BaseModel, Field, validator

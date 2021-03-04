@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from api import db
-from api.models.stream import Streamable, Stream, Subscription
+from api.models.stream import Stream, Streamable, Subscription
 
 
 def create_entity(session: db.Session) -> int:

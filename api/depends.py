@@ -1,16 +1,17 @@
 import uuid
 from typing import Optional, Union
 
-from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends
-from jose import jwt, JWTError
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
 
 from .db import Session, SessionLocal
 from .environment import settings
-from .exceptions import CredentialsException, BannedUserException
+from .exceptions import BannedUserException, CredentialsException
 from .models import AnonymousUser, User, UserRevokedToken
 from .schemas import DetailResponse
 from .schemas.pagination import PaginationOptions
+
 
 # Setup common global dependencies
 def get_session():  # pragma: no cover

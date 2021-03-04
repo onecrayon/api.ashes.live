@@ -4,10 +4,9 @@ from typing import List, Union
 from api import db
 from api.models.card import Card, CardConjuration
 from api.models.release import Release
-from api.utils.helpers import stubify, str_or_int
+from api.utils.helpers import str_or_int, stubify
 
 from .stream import create_entity
-
 
 MAGIC_COSTS = (
     "basic",

@@ -7,21 +7,21 @@ from pydantic.error_wrappers import ErrorWrapper
 
 from api import db
 from api.depends import (
-    get_session,
+    AUTH_RESPONSES,
     admin_required,
     anonymous_required,
+    get_session,
     login_required,
-    AUTH_RESPONSES,
 )
 from api.environment import settings
 from api.exceptions import APIException, NotFoundException
 from api.models import Invite, User
-from api.schemas import DetailResponse, user as schema
+from api.schemas import DetailResponse
+from api.schemas import user as schema
 from api.schemas.auth import AuthTokenOut
-from api.services.user import access_token_for_user, get_invite_for_email, create_user
+from api.services.user import access_token_for_user, create_user, get_invite_for_email
 from api.utils.auth import generate_password_hash, verify_password
 from api.utils.email import send_message
-
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

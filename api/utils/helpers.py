@@ -1,5 +1,5 @@
-from typing import Union
 import re
+from typing import Union
 
 
 def stubify(text: str) -> str:

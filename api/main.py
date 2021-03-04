@@ -1,5 +1,6 @@
 """Configures the main FastAPI app and routes"""
 import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

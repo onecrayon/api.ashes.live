@@ -10,6 +10,7 @@ import api.views.players
 from api import db
 from api.environment import settings
 from api.models import Invite, UserRevokedToken
+
 from . import utils
 
 

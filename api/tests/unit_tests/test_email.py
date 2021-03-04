@@ -4,6 +4,7 @@ from sendgrid.helpers.mail.exceptions import SendGridException
 
 import api.utils.email as email_utils
 from api.environment import settings
+
 from .. import utils
 
 # Define utility functions

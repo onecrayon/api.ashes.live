@@ -1,5 +1,6 @@
 from api import db
 from api.utils.helpers import stubify
+
 from .user import User
 
 

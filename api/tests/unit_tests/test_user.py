@@ -1,6 +1,7 @@
 from api import db
 from api.services.user import _random_badges, generate_badges
 from api.utils.auth import verify_password
+
 from ..utils import create_user_password
 
 

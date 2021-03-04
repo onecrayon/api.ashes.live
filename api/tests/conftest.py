@@ -19,6 +19,7 @@ import api.environment
 # `models` is necessary to ensure that AlchemyBase is properly populated
 from api import app, db
 from api.depends import get_session
+
 from . import utils
 
 

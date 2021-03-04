@@ -1,15 +1,20 @@
 from typing import List, Union
 
-from fastapi import APIRouter, Depends, status, Request, Query
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.exc import IntegrityError
 
 from api import db
-from api.depends import get_current_user, get_session, paging_options
+from api.depends import (
+    AUTH_RESPONSES,
+    admin_required,
+    get_current_user,
+    get_session,
+    paging_options,
+)
 from api.exceptions import APIException, NotFoundException
 from api.models.card import Card, DiceFlags
 from api.models.release import Release, UserRelease
-from api.models.user import User, AnonymousUser
-from api.depends import AUTH_RESPONSES, admin_required
+from api.models.user import AnonymousUser, User
 from api.schemas import DetailResponse
 from api.schemas.cards import (
     CardDiceCosts,
@@ -22,13 +27,11 @@ from api.schemas.cards import (
     CardsFilterType,
     CardsSortingMode,
 )
-from api.schemas.pagination import (
-    PaginationOptions,
-    PaginationOrderOptions,
-)
-from api.services.card import create_card as create_card_service, MissingConjurations
-from api.utils.pagination import paginated_results_for_query
+from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
+from api.services.card import MissingConjurations
+from api.services.card import create_card as create_card_service
 from api.utils.helpers import stubify, to_prefixed_tsquery
+from api.utils.pagination import paginated_results_for_query
 
 router = APIRouter()
 

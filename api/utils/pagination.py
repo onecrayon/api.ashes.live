@@ -1,10 +1,10 @@
 import inspect
-from typing import Callable
 import urllib.parse
+from typing import Callable
 
 from api import db
 from api.environment import settings
-from api.schemas.pagination import PaginationOptions, PaginatedResultsBase
+from api.schemas.pagination import PaginatedResultsBase, PaginationOptions
 
 
 def replace_offset(url: str, offset: int) -> str:

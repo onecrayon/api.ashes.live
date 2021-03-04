@@ -1,6 +1,6 @@
-import uuid
-import logging
 import datetime as dt
+import logging
+import uuid
 
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
@@ -9,25 +9,25 @@ from pydantic import UUID4
 from api import db
 from api.depends import (
     AUTH_RESPONSES,
-    get_session,
     anonymous_required,
-    login_required,
     get_auth_token,
+    get_session,
+    login_required,
 )
 from api.environment import settings
 from api.exceptions import (
     APIException,
-    CredentialsException,
     BannedUserException,
+    CredentialsException,
     NotFoundException,
 )
 from api.models import User, UserRevokedToken
-from api.services.user import access_token_for_user
-from api.schemas import DetailResponse, auth as schema
+from api.schemas import DetailResponse
+from api.schemas import auth as schema
 from api.schemas.user import UserEmailIn, UserSetPasswordIn
-from api.utils.auth import verify_password, generate_password_hash
+from api.services.user import access_token_for_user
+from api.utils.auth import generate_password_hash, verify_password
 from api.utils.email import send_message
-
 
 logger = logging.getLogger(__name__)
 

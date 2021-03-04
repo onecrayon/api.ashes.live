@@ -29,6 +29,7 @@ from sqlalchemy import (
     Time,
     Unicode,
     UnicodeText,
+    UniqueConstraint,
     alias,
     all_,
     and_,
@@ -69,21 +70,20 @@ from sqlalchemy import (
     union,
     union_all,
     within_group,
-    UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.engine import RowProxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
+    Query,
     Session,
+    aliased,
     backref,
+    contains_eager,
+    joinedload,
     relationship,
     sessionmaker,
-    Query,
-    aliased,
-    joinedload,
-    contains_eager,
 )
 from sqlalchemy.orm.attributes import flag_modified
 

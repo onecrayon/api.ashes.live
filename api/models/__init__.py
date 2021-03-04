@@ -5,7 +5,7 @@ from .comment import Comment
 from .deck import Deck, DeckCard, DeckDie, DeckSelectedCard
 from .invite import Invite
 from .phoenix_dice import PhoenixDice
-from .post import Section, Post
+from .post import Post, Section
 from .release import Release, UserRelease
-from .stream import Streamable, Stream, Subscription
+from .stream import Stream, Streamable, Subscription
 from .user import AnonymousUser, User, UserRevokedToken

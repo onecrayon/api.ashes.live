@@ -2,6 +2,7 @@ from enum import Enum
 from typing import List, Optional
 
 from api import db
+
 from .release import Release
 
 

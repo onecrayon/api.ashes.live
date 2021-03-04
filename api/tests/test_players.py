@@ -8,8 +8,8 @@ from api import db
 from api.models import Invite, User
 from api.services.user import get_invite_for_email
 from api.utils.auth import verify_password
-from . import utils
 
+from . import utils
 
 # Basic `/v2/players/new` behavior is tested by the default auth dependency checks in `test_auth.py`
 

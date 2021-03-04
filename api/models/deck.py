@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from api import db
+
 from .ashes_500 import Ashes500Revision
 from .card import Card
 from .user import User

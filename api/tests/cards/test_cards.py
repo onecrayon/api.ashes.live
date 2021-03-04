@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from api import db
 from api.models.release import Release, UserRelease
 from api.services.card import create_card
+
 from ..utils import create_card_database, create_user_token
 
 

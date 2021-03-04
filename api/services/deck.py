@@ -1,15 +1,15 @@
 from collections import defaultdict
 from datetime import datetime
 from operator import itemgetter
-from typing import List, Dict, Union, Optional, Set
+from typing import Dict, List, Optional, Set, Union
 
 from starlette.requests import Request
 
 from api import db
-from api.models import Deck, User, DeckDie, Release, DeckCard, DeckSelectedCard, Card
-from api.models.card import DiceFlags, Card, CardConjuration
+from api.models import Card, Deck, DeckCard, DeckDie, DeckSelectedCard, Release, User
+from api.models.card import Card, CardConjuration, DiceFlags
 from api.schemas.cards import CardType
-from api.schemas.pagination import PaginationOrderOptions, PaginationOptions
+from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.stream import create_entity
 from api.utils.helpers import to_prefixed_tsquery
 from api.utils.pagination import paginated_results_for_query
