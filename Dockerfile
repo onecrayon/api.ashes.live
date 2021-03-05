@@ -17,8 +17,6 @@ ENV ENV=${ENV} \
   PIP_DEFAULT_TIMEOUT=100 \
   # dockerize:
   DOCKERIZE_VERSION=v0.6.1 \
-  # tini:
-  TINI_VERSION=v0.19.0 \
   # poetry:
   POETRY_VERSION=1.1.4 \
   POETRY_VIRTUALENVS_CREATE=false \
@@ -42,10 +40,6 @@ RUN apt-get update \
   && wget "https://github.com/jwilder/dockerize/releases/download/${DOCKERIZE_VERSION}/dockerize-linux-amd64-${DOCKERIZE_VERSION}.tar.gz" \
   && tar -C /usr/local/bin -xzvf "dockerize-linux-amd64-${DOCKERIZE_VERSION}.tar.gz" \
   && rm "dockerize-linux-amd64-${DOCKERIZE_VERSION}.tar.gz" && dockerize --version \
-  # Installing `tini` utility:
-  # https://github.com/krallin/tini
-  && wget -O /usr/local/bin/tini "https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini" \
-  && chmod +x /usr/local/bin/tini && tini --version \
   # Update setuptools so that pytest-cov works
   && pip install --upgrade setuptools \
   # Installing `poetry` package manager:
@@ -78,7 +72,7 @@ RUN chmod +x '/entrypoint.sh' \
 USER web
 
 # Custom entrypoint ensures that full stack is up and running in local development environment:
-ENTRYPOINT ["tini", "--", "/entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
 
 
 # The following stage is only for production deployments.

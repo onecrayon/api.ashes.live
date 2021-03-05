@@ -14,13 +14,14 @@ services:
             - testnet
         env_file: .env
         ports:
-            - '5439:5432'
+            - '127.0.0.1:5439:5432'
 
     api:
         build:
             target: development_build
             args:
-                ENV: development
+                ENV: test
+        init: true
         depends_on:
             - postgres
         networks:

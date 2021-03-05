@@ -3,7 +3,7 @@
 # Inspired by <https://gist.github.com/prwhite/8168133>
 DOCKER_RUN = docker-compose run --rm -e STANDALONE=true --no-deps -u root -w /code api
 DOCKER_RUN_DB = docker-compose run --rm -u root -w /code api
-DOCKER_COMPOSE_TESTS = docker-compose -p asheslive_tests -f docker-compose.yml -f docker/docker-compose.test.yml
+DOCKER_COMPOSE_TESTS = docker-compose -p asheslive_tests -f docker-compose.yml -f docker-compose.test.yml
 
 ##=== Welcome to Ashes.live! ===
 

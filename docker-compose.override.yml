@@ -13,7 +13,7 @@ services:
             - localnet
         env_file: .env
         ports:
-            - '5432:5432'
+            - '127.0.0.1:5432:5432'
         volumes:
             - pgdata:/var/lib/postgresql/data
 
@@ -21,14 +21,15 @@ services:
         build:
             target: development_build
             args:
-                ENV: development
+                ENV: local
+        init: true
         depends_on:
             - postgres
         networks:
             - localnet
         ports:
-            # We only bind ports directly in development:
-            - '8000:8000'
+            # We only bind ports directly in development; and make sure that we don't listen to remote requests
+            - '127.0.0.1:8000:8000'
         volumes:
             # We only mount source code in development:
             - .:/code

@@ -183,7 +183,6 @@ which means the shell has to be root in order to properly calculate the dependen
 The underlying Dockerfile uses the following tools, pinned to specific release versions:
 
 * [Dockerize](https://github.com/jwilder/dockerize)
-* [Tini](https://github.com/krallin/tini)
 * [Poetry](https://python-poetry.org/)
 
 In order to update these tools, you must update their pinned version in `Dockerfile`
