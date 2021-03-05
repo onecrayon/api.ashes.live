@@ -25,6 +25,14 @@ want to clone this repo into your Linux file system, install `make` under your L
 (if necessary) and then execute your make commands from the WSL command line (accessible via
 `wsl` in PowerShell, or by opening the Linux terminal directly).
 
+This means that on Windows you are typically:
+
+* **Windows:** Installing and running Docker Desktop
+* **Windows:** Using VisualStudio Code or PyCharm to edit the files store in WSL file system
+  (see below)
+* **Linux/WSL:** Running `make` commands in a WSL command line instead of standard Windows cmd or Powershell
+* **Linux/WSL:** Performing git actions in WSL (no need to install git in Windows for this project)
+
 However, if for whatever reason you do want to install `make` on Windows, this is an easy way:
 
 1. Install the [Chocolatey](https://chocolatey.org/install) package manager
@@ -136,8 +144,7 @@ To enable local debugging:
 
 This project is configured to use `isort` and `black` for import and code formatting, respectively.
 You can trigger formatting across the full project using `make format`, or you can also set up automatic
-formatting on a per-file basis within PyCharm (please note I haven't tested this on Windows, which might
-run into trouble due to different path formatting between Windows and WSL):
+formatting on a per-file basis within PyCharm:
 
 1. Open PyCharm's Settings (on Windows) or Preferences (on macOS)
 2. Under Tools -> File Watchers, click the "+" button and choose the "custom" template
@@ -145,8 +152,10 @@ run into trouble due to different path formatting between Windows and WSL):
 4. Configure the following settings:
     * File type: `Python`
     * Scope: `Project Files`
-    * Program: `make`
-    * Arguments: `format FILEPATH=$FilePathRelativeToProjectRoot$`
+    * Program: `make` (macOS/Linux) or `wsl` (Windows)
+    * Arguments: `format FILEPATH=$FilePathRelativeToProjectRoot$` (macOS/Linux) or
+      `make format FILENAME="$UnixSeparators($FilePathRelativeToProjectRoot$)$"` (Windows)
+    * Output paths to refresh: `$FilePath$`
     * Working Directory and Environment Variables -> Working directory: `$ProjectFileDir$`
     * Uncheck Advanced Options -> Auto-save edited files to trigger the watcher
     * Uncheck Advanced Options -> Trigger the watcher on external changes
