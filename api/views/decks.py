@@ -404,7 +404,7 @@ def create_snapshot(
             .outerjoin(Deck, deck.preconstructed_release == Release.id)
             .filter(
                 Release.stub == data.preconstructed_release,
-                Release.is_legacy.is_(True),
+                Release.is_legacy.is_(False),
                 Release.is_public.is_(True),
                 Deck.id.is_(None),
             )
