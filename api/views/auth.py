@@ -123,7 +123,7 @@ def request_password_reset(
     if not send_message(
         recipient=user.email,
         template_id=settings.sendgrid_reset_template,
-        data={"reset_token": user.reset_uuid, "email": user.email},
+        data={"reset_token": str(user.reset_uuid), "email": user.email},
     ):
         if settings.debug:
             logger.debug(f"RESET TOKEN FOR {email}: {user.reset_uuid}")
