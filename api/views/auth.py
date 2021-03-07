@@ -128,7 +128,7 @@ def request_password_reset(
         if settings.debug:
             logger.debug(f"RESET TOKEN FOR {email}: {user.reset_uuid}")
         raise APIException(
-            detail="Unable to send password reset email; please contact the site owner."
+            detail="Unable to send password reset email; please contact Skaak#0007 on Discord."
         )
     return {"detail": "A link to reset your password has been sent to your email!"}
 

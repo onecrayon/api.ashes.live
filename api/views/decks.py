@@ -386,7 +386,7 @@ def create_snapshot(
     if deck.is_legacy:
         raise APIException(detail="You cannot save snapshots for legacy decks.")
     if deck.is_snapshot:
-        raise APIException(detail="You cannot a snapshot of another snapshot.")
+        raise APIException(detail="You cannot create a snapshot of another snapshot.")
     if deck.is_deleted:
         raise APIException(
             detail="This deck has been deleted and can no longer be updated."
