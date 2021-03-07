@@ -17,13 +17,21 @@ the standard [3 Musketeers](https://3musketeers.io/) pattern.
 
 ### Running on Windows
 
-**Please note:** in order to run Docker Desktop on Windows you will either need a recent copy of
+**Please note:** in order to run Docker Desktop on Windows you will need a recent copy of
 Windows 10 with [WSL 2 enabled](https://docs.microsoft.com/en-us/windows/wsl/install-win10).
 
 Because WSL 2 runs faster when files are living under the Linux filesystem, you will probably
 want to clone this repo into your Linux file system, install `make` under your Linux distro
 (if necessary) and then execute your make commands from the WSL command line (accessible via
 `wsl` in PowerShell, or by opening the Linux terminal directly).
+
+This means that on Windows you are typically:
+
+* **Windows:** Installing and running Docker Desktop
+* **Windows:** Using VisualStudio Code or PyCharm to edit the files store in WSL file system
+  (see below)
+* **Linux/WSL:** Running `make` commands in a WSL command line instead of standard Windows cmd or Powershell
+* **Linux/WSL:** Performing git actions in WSL (no need to install git in Windows for this project)
 
 However, if for whatever reason you do want to install `make` on Windows, this is an easy way:
 
@@ -42,11 +50,8 @@ After installing the dependencies above:
 This will build your main Docker container and display the available commands you can
 execute with `make`.
 
-Now that you have a functional API stack, you need data in your database:
-
-1. Run `make migrate REV='c58a815a71a0'` to initialize empty tables in your database
-2. Run `make example-data` to populate your database with card and deck data from Ashes 1.0
-3. Run `make migrate` to run all subsequent migrations
+Now that you have a functional API stack, you can run `make data` to create some example
+testing data in your database.
 
 At this point, you can execute `make run` to start a local development server, and view your
 site's API documentation at <http:localhost:8000>.
@@ -105,6 +110,62 @@ in your attached container window will provide you access to the equivalent of `
 but running the standard make commands there will result in Docker-in-Docker, which is not
 desirable in this instance.
 
+### Configuring PyCharm
+
+You can use [PyCharm](https://www.jetbrains.com/pycharm/) to develop directly within
+the Docker container, allowing you access to the Python environment (which means
+linting, access to Python tools, etc.). To do so:
+
+1. [Install PyCharm](https://www.jetbrains.com/pycharm/download/), if you haven't already
+2. In your favorite Terminal, run `make run` to ensure the local stack is running
+3. Open PyCharm's Settings (on Windows) or Preferences (on macOS)
+4. Under Project -> Python Interpreter, click the gear icon by the Python Interpreter dropdown and choose "Add..."
+5. Select "Docker Compose" as the type in the left sidebar 
+6. Select `api` under the "Service" dropdown
+7. Apply your changes and close the settings
+
+#### Debugging in PyCharm
+
+You will now have auto-completion, automatic imports, and code navigation capabilities in PyCharm.
+To enable local debugging:
+
+1. In the upper right of the main window, click "Add Configuration..."
+2. Click the "+" button and choose "Python" as the template
+3. Name your configuration whatever you like (e.g. `Local`)
+4. Select "Script path", switch it to "Module name", then enter `uvicorn` as the "Module name"
+5. Enter `api.main:app --reload --host 0.0.0.0 --port 8000` as the "Parameters"
+6. Choose the Python Interpreter you set up in the previous steps
+7. Apply your changes
+8. In your favorite Terminal, exit the running local stack (if it is still running)
+9. You can now launch a local stack (or debug a local stack) with the buttons in the upper right corner of the main
+   window (the stack should auto-reload as you save files)
+   
+#### Automatic code formatting in PyCharm
+
+This project is configured to use `isort` and `black` for import and code formatting, respectively.
+You can trigger formatting across the full project using `make format`, or you can also set up automatic
+formatting on a per-file basis within PyCharm:
+
+1. Open PyCharm's Settings (on Windows) or Preferences (on macOS)
+2. Under Tools -> File Watchers, click the "+" button and choose the "custom" template
+3. Name your File Watcher whatever you like (e.g. "isort & black")
+4. Configure the following settings:
+    * File type: `Python`
+    * Scope: `Project Files`
+    * Program: `make` (macOS/Linux) or `wsl` (Windows)
+    * Arguments: `format FILEPATH=$FilePathRelativeToProjectRoot$` (macOS/Linux) or
+      `make format FILENAME="$UnixSeparators($FilePathRelativeToProjectRoot$)$"` (Windows)
+    * Output paths to refresh: `$FilePath$`
+    * Working Directory and Environment Variables -> Working directory: `$ProjectFileDir$`
+    * Uncheck Advanced Options -> Auto-save edited files to trigger the watcher
+    * Uncheck Advanced Options -> Trigger the watcher on external changes
+
+If automatic formatting is behaving too slowly for your tastes, you can optionally install isort and black in
+your local environment and configure them that way:
+
+* https://github.com/pycqa/isort/wiki/isort-Plugins
+* https://black.readthedocs.io/en/stable/editor_integration.html
+
 ## Development
 
 The Ashes.live API uses the [FastAPI](https://fastapi.tiangolo.com/) framework to handle view
@@ -156,6 +217,24 @@ In some instances, you may need to write unit tests instead (for instance, user 
 logic does this). This will typically come up when you need to verify error handling within
 a service or utility function for failure states that are not possible to trigger externally.
 
+### Migrations
+
+Migrations are handled by Alembic. To create a new migration:
+
+* Add or edit models or properties in `api/models`. If you add a new model class, make sure to
+  hoist the class to the root module in `api/models/__init__.py` or else it will not be
+  detected by Alembic!
+* Execute `make shell`
+* In the shell, run the command: `alembic revision --autogenerate -m "Short description here"`
+* This will create a new file in `migrations/versions`; verify the contents and remove the
+  "autogenerated" comments.
+* You can now exit the Docker shell and run `make migrate` to update your local database!
+
+You can find documentation for Alembic here: https://alembic.sqlalchemy.org/en/latest/
+
+Make sure that your model classes all inherit from `api.db.AlchemyBase`! This is what allows
+SQLAlchemy and Alembic to map the class to a table definition.
+
 ### Installing Python dependencies
 
 The Ashes.live API uses [Poetry](https://python-poetry.org/) for dependency management. To
@@ -186,7 +265,6 @@ which means the shell has to be root in order to properly calculate the dependen
 The underlying Dockerfile uses the following tools, pinned to specific release versions:
 
 * [Dockerize](https://github.com/jwilder/dockerize)
-* [Tini](https://github.com/krallin/tini)
 * [Poetry](https://python-poetry.org/)
 
 In order to update these tools, you must update their pinned version in `Dockerfile`

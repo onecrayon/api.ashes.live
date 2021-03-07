@@ -2,6 +2,7 @@ from enum import Enum
 from typing import List, Optional
 
 from api import db
+
 from .release import Release
 
 
@@ -16,24 +17,20 @@ class DiceFlags(Enum):
     time = 64
 
 
-conjurations_table = db.Table(
-    "card_conjuration",
-    db.AlchemyBase.metadata,
-    db.Column(
-        "card_id",
+class CardConjuration(db.AlchemyBase):
+    __tablename__ = "card_conjuration"
+    card_id = db.Column(
         db.Integer,
         db.ForeignKey("card.id"),
         nullable=False,
         primary_key=True,
-    ),
-    db.Column(
-        "conjuration_id",
+    )
+    conjuration_id = db.Column(
         db.Integer,
         db.ForeignKey("card.id"),
         nullable=False,
         primary_key=True,
-    ),
-)
+    )
 
 
 class Card(db.AlchemyBase):
@@ -75,9 +72,9 @@ class Card(db.AlchemyBase):
 
     conjurations = db.relationship(
         "Card",
-        secondary=conjurations_table,
-        primaryjoin=(id == conjurations_table.c.card_id),
-        secondaryjoin=(id == conjurations_table.c.conjuration_id),
+        secondary=CardConjuration.__table__,
+        primaryjoin="Card.id == CardConjuration.card_id",
+        secondaryjoin="Card.id == CardConjuration.conjuration_id",
         backref="summons",
     )
     release = db.relationship(Release)

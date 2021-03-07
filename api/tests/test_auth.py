@@ -1,18 +1,16 @@
-from datetime import datetime, timedelta
-import random
-import string
-from typing import Tuple
 import uuid
+from datetime import datetime, timedelta
 
 from fastapi import status
 from fastapi.testclient import TestClient
 from freezegun import freeze_time
 from jose import jwt
 
-from api import db
-from api.models import Invite
-from api.environment import settings
 import api.views.players
+from api import db
+from api.environment import settings
+from api.models import Invite, UserRevokedToken
+
 from . import utils
 
 
@@ -52,6 +50,25 @@ def test_token(client: TestClient, session: db.Session):
     assert response.status_code == status.HTTP_200_OK, response.json()
 
 
+def test_longterm_token(client: TestClient, session: db.Session):
+    """Requesting a long-term token must return a long-term token"""
+    # Create a user
+    user, password = utils.create_user_password(session)
+    # Verify we can obtain a long-term token
+    response = client.post(
+        "/v2/token",
+        {"username": user.email, "password": password, "scope": "token:longterm"},
+    )
+    assert response.status_code == status.HTTP_200_OK, response.json()
+    # Verify that the token is actually long-term
+    with freeze_time(datetime.utcnow() + timedelta(days=60)):
+        response = client.get(
+            "/v2/players/me",
+            headers={"Authorization": f"Bearer {response.json()['access_token']}"},
+        )
+        assert response.status_code == status.HTTP_200_OK, response.json()
+
+
 def test_anonymous_required(client: TestClient, session: db.Session, monkeypatch):
     """Anonymous users can access endpoints that require anonymity"""
 
@@ -67,7 +84,7 @@ def test_anonymous_required(client: TestClient, session: db.Session, monkeypatch
 
 
 def test_anonymous_required_authenticated_user(client: TestClient, session: db.Session):
-    """Authenicated users cannot access enpoints that require anonymity"""
+    """Authenticated users cannot access endpoints that require anonymity"""
     _, token = utils.create_user_token(session)
     fake_email = utils.generate_random_email()
     response = client.post(
@@ -108,7 +125,19 @@ def test_login_required_old_token(client: TestClient, session: db.Session):
 def test_login_required_missing_sub(client: TestClient, session: db.Session):
     """login_required dependency requires the user badge in the `sub`"""
     expire = datetime.utcnow() + timedelta(minutes=15)
-    fake_data = {"exp": expire}
+    fake_data = {"jti": uuid.uuid4().hex, "exp": expire}
+    fake_token = jwt.encode(fake_data, settings.secret_key)
+    response = client.get(
+        "/v2/players/me", headers={"Authorization": f"Bearer {fake_token}"}
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
+
+
+def test_login_required_missing_jti(client: TestClient, session: db.Session):
+    """login_required dependency requires a JWT ID in the `jti`"""
+    user, _ = utils.create_user_token(session)
+    expire = datetime.utcnow() + timedelta(minutes=15)
+    fake_data = {"sub": user.badge, "exp": expire}
     fake_token = jwt.encode(fake_data, settings.secret_key)
     response = client.get(
         "/v2/players/me", headers={"Authorization": f"Bearer {fake_token}"}
@@ -119,12 +148,12 @@ def test_login_required_missing_sub(client: TestClient, session: db.Session):
 def test_login_required_no_such_badge(client: TestClient, session: db.Session):
     """login_required dependency can handled badges that don't exist"""
     expire = datetime.utcnow() + timedelta(minutes=15)
-    fake_data = {"exp": expire, "sub": "nopers"}
+    fake_data = {"exp": expire, "sub": "nopers", "jti": uuid.uuid4().hex}
     fake_token = jwt.encode(fake_data, settings.secret_key)
     response = client.get(
         "/v2/players/me", headers={"Authorization": f"Bearer {fake_token}"}
     )
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED, resonse.json()
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
 
 
 def test_login_required_banned_user(client: TestClient, session: db.Session):
@@ -280,3 +309,66 @@ def test_reset_password(client: TestClient, session: db.Session):
     assert response.status_code == status.HTTP_200_OK
     session.refresh(user)
     assert original_hash != user.password
+
+
+def test_reset_password_then_login(
+    client: TestClient, session: db.Session, monkeypatch
+):
+    """Users must be able to log in after requesting a password reset"""
+
+    def _always_true(*args, **kwargs):
+        return True
+
+    # send_email is covered by unit tests, so it's safe to patch the whole function
+    monkeypatch.setattr(api.views.auth, "send_message", _always_true)
+    user, password = utils.create_user_password(session)
+    response = client.post("/v2/reset", json={"email": user.email})
+    assert response.status_code == status.HTTP_200_OK
+    session.refresh(user)
+    assert user.reset_uuid is not None
+    # And then verify that we can login
+    response = client.post("/v2/token", {"username": user.email, "password": password})
+    assert response.status_code == status.HTTP_200_OK
+
+
+def test_revoke_token(client: TestClient, session: db.Session):
+    """Revoking the token must disallow access to the API with that token"""
+    # Create a token, then revoke it
+    user, token = utils.create_user_token(session)
+    response = client.delete("/v2/token", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == status.HTTP_200_OK, response.json()
+    # Verify that we added the token to the "revert token" table
+    payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
+    jwt_uuid = uuid.UUID(hex=payload["jti"])
+    assert (
+        session.query(UserRevokedToken)
+        .filter(UserRevokedToken.revoked_uuid == jwt_uuid)
+        .count()
+        == 1
+    )
+    # Verify that we cannot make further authenticated requests with this token
+    response = client.get(
+        "/v2/players/me", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
+
+
+def test_revoke_token_cleanup(client: TestClient, session: db.Session):
+    """Revoking a token must clean up old revoked tokens"""
+
+    def revoke_token(time):
+        with freeze_time(time):
+            user, token = utils.create_user_token(session)
+            response = client.delete(
+                "/v2/token", headers={"Authorization": f"Bearer {token}"}
+            )
+            assert response.status_code == status.HTTP_200_OK, response.json()
+
+    now = datetime.utcnow()
+    # Revoke a token 2 days ago
+    one_day = now - timedelta(days=2)
+    revoke_token(one_day)
+    assert session.query(UserRevokedToken).count() == 1
+    # Revoke a token now, so that the first token should get purged
+    revoke_token(now)
+    assert session.query(UserRevokedToken).count() == 1

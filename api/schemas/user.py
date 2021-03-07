@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field, EmailStr, validator
+from pydantic import UUID4, BaseModel, EmailStr, Field, validator
 
 
 class UserEmailIn(BaseModel):
@@ -32,7 +32,10 @@ class UserRegistrationIn(UserSetPasswordIn):
     """Registration details for a given user"""
 
     username: Optional[str] = Field(
-        None, description="How you wish to be known around the site.", max_length=42
+        ...,
+        description="How you wish to be known around the site.",
+        min_length=2,
+        max_length=42,
     )
     description: Optional[str] = Field(
         None, description="Supports card codes and star formatting."
@@ -40,33 +43,42 @@ class UserRegistrationIn(UserSetPasswordIn):
     newsletter_opt_in: bool = False
 
 
-class UserPublicOut(BaseModel):
-    """Public user information"""
+class UserBasicOut(BaseModel):
+    """Basic public user information"""
 
     username: str
     badge: str
-    description: Optional[str]
 
     class Config:
         orm_mode = True
+
+
+class UserPublicOut(UserBasicOut):
+    """Public user information"""
+
+    description: Optional[str]
 
 
 class UserSelfOut(UserPublicOut):
     """Private user information"""
 
     email: str
-    reset_uuid: Optional[str]
+    reset_uuid: Optional[UUID4]
     newsletter_opt_in: bool
     email_subscriptions: bool
     exclude_subscriptions: bool
     colorize_icons: bool
+    is_admin: bool
 
 
 class UserSelfIn(BaseModel):
     """Patch private user information"""
 
     username: str = Field(
-        None, description="How you wish to be known around the site.", max_length=42
+        None,
+        description="How you wish to be known around the site.",
+        min_length=2,
+        max_length=42,
     )
     description: str = Field(
         None, description="Supports card codes and star formatting."

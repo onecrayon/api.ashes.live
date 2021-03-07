@@ -1,5 +1,5 @@
-from typing import Union
 import re
+from typing import Union
 
 
 def stubify(text: str) -> str:
@@ -17,3 +17,12 @@ def str_or_int(value: str) -> Union[str, int]:
     if re.fullmatch(r"\d+", value):
         return int(value)
     return value
+
+
+def to_prefixed_tsquery(text: str) -> str:
+    """If `text` has no spaces, ensures that our TSQUERY tests for prefixes"""
+    text = text.strip()
+    # If there are spaces in text, we assume that they're doing an exact phrase search
+    if " " in text:
+        return " <-> ".join(text.split())
+    return f"{text} | {text}:*"

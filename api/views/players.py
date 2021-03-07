@@ -7,21 +7,21 @@ from pydantic.error_wrappers import ErrorWrapper
 
 from api import db
 from api.depends import (
-    get_session,
+    AUTH_RESPONSES,
     admin_required,
     anonymous_required,
+    get_session,
     login_required,
-    AUTH_RESPONSES,
 )
 from api.environment import settings
 from api.exceptions import APIException, NotFoundException
 from api.models import Invite, User
-from api.schemas import DetailResponse, user as schema
+from api.schemas import DetailResponse
+from api.schemas import user as schema
 from api.schemas.auth import AuthTokenOut
-from api.services.user import access_token_for_user, get_invite_for_email, create_user
+from api.services.user import access_token_for_user, create_user, get_invite_for_email
 from api.utils.auth import generate_password_hash, verify_password
 from api.utils.email import send_message
-
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ def request_invite(
         if settings.debug:
             logger.debug(f"INVITE TOKEN FOR {email}: {invitation.uuid}")
         raise APIException(
-            detail="Unable to send invitation email; please contact the site owner."
+            detail="Unable to send invitation email; please report this to Skaak#0007 on Discord!"
         )
     return {
         "detail": "Your invitation has been sent! Please follow the link in your email to set your password."
@@ -103,7 +103,7 @@ def create_player(
     session.delete(invite)
     session.commit()
     access_token = access_token_for_user(user)
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "user": user}
 
 
 @router.get(

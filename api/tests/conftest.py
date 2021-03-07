@@ -14,10 +14,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
-# `models` is necessary to ensure that AlchemyBase is properly populated
-from api import app, db, models
 import api.environment
+
+# `models` is necessary to ensure that AlchemyBase is properly populated
+from api import app, db
 from api.depends import get_session
+
 from . import utils
 
 

@@ -1,12 +1,10 @@
-from copy import deepcopy
-from typing import Callable, NamedTuple
+import inspect
 import urllib.parse
-
-from pydantic import AnyHttpUrl
+from typing import Callable
 
 from api import db
 from api.environment import settings
-from api.schemas.pagination import PaginationOptions, PaginatedResultsBase
+from api.schemas.pagination import PaginatedResultsBase, PaginationOptions
 
 
 def replace_offset(url: str, offset: int) -> str:
@@ -31,7 +29,7 @@ def paginated_results_for_query(
     paging: PaginationOptions,
     url: str,
     row_to_dict: Callable[[db.RowProxy], dict] = None,
-) -> PaginatedResultsBase:
+) -> dict:
     """Generic pagination results output"""
     # Fetch count and actual query data
     total_rows = query.count()
@@ -53,7 +51,10 @@ def paginated_results_for_query(
     # Construct our result rows and return
     if row_to_dict:
         row_list = [row_to_dict(x) for x in rows]
-    elif len(query.column_descriptions) == 1:
+    elif len(query.column_descriptions) == 1 and (
+        not inspect.isclass(query.column_descriptions[0]["type"])
+        or not issubclass(query.column_descriptions[0]["type"], db.AlchemyBase)
+    ):
         row_list = [x[0] for x in rows]
     else:
         row_list = rows

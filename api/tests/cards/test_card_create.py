@@ -4,10 +4,10 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from api import db
+from api.models.card import CardConjuration
 from api.models.release import Release
 
 from ..utils import create_admin_token
-
 
 MINIMUM_VALID_CARD = {
     "name": "Example Card",
@@ -140,6 +140,29 @@ def test_create_card_missing_conjuration(client: TestClient, session: db.Session
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
+
+
+def test_create_card_populates_conjurations(client: TestClient, session: db.Session):
+    """Creating a card adds its conjuration relationships"""
+    admin, token = create_admin_token(session)
+    # Create the conjuration first
+    conj_data = copy(MINIMUM_VALID_CARD)
+    conj_data["card_type"] = "Conjuration"
+    conj_data["copies"] = 1
+    conj_response = client.post(
+        "/v2/cards", json=conj_data, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert conj_response.status_code == status.HTTP_201_CREATED, conj_response.json()
+    # Then create the card that summons the conjuration
+    card_data = copy(MINIMUM_VALID_CARD)
+    card_data["name"] = "Summon Example Card"
+    card_data["text"] = "Place an [[Example Card]] conjuration on your battlefield."
+    card_response = client.post(
+        "/v2/cards", json=card_data, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert card_response.status_code == status.HTTP_201_CREATED, card_response.json()
+    # Then verify that the conjuration is linked to the card
+    assert session.query(CardConjuration).count() == 1
 
 
 def test_create_card_conjuration_copies_required(

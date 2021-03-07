@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from api import db
+
 from .card import Card
 
 

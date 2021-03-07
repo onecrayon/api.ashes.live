@@ -3,6 +3,7 @@
 # Inspired by <https://gist.github.com/prwhite/8168133>
 DOCKER_RUN = docker-compose run --rm -e STANDALONE=true --no-deps -u root -w /code api
 DOCKER_RUN_DB = docker-compose run --rm -u root -w /code api
+DOCKER_COMPOSE_TESTS = docker-compose -p asheslive_tests -f docker-compose.yml -f docker-compose.test.yml
 
 ##=== Welcome to Ashes.live! ===
 
@@ -10,7 +11,7 @@ help:     ## Show this help.
 	@$(DOCKER_RUN) make _help
 
 _help:
-	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -e 's/##//'
+	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -E -e 's/:\s+\|?\s*[a-z_][ a-z_-]+?[a-z](\s+)##/:\1/' | sed -e 's/##//'
 
 ##
 ##=== Local development ===
@@ -18,9 +19,9 @@ _help:
 run:      ## Run development server
 	@docker-compose up
 
-test:     ## Execute test suite
-	@docker-compose -p asheslive_tests run --rm -w /code api \
-		pytest --cov=api --cov-config=.coveragerc --cov-report=term:skip-covered --cov-report=html
+test:     ## Execute test suite; or specify target: `make test ARGS='api/tests/cards'`
+	@$(DOCKER_COMPOSE_TESTS)  run --rm -w /code api \
+		pytest --cov=api --cov-config=.coveragerc --cov-report=term:skip-covered --cov-report=html $(ARGS)
 
 
 # This ensures that even if they pass in an empty value, we default to "head"
@@ -28,8 +29,20 @@ ifndef REV
 override REV = head
 endif
 
-migrate:  ## Run database migrations; or specify a revision: `make migrate REV='head'`
+migrate: clean-api  ## Run database migrations; or specify a revision: `make migrate REV='head'`
 	@$(DOCKER_RUN_DB) alembic upgrade $(REV)
+
+# This ensures that even if they pass in an empty value, we default to parsing the "api" folder
+ifndef FILEPATH
+override FILEPATH = api
+endif
+
+format:   ## Format via isort and black; or specify a file: `make format FILEPATH='api/main.py'`
+	@$(DOCKER_RUN) make _format FILEPATH="$(FILEPATH)"
+
+_format:
+	@black "$(FILEPATH)"
+	@isort "$(FILEPATH)"
 
 ##
 ##=== Access internals ===
@@ -49,13 +62,27 @@ shell-db: ## Open a bash shell to API with the database running
 build:    ## Rebuild the main app container
 	@docker-compose build --no-cache api
 
-clean:    ## Clean up Docker containers, images, etc.
+clean-api:
 	@docker-compose down --remove-orphans
-	@docker-compose -p asheslive_tests down --remove-orphans
+
+clean-tests:
+	@$(DOCKER_COMPOSE_TESTS) down --remove-orphans
+
+clean: clean-api clean-tests    ## Clean up Docker containers, images, etc.
 	@echo 'All clean!'
 
 ##
 ##=== Rarely used ===
 
-example-data: ## Populate an empty database with example data (requires first revision!)
+_pre-example-data:
+	@$(DOCKER_RUN_DB) alembic upgrade 6b6df338dfc3
+
+_populate-example-data: clean-api
 	@docker-compose run -v `pwd`/docker/scripts:/scripts -u postgres --rm postgres /scripts/example_data.sh
+
+_post-example-data:
+	@$(DOCKER_RUN_DB) alembic upgrade head
+
+# Pipe causes these to be executed in strict order
+data: | _pre-example-data _populate-example-data _post-example-data     ## Populate example data (requires empty database!)
+

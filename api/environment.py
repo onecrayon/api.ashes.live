@@ -20,6 +20,7 @@ class ApplicationSettings(BaseSettings):
     debug: bool = False
 
     access_token_expiry_hours: int = 24
+    access_token_remember_me_days: int = 365
     secret_key: str
 
     pagination_default_limit: int = 30

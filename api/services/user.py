@@ -1,16 +1,19 @@
-from datetime import timedelta
-from random import choice
 import re
 import string
+from datetime import timedelta
+from random import choice
 
 from api import db, models
 from api.environment import settings
-from api.utils.auth import generate_password_hash, create_access_token
+from api.utils.auth import create_access_token, generate_password_hash
 
 
-def access_token_for_user(user: "models.User") -> str:
+def access_token_for_user(user: "models.User", is_long_term=False) -> str:
     """Returns an access token for the given user"""
-    access_token_expires = timedelta(minutes=settings.access_token_expiry)
+    if is_long_term:
+        access_token_expires = timedelta(days=settings.access_token_remember_me_days)
+    else:
+        access_token_expires = timedelta(minutes=settings.access_token_expiry)
     return create_access_token(
         data={"sub": user.badge},
         expires_delta=access_token_expires,

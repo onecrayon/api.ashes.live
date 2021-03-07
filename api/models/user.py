@@ -1,5 +1,4 @@
 from datetime import datetime
-from random import choice
 
 from api import db
 
@@ -39,3 +38,12 @@ class User(db.AlchemyBase, AnonymousUser):
 
     def is_anonymous(self) -> bool:
         return False
+
+
+class UserRevokedToken(db.AlchemyBase):
+    """JWT token identifiers that have been explicitly revoked"""
+
+    __tablename__ = "user_revoked_tokens"
+    revoked_uuid = db.Column(db.UUID(as_uuid=True), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=False)
+    expires = db.Column(db.DateTime, nullable=False, index=True)

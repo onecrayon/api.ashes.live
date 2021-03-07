@@ -1,12 +1,13 @@
-from datetime import timedelta
 import random
 import string
+import uuid
+from datetime import timedelta
 from typing import Optional, Tuple
 
 from api import db, models
 from api.environment import settings
-from api.services.user import create_user
 from api.services.card import create_card
+from api.services.user import create_user
 from api.utils.auth import create_access_token
 
 
@@ -31,7 +32,8 @@ def create_user_token(
     if not user:
         user, _ = create_user_password(session)
     token = create_access_token(
-        data={"sub": user.badge}, expires_delta=timedelta(minutes=15)
+        data={"sub": user.badge},
+        expires_delta=timedelta(minutes=15),
     )
     return user, token
 
