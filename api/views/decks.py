@@ -41,6 +41,7 @@ from api.services.deck import (
     deck_to_dict,
     get_decks_query,
     paginate_deck_listing,
+    BadPhoenixbornUnique,
 )
 from api.services.stream import (
     create_entity,
@@ -318,7 +319,7 @@ def save_deck(
         else data.phoenixborn.get("stub")
     )
     phoenixborn = (
-        session.query(Card.id)
+        session.query(Card.id, Card.name)
         .filter(Card.stub == phoenixborn_stub, Card.is_legacy.is_(False))
         .first()
     )
@@ -328,7 +329,7 @@ def save_deck(
         deck = create_or_update_deck(
             session,
             current_user,
-            phoenixborn_id=phoenixborn.id,
+            phoenixborn=phoenixborn,
             deck_id=data.id,
             title=data.title,
             description=data.description,
@@ -343,6 +344,10 @@ def save_deck(
     except PhoenixbornInDeck:
         raise APIException(
             detail="Your deck listing includes a Phoenixborn. Please pass the Phoenixborn at the root level of the deck object."
+        )
+    except BadPhoenixbornUnique as e:
+        raise APIException(
+            detail=f"Your deck includes {e.card_name}, but this card requires {e.required_phoenixborn}."
         )
     return deck_to_dict(session, deck=deck)
 

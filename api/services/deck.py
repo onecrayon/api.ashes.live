@@ -27,10 +27,24 @@ class PhoenixbornInDeck(Exception):
     pass
 
 
+class BadPhoenixbornUnique(Exception):
+    """Raised when a Phoenixborn unique card is included in the deck card list, but doesn't match
+    the deck's Phoenixborn.
+    """
+
+    card_name: str
+    required_phoenixborn: str
+
+    def __init__(self, card):
+        self.card_name = card.name
+        self.required_phoenixborn = card.phoenixborn
+        super().__init__()
+
+
 def create_or_update_deck(
     session: db.Session,
     current_user: "User",
-    phoenixborn_id: int,
+    phoenixborn: Card,
     deck_id: int = None,
     title: str = None,
     description: str = None,
@@ -56,7 +70,7 @@ def create_or_update_deck(
             raise NoSuchDeck()
         deck.title = title
         deck.description = description
-        deck.phoenixborn_id = phoenixborn_id
+        deck.phoenixborn_id = phoenixborn.id
         deck.modified = now
     else:
         deck = Deck(
@@ -64,7 +78,7 @@ def create_or_update_deck(
             title=title,
             description=description,
             user_id=current_user.id,
-            phoenixborn_id=phoenixborn_id,
+            phoenixborn_id=phoenixborn.id,
             is_snapshot=False,
             is_public=False,
         )
@@ -97,7 +111,7 @@ def create_or_update_deck(
         card_stubs.update(tutor_map.keys())
         card_stubs.update(tutor_map.values())
     minimal_cards = (
-        session.query(Card.id, Card.stub, Card.card_type)
+        session.query(Card.id, Card.stub, Card.name, Card.card_type, Card.phoenixborn)
         .join(Card.release)
         .filter(
             Card.stub.in_(card_stubs),
@@ -117,6 +131,8 @@ def create_or_update_deck(
             continue
         if card.card_type == CardType.phoenixborn.value:
             raise PhoenixbornInDeck()
+        if card.phoenixborn and card.phoenixborn != phoenixborn.name:
+            raise BadPhoenixbornUnique(card)
         deck_cards.append(DeckCard(card_id=card.id, count=count))
     deck.cards = deck_cards
 
