@@ -51,7 +51,8 @@ This will build your main Docker container and display the available commands yo
 execute with `make`.
 
 Now that you have a functional API stack, you can run `make data` to create some example
-testing data in your database.
+testing data in your database (note: this may fail if you have never run `make run` or
+`make db` prior to `make data` because the Postgres database must be initialized first).
 
 At this point, you can execute `make run` to start a local development server, and view your
 site's API documentation at <http:localhost:8000>.
