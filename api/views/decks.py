@@ -35,13 +35,13 @@ from api.schemas.decks import (
 )
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.deck import (
+    BadPhoenixbornUnique,
     NoSuchDeck,
     PhoenixbornInDeck,
     create_or_update_deck,
     deck_to_dict,
     get_decks_query,
     paginate_deck_listing,
-    BadPhoenixbornUnique,
 )
 from api.services.stream import (
     create_entity,
