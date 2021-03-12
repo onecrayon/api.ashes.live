@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Union
 
 from fastapi import Query
-from pydantic import BaseModel, Field, validator
+from pydantic import UUID4, BaseModel, Field, validator
 
 from api.schemas.pagination import PaginatedResultsBase
 from api.schemas.user import UserBasicOut
@@ -128,6 +128,10 @@ class DeckFullOut(DeckOut):
     description: str = None
     is_public: bool
     is_snapshot: bool
+    direct_share_uuid: UUID4 = Field(
+        None,
+        description="Only included for public snapshots, or decks/snapshots owned by the requesting user. This UUID is used to directly access deck details without requiring authentication (e.g. for private sharing).",
+    )
     # These are generated properties; not innate parts of the Deck model
     is_saved: bool = None
     comments_entity_id: int

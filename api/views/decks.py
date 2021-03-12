@@ -166,7 +166,7 @@ def get_deck(
       a public snapshot)
     * passing any snapshot's ID will return that snapshot
     """
-    source_deck = session.query(Deck).get(deck_id)
+    source_deck: Deck = session.query(Deck).get(deck_id)
     own_deck = (
         not current_user.is_anonymous() and source_deck.user_id == current_user.id
     )
@@ -180,16 +180,16 @@ def get_deck(
     #  conditionals to make things more readable)
     # Public snapshots simply get returned
     if source_deck.is_snapshot and source_deck.is_public:
-        deck_dict = deck_to_dict(session, deck=source_deck, include_public_data=True)
+        deck = source_deck
     # Private snapshots get returned if the user owns the deck
     elif source_deck.is_snapshot and own_deck:
-        deck_dict = deck_to_dict(session, deck=source_deck, include_public_data=True)
+        deck = source_deck
     # The actual deck gets returned if we are showing the latest saved copy
     elif not source_deck.is_snapshot and own_deck and show_saved:
-        deck_dict = deck_to_dict(session, deck=source_deck, include_public_data=True)
+        deck = source_deck
     # By default, re-route to the latest public snapshot
     else:
-        deck = (
+        deck: Deck = (
             session.query(Deck)
             .filter(
                 Deck.source_id == source_deck.id,
@@ -202,11 +202,18 @@ def get_deck(
         )
         if not deck:
             raise NotFoundException(detail="Deck not found.")
-        deck_dict = deck_to_dict(session, deck=deck, include_public_data=True)
+
+    deck_dict = deck_to_dict(session, deck=deck, include_public_data=True)
 
     # Add our `is_saved` flag, if we're viewing a saved deck
     if not source_deck.is_snapshot and show_saved:
         deck_dict["is_saved"] = True
+
+    # Check to see if we can include the direct_share_uuid
+    if deck.is_public or (
+        not current_user.is_anonymous() and deck.user_id == current_user.id
+    ):
+        deck_dict["direct_share_uuid"] = deck.direct_share_uuid
 
     # And finally look up the releases that are required by this deck
     card_stubs = set(x["stub"] for x in deck_dict["cards"])
