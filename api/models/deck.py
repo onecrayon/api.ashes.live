@@ -11,6 +11,13 @@ class Deck(db.AlchemyBase):
     __tablename__ = "deck"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     entity_id = db.Column(db.Integer, nullable=False, index=True, unique=True)
+    direct_share_uuid = db.Column(
+        db.UUID(as_uuid=True),
+        nullable=False,
+        server_default=db.text("gen_random_uuid()"),
+        index=True,
+        unique=True,
+    )
     title = db.Column(db.String(255))
     description = db.Column(db.Text)
     is_public = db.Column(db.Boolean, nullable=False, default=False, index=True)

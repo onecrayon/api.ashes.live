@@ -1,6 +1,7 @@
 from typing import Union
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
+from pydantic import UUID4
 
 from api import db
 from api.depends import (
@@ -27,21 +28,21 @@ from api.schemas.decks import (
     DeckDetails,
     DeckFilters,
     DeckFiltersMine,
+    DeckFullOut,
     DeckIn,
     DeckListingOut,
-    DeckOut,
     DeckSaveOut,
     SnapshotIn,
 )
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.deck import (
+    BadPhoenixbornUnique,
     NoSuchDeck,
     PhoenixbornInDeck,
     create_or_update_deck,
     deck_to_dict,
     get_decks_query,
     paginate_deck_listing,
-    BadPhoenixbornUnique,
 )
 from api.services.stream import (
     create_entity,
@@ -128,6 +129,39 @@ def list_my_decks(
 
 
 @router.get(
+    "/decks/shared/{direct_share_uuid}",
+    response_model=DeckFullOut,
+    responses={
+        404: {
+            "model": DetailResponse,
+            "description": "Deck could not be found",
+        },
+    },
+)
+def get_private_deck(
+    direct_share_uuid: UUID4,
+    session: db.Session = Depends(get_session),
+):
+    """Fetch a single deck using its direct share UUID.
+
+    This endpoint returns just a specific deck or snapshot based on its direct share UUID. This is
+    primarily intended for loading a deck into an external application such as TableTop Simulator
+    or Ashteki, but can also be used to privately share access to a deck with another user.
+    """
+    deck = (
+        session.query(Deck)
+        .filter(Deck.direct_share_uuid == direct_share_uuid, Deck.is_deleted.is_(False))
+        .first()
+    )
+    if not deck:
+        raise NotFoundException(
+            detail="No such deck; it might have been deleted, or your share ID might be wrong."
+        )
+    deck_dict = deck_to_dict(session, deck=deck)
+    return deck_dict
+
+
+@router.get(
     "/decks/{deck_id}",
     response_model=DeckDetails,
     response_model_exclude_unset=True,
@@ -166,7 +200,7 @@ def get_deck(
       a public snapshot)
     * passing any snapshot's ID will return that snapshot
     """
-    source_deck = session.query(Deck).get(deck_id)
+    source_deck: Deck = session.query(Deck).get(deck_id)
     own_deck = (
         not current_user.is_anonymous() and source_deck.user_id == current_user.id
     )
@@ -180,16 +214,16 @@ def get_deck(
     #  conditionals to make things more readable)
     # Public snapshots simply get returned
     if source_deck.is_snapshot and source_deck.is_public:
-        deck_dict = deck_to_dict(session, deck=source_deck, include_public_data=True)
+        deck = source_deck
     # Private snapshots get returned if the user owns the deck
     elif source_deck.is_snapshot and own_deck:
-        deck_dict = deck_to_dict(session, deck=source_deck, include_public_data=True)
+        deck = source_deck
     # The actual deck gets returned if we are showing the latest saved copy
     elif not source_deck.is_snapshot and own_deck and show_saved:
-        deck_dict = deck_to_dict(session, deck=source_deck, include_public_data=True)
+        deck = source_deck
     # By default, re-route to the latest public snapshot
     else:
-        deck = (
+        deck: Deck = (
             session.query(Deck)
             .filter(
                 Deck.source_id == source_deck.id,
@@ -202,11 +236,16 @@ def get_deck(
         )
         if not deck:
             raise NotFoundException(detail="Deck not found.")
-        deck_dict = deck_to_dict(session, deck=deck, include_public_data=True)
+
+    deck_dict = deck_to_dict(session, deck=deck, include_comment_entity_id=True)
 
     # Add our `is_saved` flag, if we're viewing a saved deck
     if not source_deck.is_snapshot and show_saved:
         deck_dict["is_saved"] = True
+
+    # Check to see if we can include the direct_share_uuid
+    if deck.is_public or own_deck:
+        deck_dict["direct_share_uuid"] = deck.direct_share_uuid
 
     # And finally look up the releases that are required by this deck
     card_stubs = set(x["stub"] for x in deck_dict["cards"])

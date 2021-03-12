@@ -418,7 +418,9 @@ def paginate_deck_listing(
     return output
 
 
-def deck_to_dict(session: db.Session, deck: Deck, include_public_data=False) -> dict:
+def deck_to_dict(
+    session: db.Session, deck: Deck, include_comment_entity_id=False
+) -> dict:
     """Converts a Deck object into an output dict using as few queries as possible."""
     needed_cards = set()
     needed_cards.add(deck.phoenixborn_id)
@@ -441,9 +443,9 @@ def deck_to_dict(session: db.Session, deck: Deck, include_public_data=False) -> 
         deck_dice=deck_dice,
     )
     deck_dict["description"] = deck.description
-    if include_public_data:
-        deck_dict["is_public"] = deck.is_public
-        deck_dict["is_snapshot"] = deck.is_snapshot
+    deck_dict["is_public"] = deck.is_public
+    deck_dict["is_snapshot"] = deck.is_snapshot
+    if include_comment_entity_id:
         # This is an implicit SQL lookup, but it's going to require a lookup either way, so meh
         deck_dict["comments_entity_id"] = (
             deck.source.entity_id if deck.source_id else deck.entity_id

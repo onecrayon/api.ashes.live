@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Union
 
 from fastapi import Query
-from pydantic import BaseModel, Field, validator
+from pydantic import UUID4, BaseModel, Field, validator
 
 from api.schemas.pagination import PaginatedResultsBase
 from api.schemas.user import UserBasicOut
@@ -108,6 +108,8 @@ class DeckOut(BaseModel):
     phoenixborn: PhoenixbornCardOut
     cards: List[DeckCardOut]
     conjurations: List[DeckCardOut]
+    is_public: bool = None
+    is_snapshot: bool = None
     is_legacy: bool = None
     ashes_500_score: int = None
     ashes_500_revision_id: int = None
@@ -126,11 +128,16 @@ class DeckFullOut(DeckOut):
     """Full deck information."""
 
     description: str = None
-    is_public: bool
-    is_snapshot: bool
+    direct_share_uuid: UUID4 = Field(
+        None,
+        description="Only included for public snapshots, or decks/snapshots owned by the requesting user. This UUID is used to directly access deck details without requiring authentication (e.g. for private sharing).",
+    )
     # These are generated properties; not innate parts of the Deck model
-    is_saved: bool = None
-    comments_entity_id: int
+    is_saved: bool = Field(
+        None,
+        description="Only included when directly accessing the most recently saved copy of a deck by the owner.",
+    )
+    comments_entity_id: int = None
 
 
 class DeckRelease(BaseModel):

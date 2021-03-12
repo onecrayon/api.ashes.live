@@ -72,7 +72,18 @@ clean: clean-api clean-tests    ## Clean up Docker containers, images, etc.
 	@echo 'All clean!'
 
 ##
-##=== Rarely used ===
+
+stack:    ## Rebuild the entire stack
+	@docker-compose pull
+	@docker-compose build
+
+reset:    ## Completely remove all images, containers, and volumes (DANGER!)
+	@docker-compose down --rmi all --remove-orphans --volumes
+	@echo
+	@echo 'You should now run `make stack`, `make db`, then populate your database!'
+
+##
+##=== First run ===
 
 _pre-example-data:
 	@$(DOCKER_RUN_DB) alembic upgrade 6b6df338dfc3

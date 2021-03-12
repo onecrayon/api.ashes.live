@@ -4113,3 +4113,6 @@ SELECT SETVAL('public.section_id_seq', COALESCE(MAX(id), 1) ) FROM public.sectio
 SELECT SETVAL('public.stream_id_seq', COALESCE(MAX(id), 1) ) FROM public.stream;
 SELECT SETVAL('public.streamable_entity_id_seq', COALESCE(MAX(entity_id), 1) ) FROM public.streamable;
 SELECT SETVAL('public.user_id_seq', COALESCE(MAX(id), 1) ) FROM public."user";
+
+-- Install PGCrypto extension so that we have access to gen_random_uuid() function
+create extension pgcrypto;
