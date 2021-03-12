@@ -16,6 +16,7 @@ class Deck(db.AlchemyBase):
         nullable=False,
         server_default=db.text("gen_random_uuid()"),
         index=True,
+        unique=True,
     )
     title = db.Column(db.String(255))
     description = db.Column(db.Text)

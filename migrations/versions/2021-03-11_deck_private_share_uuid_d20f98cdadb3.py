@@ -5,8 +5,8 @@ Revises: 74e98d76716e
 Create Date: 2021-03-11 14:50:51.449344+00:00
 
 """
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
@@ -27,7 +27,7 @@ def upgrade():
         ),
     )
     op.create_index(
-        op.f("ix_deck_direct_share_uuid"), "deck", ["direct_share_uuid"], unique=False
+        op.f("ix_deck_direct_share_uuid"), "deck", ["direct_share_uuid"], unique=True
     )
 
 
