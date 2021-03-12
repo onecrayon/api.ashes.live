@@ -286,7 +286,10 @@ def get_deck(
                 "stub": result.Release.stub,
                 "is_legacy": result.Release.is_legacy,
                 "preconstructed_deck_id": (
-                    result.Deck.source_id if result.Deck else None
+                    result.Deck.source_id
+                    # Don't bother including the preconstructed ID if the viewed deck is the precon
+                    if result.Deck and result.Deck.source_id != deck_dict["source_id"]
+                    else None
                 ),
             }
         )
