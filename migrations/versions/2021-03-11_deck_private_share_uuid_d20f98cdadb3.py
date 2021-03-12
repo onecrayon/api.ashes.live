@@ -20,16 +20,16 @@ def upgrade():
     op.add_column(
         "deck",
         sa.Column(
-            "private_share_uuid",
+            "direct_share_uuid",
             postgresql.UUID(as_uuid=True),
             server_default=sa.text("gen_random_uuid()"),
             nullable=False,
         ),
     )
     op.create_index(
-        op.f("ix_deck_private_share_uuid"), "deck", ["private_share_uuid"], unique=False
+        op.f("ix_deck_direct_share_uuid"), "deck", ["direct_share_uuid"], unique=False
     )
 
 
 def downgrade():
-    op.drop_column("deck", "private_share_uuid")
+    op.drop_column("deck", "direct_share_uuid")

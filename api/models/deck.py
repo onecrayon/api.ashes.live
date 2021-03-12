@@ -11,7 +11,7 @@ class Deck(db.AlchemyBase):
     __tablename__ = "deck"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     entity_id = db.Column(db.Integer, nullable=False, index=True, unique=True)
-    private_share_uuid = db.Column(
+    direct_share_uuid = db.Column(
         db.UUID(as_uuid=True),
         nullable=False,
         server_default=db.text("gen_random_uuid()"),
