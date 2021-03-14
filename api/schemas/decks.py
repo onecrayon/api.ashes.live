@@ -222,6 +222,10 @@ class SnapshotIn(BaseModel):
     is_public: bool = Field(
         False, description="Whether this snapshot should be published publicly."
     )
+    include_first_five = Field(
+        False,
+        description="For public snapshots, whether this snapshot should include your selected First Five cards.",
+    )
     preconstructed_release: str = Field(
         None,
         description="The stub for the release for which this snapshot is the preconstructed deck. Can only be set by site admins.",

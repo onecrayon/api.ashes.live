@@ -523,7 +523,7 @@ def create_snapshot(
                     count=deck_die.count,
                 )
             )
-    if deck.selected_cards:
+    if deck.selected_cards and (data.include_first_five or not data.is_public):
         for deck_selected_card in deck.selected_cards:
             session.add(
                 DeckSelectedCard(
