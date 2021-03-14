@@ -440,11 +440,28 @@ def create_snapshot(
         )
     if not data:
         data = SnapshotIn()
+    # Ensure that public snapshots are legal decks
+    if data.is_public:
+        total_cards = 0
+        total_dice = 0
+        for deck_card in deck.cards:
+            total_cards += deck_card.count
+        for deck_die in deck.dice:
+            total_dice += deck_die.count
+        if total_cards != 30 or total_dice != 10:
+            raise APIException(
+                detail="You must have exactly 30 cards and 10 dice in your deck to publish it."
+            )
+    # If setting a preconstructed release, ensure that we have permissions and a valid release
     preconstructed_release_id = None
     if data.preconstructed_release:
         if not current_user.is_admin:
             raise NoUserAccessException(
                 detail="Only site admins may publish preconstructed decks."
+            )
+        if not data.is_public:
+            raise APIException(
+                detail="Only public decks may be associated with a preconstructed deck."
             )
         preconstructed_release_id = (
             session.query(Release.id)
@@ -461,6 +478,7 @@ def create_snapshot(
             raise APIException(
                 detail="No such release, or release already has a preconstructed deck."
             )
+    # TODO: Ensure that there is at least one thing changed from the most recent snapshot?
     title = data.title if data.title else deck.title
     description = deck.description
     if data.description:
