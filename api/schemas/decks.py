@@ -33,12 +33,14 @@ class DeckFilters:
         phoenixborn: Optional[List[str]] = Query(None),
         card: Optional[List[str]] = Query(None),
         show_legacy: bool = False,
+        show_preconstructed: bool = False,
         player: Optional[List[str]] = Query(None),
     ):
         self.q = q
         self.phoenixborn = phoenixborn
         self.card = card
         self.show_legacy = show_legacy
+        self.show_preconstructed = show_preconstructed
         self.player = player
 
 
