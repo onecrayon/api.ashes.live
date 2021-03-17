@@ -74,6 +74,7 @@ def list_published_decks(
     * `phoenixborn`: list of Phoenixborn slugs
     * `card`: list of card slugs
     * `player`: list of player badges
+    * `show_preconstructed` (default: false): if true, only include preconstructed decks
     * `show_legacy` (default: false): if true, legacy 1.0 decks will be returned
     """
     query = get_decks_query(
@@ -85,6 +86,7 @@ def list_published_decks(
         phoenixborn=filters.phoenixborn,
         cards=filters.card,
         players=filters.player,
+        show_preconstructed=filters.show_preconstructed,
     )
     return paginate_deck_listing(query, session, request, paging)
 

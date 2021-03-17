@@ -193,10 +193,13 @@ def get_decks_query(
     phoenixborn: Optional[List[str]] = None,
     cards: Optional[List[str]] = None,
     players: Optional[List[str]] = None,
+    show_preconstructed=False,
 ) -> db.Query:
     query = session.query(Deck).filter(
         Deck.is_legacy.is_(show_legacy), Deck.is_deleted.is_(False)
     )
+    if show_preconstructed:
+        query = query.filter(Deck.is_preconstructed.is_(True))
     if is_public:
         deck_comp = db.aliased(Deck)
         query = query.outerjoin(
