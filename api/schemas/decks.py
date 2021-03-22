@@ -102,7 +102,7 @@ class DeckOut(BaseModel):
     id: int
     entity_id: int
     source_id: int = None
-    title: str
+    title: str = None
     created: datetime
     modified: datetime
     user: UserBasicOut
