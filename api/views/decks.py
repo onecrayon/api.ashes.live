@@ -486,8 +486,8 @@ def create_snapshot(
         description = None
     create_snapshot_for_deck(
         session,
-        deck,
         current_user,
+        deck,
         title=title,
         description=description,
         is_public=data.is_public,

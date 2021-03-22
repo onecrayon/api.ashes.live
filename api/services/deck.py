@@ -189,8 +189,8 @@ def create_or_update_deck(
 
 def create_snapshot_for_deck(
     session: db.Session,
-    deck: "Deck",
     user: "User",
+    deck: "Deck",
     title: str = None,
     description: str = None,
     is_public=False,
