@@ -1,13 +1,20 @@
-from api import db, models
+from typing import List
+
+from sqlalchemy import func
+
+from api import db
+from api.models import Card, Deck, Release, User
 from api.services.card import create_card
+from api.services.deck import create_or_update_deck
+from api.tests.utils import generate_random_chars
 
 
-def populate_cards_for_decks(session: db.Session):
+def create_cards_for_decks(session: db.Session):
     """This utility function populates a set of cards appropriate for testing deck building"""
     # First create our two releases
-    master_set = models.Release("Master Set")
+    master_set = Release("Master Set")
     master_set.is_public = True
-    expansion = models.Release("Expansion")
+    expansion = Release("Expansion")
     expansion.is_public = True
     session.add(master_set)
     session.add(expansion)
@@ -290,3 +297,62 @@ def populate_cards_for_decks(session: db.Session):
     # Create our cards
     for card_dict in card_dicts:
         create_card(session, **card_dict)
+
+
+def create_deck_for_user(
+    session: db.Session, user: User, release_stub: str = None
+) -> Deck:
+    """Creates a deck by collecting a random Phoenixborn, their unique, and 9 random cards.
+
+    Relies on the cards from `create_cards_for_decks()` above being in the database.
+
+    If a release stub is included, then only cards from that release will be in the deck.
+
+    Returns the deck object.
+    """
+    release: Release = (
+        session.query(Release).filter(Release.stub == release_stub).first()
+        if release_stub
+        else None
+    )
+    phoenixborn_query = session.query(Card).filter(Card.card_type == "Phoenixborn")
+    if release:
+        phoenixborn_query = phoenixborn_query.filter(Card.release_id == release.id)
+    else:
+        phoenixborn_query = phoenixborn_query.order_by(func.random())
+    phoenixborn: Card = phoenixborn_query.first()
+    if not phoenixborn:
+        raise ValueError("No such test Phoenixborn!")
+    unique_card: Card = (
+        session.query(Card)
+        .filter(
+            Card.phoenixborn == phoenixborn.name,
+            Card.card_type.notin_(("Conjuration", "Conjured Alteration Spell")),
+        )
+        .first()
+    )
+    cards_query = session.query(Card).filter(
+        Card.card_type.notin_(
+            ("Conjuration", "Conjured Alteration Spell", "Phoenixborn")
+        ),
+        Card.phoenixborn.is_(None),
+    )
+    if release:
+        cards_query = cards_query.filter(Card.release_id == release.id)
+    else:
+        cards_query = cards_query.order_by(func.random())
+    deck_cards: List[Card] = cards_query.limit(9).all()
+    card_dicts = [{"stub": x.stub, "count": 3} for x in deck_cards]
+    card_dicts.append({"stub": unique_card.stub, "count": 3})
+    return create_or_update_deck(
+        session,
+        user,
+        phoenixborn=phoenixborn,
+        title=generate_random_chars(),
+        dice=[
+            {"name": "natural", "count": 5},
+            {"name": "sympathy", "count": 3},
+            {"name": "charm", "count": 2},
+        ],
+        cards=card_dicts,
+    )
