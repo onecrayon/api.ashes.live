@@ -1,9 +1,6 @@
 import pytest
-from fastapi.testclient import TestClient
 
-from api import app
 from api.db import Session
-from api.depends import get_session
 
 from .deck_utils import create_cards_for_decks
 
@@ -36,15 +33,3 @@ def session(cards_session):
         yield cards_session
     finally:
         cards_session.rollback()
-
-
-@pytest.fixture(scope="function")
-def client(session: Session) -> TestClient:
-    """Return a FastAPI TestClient for issuing requests and rollback inner transaction"""
-
-    def override_get_session():
-        yield session
-
-    app.dependency_overrides[get_session] = override_get_session
-
-    yield TestClient(app)
