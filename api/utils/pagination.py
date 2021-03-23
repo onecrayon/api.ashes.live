@@ -1,10 +1,9 @@
 import inspect
 import urllib.parse
-from typing import Callable
 
 from api import db
 from api.environment import settings
-from api.schemas.pagination import PaginatedResultsBase, PaginationOptions
+from api.schemas.pagination import PaginationOptions
 
 
 def replace_offset(url: str, offset: int) -> str:
@@ -28,7 +27,6 @@ def paginated_results_for_query(
     query: db.Query,
     paging: PaginationOptions,
     url: str,
-    row_to_dict: Callable[[db.RowProxy], dict] = None,
 ) -> dict:
     """Generic pagination results output"""
     # Fetch count and actual query data
@@ -49,9 +47,7 @@ def paginated_results_for_query(
         next_url = replace_offset(url, next_offset)
 
     # Construct our result rows and return
-    if row_to_dict:
-        row_list = [row_to_dict(x) for x in rows]
-    elif len(query.column_descriptions) == 1 and (
+    if len(query.column_descriptions) == 1 and (
         not inspect.isclass(query.column_descriptions[0]["type"])
         or not issubclass(query.column_descriptions[0]["type"], db.AlchemyBase)
     ):
