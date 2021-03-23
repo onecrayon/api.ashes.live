@@ -202,10 +202,10 @@ def get_deck(
     own_deck = (
         not current_user.is_anonymous() and source_deck.user_id == current_user.id
     )
-    if (
-        source_deck.is_deleted
-        or (source_deck.is_snapshot and not source_deck.is_public and not own_deck)
-        or (not own_deck and show_saved)
+    if source_deck.is_deleted:
+        raise NotFoundException(detail="Deck not found.")
+    if (source_deck.is_snapshot and not source_deck.is_public and not own_deck) or (
+        not own_deck and show_saved
     ):
         raise NoUserAccessException(detail="You do not have access to this deck.")
     # Check for the instances where we just return the source deck (separated into discrete
