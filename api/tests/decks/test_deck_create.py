@@ -222,3 +222,32 @@ def test_put_deck_too_many_dice(client: TestClient, session: db.Session, user_to
     assert data["dice"][0]["count"] == 8
     assert data["dice"][1]["name"] == "sympathy"
     assert data["dice"][1]["count"] == 2
+
+
+def test_put_deck_first_five_bogus_card(
+    client: TestClient, session: db.Session, user_token
+):
+    """Must properly handle bogus cards within the first five list"""
+    user, token = user_token
+    valid_deck = _valid_deck_dict(session)
+    valid_stubs = [x["stub"] for x in valid_deck["cards"]]
+    bad_stub = (
+        session.query(Card.stub)
+        .filter(
+            Card.phoenixborn.is_(None),
+            Card.card_type.notin_(CONJURATION_TYPES),
+            Card.card_type != "Phoenixborn",
+            Card.stub.notin_(valid_stubs),
+        )
+        .limit(1)
+        .scalar()
+    )
+    valid_deck["first_five"] = [valid_stubs[x] for x in range(0, 4)]
+    valid_deck["first_five"].append(bad_stub)
+    response = client.put(
+        "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    # TODO: enable this once the endpoint actually outputs the information
+    # data = response.json()
+    # assert bad_stub not in data["first_five"]
