@@ -37,6 +37,7 @@ from api.schemas.decks import (
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.deck import (
     BadPhoenixbornUnique,
+    ConjurationInDeck,
     NoSuchDeck,
     PhoenixbornInDeck,
     create_or_update_deck,
@@ -379,8 +380,6 @@ def save_deck(
             effect_costs=data.effect_costs,
             tutor_map=data.tutor_map,
         )
-    except NoSuchDeck:
-        raise NotFoundException()
     except PhoenixbornInDeck:
         raise APIException(
             detail="Your deck listing includes a Phoenixborn. Please pass the Phoenixborn at the root level of the deck object."
@@ -388,6 +387,10 @@ def save_deck(
     except BadPhoenixbornUnique as e:
         raise APIException(
             detail=f"Your deck includes {e.card_name}, but this card requires {e.required_phoenixborn}."
+        )
+    except ConjurationInDeck as e:
+        raise APIException(
+            detail=f"Your deck includes the conjuration {e.card_name}, but conjurations should not be included in the list of cards."
         )
     return deck_to_dict(session, deck=deck)
 

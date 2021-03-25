@@ -31,6 +31,16 @@ class PhoenixbornInDeck(Exception):
     pass
 
 
+class ConjurationInDeck(Exception):
+    """Raised when a Conjuration is included in the deck card list."""
+
+    card_name: str
+
+    def __init__(self, card):
+        self.card_name = card.name
+        super().__init__()
+
+
 class BadPhoenixbornUnique(Exception):
     """Raised when a Phoenixborn unique card is included in the deck card list, but doesn't match
     the deck's Phoenixborn.
@@ -137,6 +147,11 @@ def create_or_update_deck(
             raise PhoenixbornInDeck()
         if card.phoenixborn and card.phoenixborn != phoenixborn.name:
             raise BadPhoenixbornUnique(card)
+        if card.card_type in (
+            CardType.conjuration.value,
+            CardType.conjured_alteration_spell.value,
+        ):
+            raise ConjurationInDeck(card)
         deck_cards.append(DeckCard(card_id=card.id, count=count))
     deck.cards = deck_cards
 
