@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 from sqlalchemy import func
 
@@ -7,6 +7,8 @@ from api.models import Card, Deck, Release, User
 from api.services.card import create_card
 from api.services.deck import create_or_update_deck
 from api.tests.utils import generate_random_chars
+
+CONJURATION_TYPES = ("Conjuration", "Conjured Alteration Spell")
 
 
 def create_cards_for_decks(session: db.Session):
@@ -299,16 +301,12 @@ def create_cards_for_decks(session: db.Session):
         create_card(session, **card_dict)
 
 
-def create_deck_for_user(
-    session: db.Session, user: User, release_stub: str = None
-) -> Deck:
-    """Creates a deck by collecting a random Phoenixborn, their unique, and 9 random cards.
+def get_phoenixborn_cards_dice(
+    session: db.Session, release_stub: str = None
+) -> Tuple[Card, List[dict], List[dict]]:
+    """Returns the Phoenixborn and lists of cards/dice dicts suitable to create a deck
 
-    Relies on the cards from `create_cards_for_decks()` above being in the database.
-
-    If a release stub is included, then only cards from that release will be in the deck.
-
-    Returns the deck object.
+    Returns (phoenixborn, cards, dice)
     """
     release: Release = (
         session.query(Release).filter(Release.stub == release_stub).first()
@@ -327,7 +325,7 @@ def create_deck_for_user(
         session.query(Card)
         .filter(
             Card.phoenixborn == phoenixborn.name,
-            Card.card_type.notin_(("Conjuration", "Conjured Alteration Spell")),
+            Card.card_type.notin_(CONJURATION_TYPES),
         )
         .first()
     )
@@ -344,15 +342,34 @@ def create_deck_for_user(
     deck_cards: List[Card] = cards_query.limit(9).all()
     card_dicts = [{"stub": x.stub, "count": 3} for x in deck_cards]
     card_dicts.append({"stub": unique_card.stub, "count": 3})
+    dice_dicts = [
+        {"name": "natural", "count": 5},
+        {"name": "sympathy", "count": 3},
+        {"name": "charm", "count": 2},
+    ]
+
+    return phoenixborn, card_dicts, dice_dicts
+
+
+def create_deck_for_user(
+    session: db.Session, user: User, release_stub: str = None
+) -> Deck:
+    """Creates a deck by collecting a random Phoenixborn, their unique, and 9 random cards.
+
+    Relies on the cards from `create_cards_for_decks()` above being in the database.
+
+    If a release stub is included, then only cards from that release will be in the deck.
+
+    Returns the deck object.
+    """
+    phoenixborn, card_dicts, dice_dicts = get_phoenixborn_cards_dice(
+        session, release_stub
+    )
     return create_or_update_deck(
         session,
         user,
         phoenixborn=phoenixborn,
         title=generate_random_chars(),
-        dice=[
-            {"name": "natural", "count": 5},
-            {"name": "sympathy", "count": 3},
-            {"name": "charm", "count": 2},
-        ],
+        dice=dice_dicts,
         cards=card_dicts,
     )
