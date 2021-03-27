@@ -203,6 +203,8 @@ def get_deck(
     * passing any snapshot's ID will return that snapshot
     """
     source_deck: Deck = session.query(Deck).get(deck_id)
+    if not source_deck:
+        raise NotFoundException(detail="Deck not found.")
     own_deck = (
         not current_user.is_anonymous() and source_deck.user_id == current_user.id
     )
