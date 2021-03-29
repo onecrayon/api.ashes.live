@@ -235,6 +235,22 @@ def test_get_deck_deleted(client: TestClient, session: db.Session, user1):
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
+def test_get_deck_no_record(client: TestClient, session: db.Session, user1):
+    """Trying to fetch an ID that no longer exists must fail correctly"""
+    deck = create_deck_for_user(session, user1)
+    deleted_id = deck.id
+    session.delete(deck)
+    session.commit()
+    token = create_access_token(
+        data={"sub": user1.badge},
+        expires_delta=timedelta(minutes=15),
+    )
+    response = client.get(
+        f"/v2/decks/{deleted_id}", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_get_deck_deleted_public_snapshot(
     client: TestClient, session: db.Session, user1
 ):
