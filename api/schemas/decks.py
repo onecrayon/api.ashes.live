@@ -124,12 +124,23 @@ class DeckSaveOut(DeckOut):
     """Full deck information returned from saving endpoint"""
 
     description: str = None
+    first_five: List[str] = Field(
+        None,
+        description="A list of up to five card stubs intended as the typical First Five. May not be included for public snapshots (owners can opt out of displaying it).",
+    )
+    effect_costs: List[str] = Field(
+        None,
+        description="A list of card stubs in the First Five (or the Phoenixborn) whose effects are expected to be paid in the first round. Only included for public snapshots if the First Five is populated.",
+    )
+    tutor_map: Dict[str, str] = Field(
+        None,
+        description="An object with tutor card stubs in the First Five as keys, and the tutored card stubs as values. Only included for public snapshots if the First Five is populated.",
+    )
 
 
-class DeckFullOut(DeckOut):
+class DeckFullOut(DeckSaveOut):
     """Full deck information."""
 
-    description: str = None
     direct_share_uuid: UUID4 = Field(
         None,
         description="Only included for public snapshots, or decks/snapshots owned by the requesting user. This UUID is used to directly access deck details without requiring authentication (e.g. for private sharing).",
