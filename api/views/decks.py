@@ -386,13 +386,13 @@ def save_deck(
         raise APIException(
             detail="Your deck listing includes a Phoenixborn. Please pass the Phoenixborn at the root level of the deck object."
         )
-    except BadPhoenixbornUnique as e:
-        raise APIException(
-            detail=f"Your deck includes {e.card_name}, but this card requires {e.required_phoenixborn}."
-        )
     except ConjurationInDeck as e:
         raise APIException(
             detail=f"Your deck includes the conjuration {e.card_name}, but conjurations should not be included in the list of cards."
+        )
+    except BadPhoenixbornUnique as e:
+        raise APIException(
+            detail=f"Your deck includes {e.card_name}, but this card requires {e.required_phoenixborn}."
         )
     return deck_to_dict(session, deck=deck)
 
