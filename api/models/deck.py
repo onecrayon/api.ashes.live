@@ -77,6 +77,15 @@ class DeckDie(db.AlchemyBase):
 
 
 class DeckSelectedCard(db.AlchemyBase):
+    """Tracks cards selected for use in First Five
+
+    `is_first_five` means cards that are explicitly included in the First Five. `is_paid_effect`
+    means that the player plans to pay the effect cost for that card in the first round.
+
+    `tutor_card_id` means that the card in `tutor_card_id` was used to fetch this card, which means
+    that it can functionally be either the First Sixth card and/or a paid effect cost.
+    """
+
     __tablename__ = "deck_selected_card"
     deck_id = db.Column(
         db.Integer, db.ForeignKey(Deck.id), nullable=False, primary_key=True
