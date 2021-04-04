@@ -248,6 +248,5 @@ def test_put_deck_first_five_bogus_card(
         "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
     )
     assert response.status_code == status.HTTP_200_OK
-    # TODO: enable this once the endpoint actually outputs the information
-    # data = response.json()
-    # assert bad_stub not in data["first_five"]
+    data = response.json()
+    assert bad_stub not in data["first_five"]

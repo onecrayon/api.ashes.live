@@ -552,4 +552,25 @@ def deck_to_dict(
         deck_dict["comments_entity_id"] = (
             deck.source.entity_id if deck.source_id else deck.entity_id
         )
+    # If we are including first five information, grab that now
+    first_five = []
+    effect_costs = []
+    tutor_map = {}
+    # This is another implicit SQL lookup, but again it requires a lookup either way
+    for selected_card in deck.selected_cards:
+        card = card_id_to_card.get(selected_card.card_id)
+        # This situation should theoretically never happen, but just in case...
+        if not card:
+            continue
+        if selected_card.is_first_five:
+            first_five.append(card.stub)
+        if selected_card.is_paid_effect:
+            effect_costs.append(card.stub)
+        if selected_card.tutor_card_id:
+            tutor_card = card_id_to_card.get(selected_card.tutor_card_id)
+            if tutor_card:
+                tutor_map[tutor_card.stub] = card.stub
+    deck_dict["first_five"] = first_five
+    deck_dict["effect_costs"] = effect_costs
+    deck_dict["tutor_map"] = tutor_map
     return deck_dict
