@@ -19,6 +19,12 @@ def user_token(cards_session):
     return user, token
 
 
+@pytest.fixture(scope="module")
+def deck(cards_session, user_token):
+    user, _ = user_token
+    return create_deck_for_user(cards_session, user)
+
+
 def _valid_deck_dict(session: db.Session) -> dict:
     """Generates a minimal valid deck dict for PUT-ing"""
     phoenixborn, card_dicts, dice_dicts = get_phoenixborn_cards_dice(session)
@@ -73,10 +79,9 @@ def test_put_deck_legacy(client: TestClient, session: db.Session, user_token):
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-def test_put_deck_snapshot(client: TestClient, session: db.Session, user_token):
+def test_put_deck_snapshot(client: TestClient, session: db.Session, user_token, deck):
     """Must not allow saving over a snapshot ID"""
     user, token = user_token
-    deck = create_deck_for_user(session, user)
     snapshot = create_snapshot_for_deck(session, user, deck)
     valid_deck = _valid_deck_dict(session)
     valid_deck["id"] = snapshot.id
@@ -309,3 +314,83 @@ def test_put_deck_tutor_map(client: TestClient, session: db.Session, user_token)
     assert bad_stub not in data["tutor_map"].values()
     assert valid_stubs[0] in data["tutor_map"].keys()
     assert valid_stubs[1] in data["tutor_map"].values()
+
+
+def test_post_snapshot_bad_deck_id(client: TestClient, session: db.Session, user_token):
+    """Must not allow creating a snapshot for a bad deck ID"""
+    # Create a deck so that we can ensure no accidental ID collisions
+    user, token = user_token
+    deck = create_deck_for_user(session, user)
+    bad_id = deck.id
+    session.delete(deck)
+    session.commit()
+    response = client.post(
+        f"/v2/decks/{bad_id}/snapshot",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_post_snapshot_other_users_deck(
+    client: TestClient, session: db.Session, user_token, deck
+):
+    """Must not allow creating a snapshot from another user's deck"""
+    # Create a deck so that we can ensure no accidental ID collisions
+    user, _ = user_token
+    user2, token2 = create_user_token(session)
+    response = client.post(
+        f"/v2/decks/{deck.id}/snapshot",
+        headers={"Authorization": f"Bearer {token2}"},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_post_snapshot_legacy_deck(client: TestClient, session: db.Session, user_token):
+    """Must not allow posting snapshots for legacy decks"""
+    user, token = user_token
+    deck = create_deck_for_user(session, user)
+    deck.is_legacy = True
+    session.commit()
+    response = client.post(
+        f"/v2/decks/{deck.id}/snapshot",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_post_snapshot_for_snapshot(
+    client: TestClient, session: db.Session, user_token, deck
+):
+    """Must not allow creating a snapshot from another snapshot"""
+    user, token = user_token
+    snapshot = create_snapshot_for_deck(session, user, deck)
+    response = client.post(
+        f"/v2/decks/{snapshot.id}/snapshot",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_post_snapshot_deleted_deck(
+    client: TestClient, session: db.Session, user_token
+):
+    """Must not allow creating snapshots for a deleted deck"""
+    user, token = user_token
+    deck = create_deck_for_user(session, user)
+    deck.is_deleted = True
+    session.commit()
+    response = client.post(
+        f"/v2/decks/{deck.id}/snapshot",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_post_snapshot(client: TestClient, session: db.Session, user_token, deck):
+    """Must allow creating a straight copy snapshot"""
+    user, token = user_token
+    response = client.post(
+        f"/v2/decks/{deck.id}/snapshot",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED
