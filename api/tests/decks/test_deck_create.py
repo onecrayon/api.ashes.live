@@ -224,10 +224,8 @@ def test_put_deck_too_many_dice(client: TestClient, session: db.Session, user_to
     assert data["dice"][1]["count"] == 2
 
 
-def test_put_deck_first_five_bogus_card(
-    client: TestClient, session: db.Session, user_token
-):
-    """Must properly handle bogus cards within the first five list"""
+def test_put_deck_first_five(client: TestClient, session: db.Session, user_token):
+    """Must properly handle both good and bogus cards within the first five list"""
     user, token = user_token
     valid_deck = _valid_deck_dict(session)
     valid_stubs = [x["stub"] for x in valid_deck["cards"]]
@@ -250,3 +248,64 @@ def test_put_deck_first_five_bogus_card(
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert bad_stub not in data["first_five"]
+    assert valid_stubs[0] in data["first_five"]
+
+
+def test_put_deck_effect_costs(client: TestClient, session: db.Session, user_token):
+    """Must properly handle both good and bogus cards within the effect costs"""
+    user, token = user_token
+    valid_deck = _valid_deck_dict(session)
+    valid_stubs = [x["stub"] for x in valid_deck["cards"]]
+    bad_stub = (
+        session.query(Card.stub)
+        .filter(
+            Card.phoenixborn.is_(None),
+            Card.card_type.notin_(CONJURATION_TYPES),
+            Card.card_type != "Phoenixborn",
+            Card.stub.notin_(valid_stubs),
+        )
+        .limit(1)
+        .scalar()
+    )
+    valid_deck["first_five"] = [valid_stubs[x] for x in range(0, 5)]
+    valid_deck["effect_costs"] = [valid_stubs[x] for x in range(0, 4)]
+    valid_deck["effect_costs"].append(bad_stub)
+    response = client.put(
+        "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert bad_stub not in data["effect_costs"]
+    assert valid_stubs[0] in data["effect_costs"]
+
+
+def test_put_deck_tutor_map(client: TestClient, session: db.Session, user_token):
+    """Must properly handle both good and bogus cards within tutor map"""
+    user, token = user_token
+    valid_deck = _valid_deck_dict(session)
+    valid_stubs = [x["stub"] for x in valid_deck["cards"]]
+    bad_stub = (
+        session.query(Card.stub)
+        .filter(
+            Card.phoenixborn.is_(None),
+            Card.card_type.notin_(CONJURATION_TYPES),
+            Card.card_type != "Phoenixborn",
+            Card.stub.notin_(valid_stubs),
+        )
+        .limit(1)
+        .scalar()
+    )
+    valid_deck["tutor_map"] = {
+        valid_stubs[0]: valid_stubs[1],
+        bad_stub: valid_stubs[2],
+        valid_stubs[3]: bad_stub,
+    }
+    response = client.put(
+        "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert bad_stub not in data["tutor_map"].keys()
+    assert bad_stub not in data["tutor_map"].values()
+    assert valid_stubs[0] in data["tutor_map"].keys()
+    assert valid_stubs[1] in data["tutor_map"].values()
