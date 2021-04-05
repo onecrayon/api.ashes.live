@@ -3,7 +3,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from api import db
-from api.models import Card
+from api.models import Card, Deck, DeckSelectedCard, Release
 from api.services.deck import create_snapshot_for_deck
 from api.tests.decks.deck_utils import (
     CONJURATION_TYPES,
@@ -394,3 +394,180 @@ def test_post_snapshot(client: TestClient, session: db.Session, user_token, deck
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_201_CREATED
+
+
+def test_post_snapshot_public_bad_dice(
+    client: TestClient, session: db.Session, user_token
+):
+    """Must stop creation of a public snapshot if not 10 dice"""
+    user, token = user_token
+    valid_deck = _valid_deck_dict(session)
+    valid_deck["dice"].pop()
+    response = client.put(
+        "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    # Then try to create a public snapshot
+    response = client.post(
+        f"/v2/decks/{response.json()['id']}/snapshot",
+        json={"is_public": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_post_snapshot_public_bad_cards(
+    client: TestClient, session: db.Session, user_token
+):
+    """Must stop creation of a public snapshot if not 10 dice"""
+    user, token = user_token
+    valid_deck = _valid_deck_dict(session)
+    valid_deck["cards"].pop()
+    response = client.put(
+        "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    # Then try to create a public snapshot
+    response = client.post(
+        f"/v2/decks/{response.json()['id']}/snapshot",
+        json={"is_public": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_post_snapshot_precon_non_admin(
+    client: TestClient, session: db.Session, user_token
+):
+    """Must stop creation of preconstructed release snapshots if not an admin"""
+    user, token = user_token
+    deck = create_deck_for_user(session, user, release_stub="expansion")
+    response = client.post(
+        f"/v2/decks/{deck.id}/snapshot",
+        json={"preconstructed_release": "expansion", "is_public": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_post_snapshot_precon_non_public(client: TestClient, session: db.Session):
+    """Must stop creation of preconstructed release if not a public snapshot"""
+    admin, token = create_user_token(session)
+    admin.is_admin = True
+    session.commit()
+    deck = create_deck_for_user(session, admin, release_stub="expansion")
+    response = client.post(
+        f"/v2/decks/{deck.id}/snapshot",
+        json={"preconstructed_release": "expansion"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_post_snapshot_precon_already_exists(client: TestClient, session: db.Session):
+    """Must not allow posting a precon snapshot if it already exists"""
+    admin, token = create_user_token(session)
+    admin.is_admin = True
+    session.commit()
+    release_id = session.query(Release.id).filter(Release.stub == "expansion").scalar()
+    deck = create_deck_for_user(session, admin, release_stub="expansion")
+    snapshot = create_snapshot_for_deck(
+        session, admin, deck, is_public=True, preconstructed_release_id=release_id
+    )
+    response = client.post(
+        f"/v2/decks/{deck.id}/snapshot",
+        json={"preconstructed_release": "expansion", "is_public": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_post_snapshot(client: TestClient, session: db.Session, user_token, deck):
+    """Posting a snapshot must inherit the old deck's details"""
+    user, token = user_token
+    response = client.post(
+        f"/v2/decks/{deck.id}/snapshot",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    snapshot = session.query(Deck).order_by(Deck.id.desc()).first()
+    assert snapshot.title == deck.title
+    assert snapshot.description == deck.description
+
+
+def test_post_snapshot_clear_description(
+    client: TestClient, session: db.Session, user_token, deck
+):
+    """Posting a snapshot with an empty description must use an empty description"""
+    user, token = user_token
+    new_title = generate_random_chars(4)
+    response = client.post(
+        f"/v2/decks/{deck.id}/snapshot",
+        json={"title": new_title, "description": ""},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    snapshot = session.query(Deck).order_by(Deck.id.desc()).first()
+    assert snapshot.title == new_title
+    assert snapshot.description is None
+
+
+def test_post_snapshot_new_description(
+    client: TestClient, session: db.Session, user_token, deck
+):
+    """Posting a snapshot must allow replacing the description"""
+    user, token = user_token
+    new_description = generate_random_chars(9)
+    response = client.post(
+        f"/v2/decks/{deck.id}/snapshot",
+        json={"description": new_description},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    snapshot = session.query(Deck).order_by(Deck.id.desc()).first()
+    assert snapshot.description == new_description
+
+
+def test_post_snapshot_first_five(client: TestClient, session: db.Session, user_token):
+    """Private snapshots must include First Five information"""
+    user, token = user_token
+    deck = create_deck_for_user(session, user)
+    deck.selected_cards = [
+        DeckSelectedCard(
+            deck_id=deck.id, card_id=deck.cards[0].card_id, is_first_five=True
+        )
+    ]
+    session.commit()
+    response = client.post(
+        f"/v2/decks/{deck.id}/snapshot",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    snapshot = (
+        session.query(Deck).order_by(Deck.id.desc(), Deck.is_snapshot.is_(True)).first()
+    )
+    assert len(snapshot.selected_cards) == 1
+
+
+def test_post_snapshot_no_first_five_public(
+    client: TestClient, session: db.Session, user_token
+):
+    """Public snapshots must default to no First Five info"""
+    user, token = user_token
+    deck = create_deck_for_user(session, user)
+    deck.selected_cards = [
+        DeckSelectedCard(
+            deck_id=deck.id, card_id=deck.cards[0].card_id, is_first_five=True
+        )
+    ]
+    session.commit()
+    response = client.post(
+        f"/v2/decks/{deck.id}/snapshot",
+        json={"is_public": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    snapshot = (
+        session.query(Deck).order_by(Deck.id.desc(), Deck.is_snapshot.is_(True)).first()
+    )
+    assert len(snapshot.selected_cards) == 0

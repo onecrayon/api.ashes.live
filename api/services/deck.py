@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Set, Union
 from starlette.requests import Request
 
 from api import db
-from api.models import Card, Deck, DeckCard, DeckDie, DeckSelectedCard, Release, User
+from api.models import Deck, DeckCard, DeckDie, DeckSelectedCard, Release, User
 from api.models.card import Card, CardConjuration, DiceFlags
 from api.schemas.cards import CardType
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
@@ -17,12 +17,6 @@ from api.services.stream import (
 )
 from api.utils.helpers import to_prefixed_tsquery
 from api.utils.pagination import paginated_results_for_query
-
-
-class NoSuchDeck(Exception):
-    """Raised when the specified deck cannot be found."""
-
-    pass
 
 
 class PhoenixbornInDeck(Exception):
@@ -80,8 +74,6 @@ def create_or_update_deck(
             )
             .get(deck_id)
         )
-        if not deck:
-            raise NoSuchDeck()
         deck.title = title
         deck.description = description
         deck.phoenixborn_id = phoenixborn.id

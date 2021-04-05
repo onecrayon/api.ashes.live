@@ -38,7 +38,6 @@ from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.deck import (
     BadPhoenixbornUnique,
     ConjurationInDeck,
-    NoSuchDeck,
     PhoenixbornInDeck,
     create_or_update_deck,
     create_snapshot_for_deck,
@@ -468,7 +467,7 @@ def create_snapshot(
             )
         preconstructed_release_id = (
             session.query(Release.id)
-            .outerjoin(Deck, deck.preconstructed_release == Release.id)
+            .outerjoin(Deck, Deck.preconstructed_release == Release.id)
             .filter(
                 Release.stub == data.preconstructed_release,
                 Release.is_legacy.is_(False),

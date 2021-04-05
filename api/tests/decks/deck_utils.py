@@ -370,6 +370,7 @@ def create_deck_for_user(
         user,
         phoenixborn=phoenixborn,
         title=generate_random_chars(),
+        description=generate_random_chars(4),
         dice=dice_dicts,
         cards=card_dicts,
     )
