@@ -316,6 +316,30 @@ def test_put_deck_tutor_map(client: TestClient, session: db.Session, user_token)
     assert valid_stubs[1] in data["tutor_map"].values()
 
 
+def test_put_deck_nature_dice(client: TestClient, session: db.Session, user_token):
+    """Must properly remap "nature" to "natural" when specifying dice"""
+    user, token = user_token
+    valid_deck = _valid_deck_dict(session)
+    valid_deck["dice"] = [{"count": 10, "name": "nature"}]
+    response = client.put(
+        "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["dice"][0]["name"] == "natural"
+
+
+def test_put_deck_bad_dice(client: TestClient, session: db.Session, user_token):
+    """Must throw a validation error when trying to specify a bad dice type"""
+    user, token = user_token
+    valid_deck = _valid_deck_dict(session)
+    valid_deck["dice"] = [{"count": 10, "name": "lolnope"}]
+    response = client.put(
+        "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
 def test_post_snapshot_bad_deck_id(client: TestClient, session: db.Session, user_token):
     """Must not allow creating a snapshot for a bad deck ID"""
     # Create a deck so that we can ensure no accidental ID collisions

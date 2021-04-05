@@ -161,7 +161,8 @@ def create_or_update_deck(
     if effect_costs:
         for card_stub in effect_costs:
             card = stub_to_card.get(card_stub)
-            if not card:
+            # TODO: remove pragmas once I've updated to Python 3.10 and this coverage bug is fixed
+            if not card:  # pragma: no cover
                 continue
             if first_five and card_stub not in first_five:
                 selected_cards.append(
@@ -170,7 +171,7 @@ def create_or_update_deck(
     if first_five:
         for card_stub in first_five:
             card = stub_to_card.get(card_stub)
-            if not card:
+            if not card:  # pragma: no cover
                 continue
             selected_cards.append(
                 DeckSelectedCard(
@@ -183,7 +184,7 @@ def create_or_update_deck(
         for tutor_stub, card_stub in tutor_map.items():
             tutor_card = stub_to_card.get(tutor_stub)
             card = stub_to_card.get(card_stub)
-            if not tutor_card or not card:
+            if not tutor_card or not card:  # pragma: no cover
                 continue
             selected_cards.append(
                 DeckSelectedCard(card_id=card.id, tutor_card_id=tutor_card.id)
