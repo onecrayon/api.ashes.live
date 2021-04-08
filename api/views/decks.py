@@ -37,17 +37,13 @@ from api.schemas.decks import (
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.deck import (
     BadPhoenixbornUnique,
-    NoSuchDeck,
+    ConjurationInDeck,
     PhoenixbornInDeck,
     create_or_update_deck,
+    create_snapshot_for_deck,
     deck_to_dict,
     get_decks_query,
     paginate_deck_listing,
-)
-from api.services.stream import (
-    create_entity,
-    refresh_stream_for_entity,
-    update_subscription_for_user,
 )
 
 router = APIRouter()
@@ -208,10 +204,10 @@ def get_deck(
     own_deck = (
         not current_user.is_anonymous() and source_deck.user_id == current_user.id
     )
-    if (
-        source_deck.is_deleted
-        or (source_deck.is_snapshot and not source_deck.is_public and not own_deck)
-        or (not own_deck and show_saved)
+    if source_deck.is_deleted:
+        raise NotFoundException(detail="Deck not found.")
+    if (source_deck.is_snapshot and not source_deck.is_public and not own_deck) or (
+        not own_deck and show_saved
     ):
         raise NoUserAccessException(detail="You do not have access to this deck.")
     # Check for the instances where we just return the source deck (separated into discrete
@@ -385,11 +381,13 @@ def save_deck(
             effect_costs=data.effect_costs,
             tutor_map=data.tutor_map,
         )
-    except NoSuchDeck:
-        raise NotFoundException()
     except PhoenixbornInDeck:
         raise APIException(
             detail="Your deck listing includes a Phoenixborn. Please pass the Phoenixborn at the root level of the deck object."
+        )
+    except ConjurationInDeck as e:
+        raise APIException(
+            detail=f"Your deck includes the conjuration {e.card_name}, but conjurations should not be included in the list of cards."
         )
     except BadPhoenixbornUnique as e:
         raise APIException(
@@ -469,7 +467,7 @@ def create_snapshot(
             )
         preconstructed_release_id = (
             session.query(Release.id)
-            .outerjoin(Deck, deck.preconstructed_release == Release.id)
+            .outerjoin(Deck, Deck.preconstructed_release == Release.id)
             .filter(
                 Release.stub == data.preconstructed_release,
                 Release.is_legacy.is_(False),
@@ -490,72 +488,16 @@ def create_snapshot(
     elif data.description is not None:
         # Falsey descriptions that aren't None mean they intentionally want a blank description
         description = None
-    entity_id = create_entity(session)
-    snapshot = Deck(
-        entity_id=entity_id,
+    create_snapshot_for_deck(
+        session,
+        current_user,
+        deck,
         title=title,
         description=description,
-        # In the interim while we are saving the cards and dice and so forth, we mark this as private so that it doesn't
-        #  show up in any listings and break stuff in weird ways
-        is_public=False,
-        is_snapshot=True,
-        is_preconstructed=bool(preconstructed_release_id),
-        preconstructed_release=preconstructed_release_id,
-        source_id=deck.id,
-        user_id=current_user.id,
-        phoenixborn_id=deck.phoenixborn_id,
+        is_public=data.is_public,
+        preconstructed_release_id=preconstructed_release_id,
+        include_first_five=data.include_first_five,
     )
-    # Save our snapshot so that we have an ID
-    session.add(snapshot)
-    session.commit()
-    # Now duplicate the cards, dice, and selected cards for the given deck
-    if deck.cards:
-        for deck_card in deck.cards:
-            session.add(
-                DeckCard(
-                    deck_id=snapshot.id,
-                    card_id=deck_card.card_id,
-                    count=deck_card.count,
-                )
-            )
-    if deck.dice:
-        for deck_die in deck.dice:
-            session.add(
-                DeckDie(
-                    deck_id=snapshot.id,
-                    die_flag=deck_die.die_flag,
-                    count=deck_die.count,
-                )
-            )
-    if deck.selected_cards and (data.include_first_five or not data.is_public):
-        for deck_selected_card in deck.selected_cards:
-            session.add(
-                DeckSelectedCard(
-                    deck_id=snapshot.id,
-                    card_id=deck_selected_card.card_id,
-                    tutor_card_id=deck_selected_card.tutor_card_id,
-                    is_first_five=deck_selected_card.is_first_five,
-                    is_paid_effect=deck_selected_card.is_paid_effect,
-                )
-            )
-    # Flip our public flag now that we've populated the deck details, if necessary
-    if data.is_public:
-        snapshot.is_public = True
-        # We also need to publish to the Stream for public snapshots
-        refresh_stream_for_entity(
-            session,
-            entity_id=snapshot.entity_id,
-            entity_type="deck",
-            source_entity_id=deck.entity_id,
-        )
-        # And finally we need to update the user's subscription to mark the last_seen_entity_id
-        update_subscription_for_user(
-            session,
-            user=current_user,
-            source_entity_id=deck.entity_id,
-            last_seen_entity_id=snapshot.entity_id,
-        )
-    session.commit()
     return {"detail": "Snapshot successfully created!"}
 
 

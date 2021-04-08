@@ -20,8 +20,12 @@ run:      ## Run development server
 	@docker-compose up
 
 test:     ## Execute test suite; or specify target: `make test ARGS='api/tests/cards'`
-	@$(DOCKER_COMPOSE_TESTS)  run --rm -w /code api \
+	@$(DOCKER_COMPOSE_TESTS) run --rm -w /code -u root api \
 		pytest --cov=api --cov-config=.coveragerc --cov-report=term:skip-covered --cov-report=html $(ARGS)
+
+test-rm:  ## Cleans up test coverage artifacts; useful if coverage is innacurate
+	@$(DOCKER_COMPOSE_TESTS) run --rm -w /code -u root api coverage erase
+	@echo 'Test coverage cleaned up!'
 
 
 # This ensures that even if they pass in an empty value, we default to "head"

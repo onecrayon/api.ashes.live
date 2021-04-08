@@ -6,25 +6,33 @@ from typing import Dict, List, Optional, Set, Union
 from starlette.requests import Request
 
 from api import db
-from api.models import Card, Deck, DeckCard, DeckDie, DeckSelectedCard, Release, User
+from api.models import Deck, DeckCard, DeckDie, DeckSelectedCard, Release, User
 from api.models.card import Card, CardConjuration, DiceFlags
 from api.schemas.cards import CardType
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
-from api.services.stream import create_entity
+from api.services.stream import (
+    create_entity,
+    refresh_stream_for_entity,
+    update_subscription_for_user,
+)
 from api.utils.helpers import to_prefixed_tsquery
 from api.utils.pagination import paginated_results_for_query
-
-
-class NoSuchDeck(Exception):
-    """Raised when the specified deck cannot be found."""
-
-    pass
 
 
 class PhoenixbornInDeck(Exception):
     """Raised when a Phoenixborn is included in the deck card list."""
 
     pass
+
+
+class ConjurationInDeck(Exception):
+    """Raised when a Conjuration is included in the deck card list."""
+
+    card_name: str
+
+    def __init__(self, card):
+        self.card_name = card.name
+        super().__init__()
 
 
 class BadPhoenixbornUnique(Exception):
@@ -66,8 +74,6 @@ def create_or_update_deck(
             )
             .get(deck_id)
         )
-        if not deck:
-            raise NoSuchDeck()
         deck.title = title
         deck.description = description
         deck.phoenixborn_id = phoenixborn.id
@@ -133,6 +139,11 @@ def create_or_update_deck(
             raise PhoenixbornInDeck()
         if card.phoenixborn and card.phoenixborn != phoenixborn.name:
             raise BadPhoenixbornUnique(card)
+        if card.card_type in (
+            CardType.conjuration.value,
+            CardType.conjured_alteration_spell.value,
+        ):
+            raise ConjurationInDeck(card)
         deck_cards.append(DeckCard(card_id=card.id, count=count))
     deck.cards = deck_cards
 
@@ -150,7 +161,8 @@ def create_or_update_deck(
     if effect_costs:
         for card_stub in effect_costs:
             card = stub_to_card.get(card_stub)
-            if not card:
+            # TODO: remove pragmas once I've updated to Python 3.10 and this coverage bug is fixed
+            if not card:  # pragma: no cover
                 continue
             if first_five and card_stub not in first_five:
                 selected_cards.append(
@@ -159,7 +171,7 @@ def create_or_update_deck(
     if first_five:
         for card_stub in first_five:
             card = stub_to_card.get(card_stub)
-            if not card:
+            if not card:  # pragma: no cover
                 continue
             selected_cards.append(
                 DeckSelectedCard(
@@ -172,7 +184,7 @@ def create_or_update_deck(
         for tutor_stub, card_stub in tutor_map.items():
             tutor_card = stub_to_card.get(tutor_stub)
             card = stub_to_card.get(card_stub)
-            if not tutor_card or not card:
+            if not tutor_card or not card:  # pragma: no cover
                 continue
             selected_cards.append(
                 DeckSelectedCard(card_id=card.id, tutor_card_id=tutor_card.id)
@@ -181,6 +193,86 @@ def create_or_update_deck(
     session.commit()
 
     return deck
+
+
+def create_snapshot_for_deck(
+    session: db.Session,
+    user: "User",
+    deck: "Deck",
+    title: str = None,
+    description: str = None,
+    is_public=False,
+    preconstructed_release_id: int = None,
+    include_first_five=False,
+) -> "Deck":
+    """Creates a snapshot for the given deck"""
+    entity_id = create_entity(session)
+    snapshot = Deck(
+        entity_id=entity_id,
+        title=title,
+        description=description,
+        # In the interim while we are saving the cards and dice and so forth, we mark this as private so that it doesn't
+        #  show up in any listings and break stuff in weird ways
+        is_public=False,
+        is_snapshot=True,
+        is_preconstructed=bool(preconstructed_release_id),
+        preconstructed_release=preconstructed_release_id,
+        source_id=deck.id,
+        user_id=user.id,
+        phoenixborn_id=deck.phoenixborn_id,
+    )
+    # Save our snapshot so that we have an ID
+    session.add(snapshot)
+    session.commit()
+    # Now duplicate the cards, dice, and selected cards for the given deck
+    if deck.cards:
+        for deck_card in deck.cards:
+            session.add(
+                DeckCard(
+                    deck_id=snapshot.id,
+                    card_id=deck_card.card_id,
+                    count=deck_card.count,
+                )
+            )
+    if deck.dice:
+        for deck_die in deck.dice:
+            session.add(
+                DeckDie(
+                    deck_id=snapshot.id,
+                    die_flag=deck_die.die_flag,
+                    count=deck_die.count,
+                )
+            )
+    if deck.selected_cards and (include_first_five or not is_public):
+        for deck_selected_card in deck.selected_cards:
+            session.add(
+                DeckSelectedCard(
+                    deck_id=snapshot.id,
+                    card_id=deck_selected_card.card_id,
+                    tutor_card_id=deck_selected_card.tutor_card_id,
+                    is_first_five=deck_selected_card.is_first_five,
+                    is_paid_effect=deck_selected_card.is_paid_effect,
+                )
+            )
+    # Flip our public flag now that we've populated the deck details, if necessary
+    if is_public:
+        snapshot.is_public = True
+        # We also need to publish to the Stream for public snapshots
+        refresh_stream_for_entity(
+            session,
+            entity_id=snapshot.entity_id,
+            entity_type="deck",
+            source_entity_id=deck.entity_id,
+        )
+        # And finally we need to update the user's subscription to mark the last_seen_entity_id
+        update_subscription_for_user(
+            session,
+            user=user,
+            source_entity_id=deck.entity_id,
+            last_seen_entity_id=snapshot.entity_id,
+        )
+    session.commit()
+    return snapshot
 
 
 def get_decks_query(
@@ -453,4 +545,25 @@ def deck_to_dict(
         deck_dict["comments_entity_id"] = (
             deck.source.entity_id if deck.source_id else deck.entity_id
         )
+    # If we are including first five information, grab that now
+    first_five = []
+    effect_costs = []
+    tutor_map = {}
+    # This is another implicit SQL lookup, but again it requires a lookup either way
+    for selected_card in deck.selected_cards:
+        card = card_id_to_card.get(selected_card.card_id)
+        # This situation should theoretically never happen, but just in case...
+        if not card:
+            continue
+        if selected_card.is_first_five:
+            first_five.append(card.stub)
+        if selected_card.is_paid_effect:
+            effect_costs.append(card.stub)
+        if selected_card.tutor_card_id:
+            tutor_card = card_id_to_card.get(selected_card.tutor_card_id)
+            if tutor_card:
+                tutor_map[tutor_card.stub] = card.stub
+    deck_dict["first_five"] = first_five
+    deck_dict["effect_costs"] = effect_costs
+    deck_dict["tutor_map"] = tutor_map
     return deck_dict

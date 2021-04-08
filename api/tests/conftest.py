@@ -9,6 +9,7 @@
         assert response.status_code == status.HTTP_200_OK
 """
 import pytest
+from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -79,3 +80,14 @@ def client(session: Session) -> TestClient:
     app.dependency_overrides[get_session] = override_get_session
 
     yield TestClient(app)
+
+
+@pytest.fixture(scope="package")
+def monkeypatch_package():
+    """Monkeypatch must be re-implemented to be included in fixtures for non-function scopes
+
+    See: https://github.com/pytest-dev/pytest/issues/363
+    """
+    monkeypatch = MonkeyPatch()
+    yield monkeypatch
+    monkeypatch.undo()
