@@ -1,4 +1,5 @@
 import re
+from itertools import chain, combinations
 from typing import Union
 
 
@@ -26,3 +27,12 @@ def to_prefixed_tsquery(text: str) -> str:
     if " " in text:
         return " <-> ".join(text.split())
     return f"{text} | {text}:*"
+
+
+def powerset(iterable):
+    """Returns the powerset of the passed iterable:
+
+    powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)
+    """
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))

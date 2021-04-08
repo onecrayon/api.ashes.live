@@ -30,7 +30,7 @@ from api.schemas.cards import (
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.card import MissingConjurations
 from api.services.card import create_card as create_card_service
-from api.utils.helpers import stubify, to_prefixed_tsquery
+from api.utils.helpers import powerset, stubify, to_prefixed_tsquery
 from api.utils.pagination import paginated_results_for_query
 
 router = APIRouter()
@@ -126,10 +126,6 @@ def list_cards(
     if dice:
         dice_set = set(dice)
         if dice_logic is CardsFilterDiceLogic.any_:
-            # Required dice are stored in the database as bitwise flags, so we can check for the
-            #  existence of a dice type by doing an & bitwise operation and comparing with the flag
-            #  value (because & only includes 1 for bits that match in both numbers, so you end up
-            #  with just the flag value for that given flag, if it exists)
             dice_filters = []
             if "basic" in dice_set:
                 dice_filters.append(
@@ -138,18 +134,27 @@ def list_cards(
                 dice_set.remove("basic")
             # Only add additional filters if we requested more than basic cards
             if dice_set:
-                dice_filters = (
-                    dice_filters
-                    + [
-                        Card.dice_flags.op("&")(DiceFlags[die].value)
-                        == DiceFlags[die].value
-                        for die in dice_set
-                    ]
-                    + [
-                        Card.alt_dice_flags.op("&")(DiceFlags[die].value)
-                        == DiceFlags[die].value
-                        for die in dice_set
-                    ]
+                # We want to match on any combination of the passed dice, so pre-calculate those values
+                dice_flags = [DiceFlags[x].value for x in dice_set]
+                valid_values = set(sum(x) for x in powerset(dice_flags) if x)
+                # Find all cards with dice that match one of our valid values
+                dice_filters.append(Card.dice_flags.in_(valid_values))
+                # Dice are stored in the database as bitwise flags, so we can check for the existence of a dice type
+                #  in the alt dice by doing an & bitwise operation and comparing with the flag value (because &
+                #  only includes 1 for bits that match in both numbers, so you end up with just the flag value for
+                #  that given flag, if it exists). We AND this with empty dice flags, because everything else will be
+                #  captured by the logic above.
+                dice_filters.append(
+                    db.and_(
+                        Card.dice_flags == 0,
+                        db.or_(
+                            *[
+                                Card.alt_dice_flags.op("&")(DiceFlags[die].value)
+                                == DiceFlags[die].value
+                                for die in dice_set
+                            ]
+                        ),
+                    )
                 )
             query = query.filter(db.or_(*dice_filters))
         else:
