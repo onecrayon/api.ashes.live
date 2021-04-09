@@ -114,8 +114,9 @@ def create_card(
     card.is_summon_spell = name.startswith("Summon ")
     existing_conjurations = None
     if text:
+        # Remove apostrophes and formatting characters from search text to ensure words are treated as lexemes
         card.search_text += re.sub(
-            r"\n+", " ", text.replace("[[", "").replace("]]", "")
+            r"\n+", " ", text.replace("[[", "").replace("]]", "").replace("'", "")
         )
         # Check for conjurations before we do any more work
         conjuration_stubs = set()
