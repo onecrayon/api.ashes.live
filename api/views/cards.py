@@ -199,6 +199,15 @@ def list_cards(
             getattr(Card.cost_weight, order)(),
             getattr(Card.name, order)(),
         )
+    elif sort == CardsSortingMode.release:
+        # This one is mainly there for people who organize their sets by preconstructed deck, though
+        #  it groups all Master Set decks into a single group (not really sure how I would separate
+        #  those cards out by preconstructed deck, because there's not an easy join strategy to
+        #  fetch that data; I'd have to denormalize it into the cards. Will consider if people
+        #  request it)
+        query = query.order_by(
+            getattr(Release.id, order)(), getattr(Card.name, order)()
+        )
     else:
         # Defaults to ordering by name
         query = query.order_by(getattr(Card.name, order)())

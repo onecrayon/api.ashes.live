@@ -240,6 +240,14 @@ def test_card_filters(client: TestClient, session: db.Session):
         response.json()["results"][0]["name"] == "Example Reaction"
     ), names_from_results(response)
 
+    # Sort by release; since we're doing a descending sort the first item should be the last card
+    #  alphabetically from the expansion release
+    response = request(params={"sort": "release", "order": "desc"})
+    assert response.status_code == status.HTTP_200_OK, response.json()
+    assert (
+        response.json()["results"][0]["name"] == "Example Ready Spell"
+    ), names_from_results(response)
+
 
 def test_pagination(client: TestClient, session: db.Session):
     """Pagination logic works as expected."""

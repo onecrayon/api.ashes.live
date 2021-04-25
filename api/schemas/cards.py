@@ -76,6 +76,7 @@ class CardsSortingMode(str, Enum):
     type_ = "type"
     cost = "cost"
     dice = "dice"
+    release = "release"
     # TODO: should I enable these sorting strategies on the server?
     # # Stats
     # attack = 'attack'
