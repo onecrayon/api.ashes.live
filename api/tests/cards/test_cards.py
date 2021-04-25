@@ -323,8 +323,17 @@ def test_release_filtration(client: TestClient, session: db.Session):
         params={"releases": "mine"},
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert response.status_code == 200, response.json()
-    assert len(response.json()["results"]) == 1, response.json()
+    assert response.status_code == status.HTTP_200_OK, response.json()
+    data = response.json()
+    assert len(data["results"]) == 1, response.json()
+    assert data["results"][0]["name"] == "A"
+
+    # Verify that the `r` release filter works
+    response = client.get("/v2/cards", params={"r": ["second"]})
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data["results"]) == 1, response.json()
+    assert data["results"][0]["name"] == "B"
 
 
 def test_phg_release_filtration(client: TestClient, session: db.Session):

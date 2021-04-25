@@ -50,6 +50,7 @@ def list_cards(
     mode: CardsFilterListingMode = CardsFilterListingMode.listing,
     show_summons: bool = False,
     releases: CardsFilterRelease = CardsFilterRelease.all_,
+    r: List[str] = Query(None),
     dice: List[CardDiceCosts] = Query(None),
     dice_logic: CardsFilterDiceLogic = CardsFilterDiceLogic.any_,
     include_uniques_for: str = None,
@@ -70,6 +71,7 @@ def list_cards(
     * `types`: list of types to include in filtered cards
     * `show_summons` (default: false): if true, will only show cards whose name starts with "Summon "
     * `releases` (default: `all`): if `mine` will show only releases owned by the current user
+    * `r`: list of release stubs; will only show cards belonging to releases in this list (**Note:** does nothing if `releases` is not `all`!)
     * `dice`: list of dice costs that cards in the listing must use
     * `dice_logic` (default: `any`): if `all` the cards returned must include all costs in `dice`
     * `include_uniques_for`: if set to a Phoenixborn name, listing will also include uniques belonging to the given Phoenixborn
@@ -112,7 +114,7 @@ def list_cards(
     if show_summons:
         query = query.filter(Card.is_summon_spell.is_(True))
     # Filter by releases, if requested
-    if releases:
+    if releases or r:
         if show_legacy and releases is CardsFilterRelease.phg:
             query = query.filter(Release.is_phg.is_(True))
         elif releases is CardsFilterRelease.mine and not current_user.is_anonymous():
@@ -122,6 +124,8 @@ def list_cards(
                 .subquery()
             )
             query = query.filter(Card.release_id.in_(my_release_subquery))
+        elif r:
+            query = query.filter(Release.stub.in_(r))
     # Filter against required dice costs
     if dice:
         dice_set = set(dice)
