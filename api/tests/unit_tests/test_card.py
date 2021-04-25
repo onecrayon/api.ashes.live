@@ -42,6 +42,15 @@ def test_dice_weight():
     assert card.dice_weight == DiceFlags.ceremonial.value + DiceFlags.charm.value
 
 
+def test_type_weight():
+    """Card.type_weight property must assign proper ordering for cards"""
+    card = Card()
+    card.card_type = "Phoenixborn"
+    assert card.type_weight == 0
+    card.card_type = "Conjured Alteration Spell"
+    assert card.type_weight == 7
+
+
 def test_card_weights():
     """Card weights must be calculated properly"""
     # Nonsense is 0

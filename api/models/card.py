@@ -17,6 +17,18 @@ class DiceFlags(Enum):
     time = 64
 
 
+CARD_TYPE_ORDER = [
+    "Phoenixborn",
+    "Ready Spell",
+    "Ally",
+    "Alteration Spell",
+    "Action Spell",
+    "Reaction Spell",
+    "Conjuration",
+    "Conjured Alteration Spell",
+]
+
+
 class CardConjuration(db.AlchemyBase):
     __tablename__ = "card_conjuration"
     card_id = db.Column(
@@ -86,6 +98,26 @@ class Card(db.AlchemyBase):
     @dice_weight.expression
     def dice_weight(cls):
         return cls.dice_flags.op("|")(cls.alt_dice_flags)
+
+    @db.hybrid_property
+    def type_weight(self):
+        return CARD_TYPE_ORDER.index(self.card_type)
+
+    @type_weight.expression
+    def type_weight(cls):
+        return db.case(
+            [
+                (cls.card_type == "Phoenixborn", 0),
+                (cls.card_type == "Ready Spell", 1),
+                (cls.card_type == "Ally", 2),
+                (cls.card_type == "Alteration Spell", 3),
+                (cls.card_type == "Action Spell", 4),
+                (cls.card_type == "Reaction Spell", 5),
+                (cls.card_type == "Conjuration", 6),
+                (cls.card_type == "Conjured Alteration Spell", 7),
+            ],
+            else_=10,
+        )
 
     @staticmethod
     def dice_to_flags(dice_list: Optional[List[str]]) -> int:

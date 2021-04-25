@@ -180,9 +180,9 @@ def list_cards(
             Card.phoenixborn.is_(None),
         )
     if sort == CardsSortingMode.type_:
-        # This calls the proper ordering function (result is `Card.card_type.asc()`)
+        # This uses a similar ordering to how the front-end organizes cards in deck listings
         query = query.order_by(
-            getattr(Card.card_type, order)(), getattr(Card.name, order)()
+            getattr(Card.type_weight, order)(), getattr(Card.name, order)()
         )
     elif sort == CardsSortingMode.cost:
         query = query.order_by(
@@ -206,7 +206,9 @@ def list_cards(
         #  fetch that data; I'd have to denormalize it into the cards. Will consider if people
         #  request it)
         query = query.order_by(
-            getattr(Release.id, order)(), getattr(Card.name, order)()
+            getattr(Release.id, order)(),
+            getattr(Card.type_weight, order)(),
+            getattr(Card.name, order)(),
         )
     else:
         # Defaults to ordering by name

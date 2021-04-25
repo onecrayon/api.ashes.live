@@ -217,11 +217,11 @@ def test_card_filters(client: TestClient, session: db.Session):
         response.json()["results"][0]["name"] == "Summon Example Conjuration"
     ), names_from_results(response)
 
-    # Sort by type (alphabetical)
+    # Sort by type (uses the front-end ordering logic, so Phoenixborn => Ready Spells => others)
     response = request(params={"sort": "type"})
     assert response.status_code == status.HTTP_200_OK, response.json()
     assert (
-        response.json()["results"][0]["name"] == "Example Action"
+        response.json()["results"][0]["name"] == "Example Phoenixborn"
     ), names_from_results(response)
 
     # Sort by cost (excluding things without a cost)
@@ -240,12 +240,12 @@ def test_card_filters(client: TestClient, session: db.Session):
         response.json()["results"][0]["name"] == "Example Reaction"
     ), names_from_results(response)
 
-    # Sort by release; since we're doing a descending sort the first item should be the last card
-    #  alphabetically from the expansion release
+    # Sorts by release, then type weight, then name; since we're doing a descending sort the first
+    #  item should be the reaction spell from the expansion release
     response = request(params={"sort": "release", "order": "desc"})
     assert response.status_code == status.HTTP_200_OK, response.json()
     assert (
-        response.json()["results"][0]["name"] == "Example Ready Spell"
+        response.json()["results"][0]["name"] == "Example Reaction"
     ), names_from_results(response)
 
 
