@@ -28,7 +28,7 @@ app = FastAPI(
 # This setup allows access from local development servers or the official Ashes.live domain
 cors_regex = "https://([a-z0-9_-]+\.)?(ashes\.live|onrender\.com)"
 if settings.env != "production":
-    cors_regex = "https?://localhost:300[0-9]"
+    cors_regex = "https?://(localhost|192\.168\.\d+\.\d+):300[0-9]"
 
 app.add_middleware(
     CORSMiddleware,
