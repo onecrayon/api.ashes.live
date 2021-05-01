@@ -167,7 +167,7 @@ def test_card_filters_sort_dice(client: TestClient, session: db.Session):
 
     # Sorts by release, then type weight, then name; since we're doing a descending sort the first
     #  item should be the reaction spell from the expansion release
-    response = request(params={"sort": "release", "order": "desc"})
+    response = client.get("/v2/cards", params={"sort": "release", "order": "desc"})
     assert response.status_code == status.HTTP_200_OK, response.json()
     assert (
         response.json()["results"][0]["name"] == "Example Reaction"
@@ -225,10 +225,11 @@ def test_release_filtration(client: TestClient, session: db.Session):
     assert response.status_code == 200, response.json()
     assert len(response.json()["results"]) == 6, response.json()
 
+
 def test_release_filtration_specific_release(client: TestClient, session: db.Session):
     """Filtering by a specific release works properly"""
     response = client.get("/v2/cards", params={"r": ["first-expansion"]})
-    assert resopnse.status_code == status.HTTP_200_OK
+    assert response.status_code == status.HTTP_200_OK
     assert len(response.json()["results"]) == 3, response.json()
 
 
