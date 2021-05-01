@@ -20,6 +20,33 @@ MAGIC_COSTS = (
 )
 
 
+def gather_conjurations(card: Card) -> List[Card]:
+    """Recursively gather all conjurations that can be created by the given card.
+
+    WARNING: IMPLICIT EXECUTES SQL VIA RELATIONSHIP!
+    """
+    conjurations = card.conjurations if card.conjurations else []
+    for conjuration in conjurations:
+        conjurations = conjurations + gather_conjurations(conjuration)
+    return conjurations
+
+
+def gather_root_summons(card: Card) -> List[Card]:
+    """Recursively gather the cards that can summon this card (if any).
+
+    Ensures that we find all possible cards that could summon a given conjuration; looks up the
+    tree.
+
+    WARNING: IMPLICIT EXECUTES SQL VIA BACKREF!
+    """
+    if not card.summons:
+        return [card]
+    root_summons = []
+    for summon in card.summons:
+        root_summons = root_summons + gather_root_summons(summon)
+    return root_summons
+
+
 class MissingConjurations(Exception):
     pass
 
@@ -114,8 +141,9 @@ def create_card(
     card.is_summon_spell = name.startswith("Summon ")
     existing_conjurations = None
     if text:
+        # Remove apostrophes and formatting characters from search text to ensure words are treated as lexemes
         card.search_text += re.sub(
-            r"\n+", " ", text.replace("[[", "").replace("]]", "")
+            r"\n+", " ", text.replace("[[", "").replace("]]", "").replace("'", "")
         )
         # Check for conjurations before we do any more work
         conjuration_stubs = set()

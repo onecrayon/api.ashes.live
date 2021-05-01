@@ -3,8 +3,9 @@ from typing import Dict, List, Union
 
 from pydantic import BaseModel, Field, validator
 
-from api.schemas.pagination import PaginatedResultsBase
 from api.utils.helpers import str_or_int
+
+from .pagination import PaginatedResultsBase
 
 
 class CardDiceCosts(str, Enum):
@@ -98,8 +99,8 @@ class CardReleaseEmbeddedOut(BaseModel):
     is_retiring: bool = None
 
 
-class CardConjurationsEmbeddedOut(BaseModel):
-    """The conjuration information embedded in card listings"""
+class CardMinimalOut(BaseModel):
+    """Minimal card information; e.g. for conjurations embedded in card listings"""
 
     name: str
     stub: str
@@ -122,7 +123,7 @@ class CardOut(BaseModel):
     magicCost: Dict[str, int] = None
     effectMagicCost: Dict[str, int] = None
     text: str = None
-    conjurations: List[CardConjurationsEmbeddedOut] = None
+    conjurations: List[CardMinimalOut] = None
     phoenixborn: str = None
     attack: Union[str, int] = None
     battlefield: int = None
@@ -137,6 +138,40 @@ class CardOut(BaseModel):
     _parse_attack = validator("attack", allow_reuse=True)(str_or_int)
     _parse_life = validator("life", allow_reuse=True)(str_or_int)
     _parse_recover = validator("recover", allow_reuse=True)(str_or_int)
+
+
+class CardUsageCounts(BaseModel):
+    """The counts in which this card appears in unique decks vs. users"""
+
+    decks: int
+    users: int
+
+
+class RelatedCardLists(BaseModel):
+    """Full listing of all cards that can summon or be summoned by this card"""
+
+    summoning_cards: List[CardMinimalOut] = None
+    conjurations: List[CardMinimalOut] = None
+
+
+class PreconstructedDeck(BaseModel):
+    """Minimal information about the preconstructed deck that contains this card."""
+
+    id: int
+    title: str
+
+
+class CardDetails(BaseModel):
+    """The full details object for a specific card.
+
+    Optional properties may not exist!
+    """
+
+    card: CardOut
+    usage: CardUsageCounts
+    preconstructed_deck: PreconstructedDeck = None
+    phoenixborn_card: CardMinimalOut = None
+    related_cards: RelatedCardLists
 
 
 class CardListingOut(PaginatedResultsBase):

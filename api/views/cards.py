@@ -12,11 +12,13 @@ from api.depends import (
     paging_options,
 )
 from api.exceptions import APIException, NotFoundException
+from api.models import Deck, DeckCard
 from api.models.card import Card, DiceFlags
 from api.models.release import Release, UserRelease
 from api.models.user import AnonymousUser, User
 from api.schemas import DetailResponse
 from api.schemas.cards import (
+    CardDetails,
     CardDiceCosts,
     CardIn,
     CardListingOut,
@@ -30,7 +32,8 @@ from api.schemas.cards import (
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.card import MissingConjurations
 from api.services.card import create_card as create_card_service
-from api.utils.helpers import stubify, to_prefixed_tsquery
+from api.services.card import gather_conjurations, gather_root_summons
+from api.utils.helpers import powerset, stubify, to_prefixed_tsquery
 from api.utils.pagination import paginated_results_for_query
 
 router = APIRouter()
@@ -130,10 +133,6 @@ def list_cards(
     if dice:
         dice_set = set(dice)
         if dice_logic is CardsFilterDiceLogic.any_:
-            # Required dice are stored in the database as bitwise flags, so we can check for the
-            #  existence of a dice type by doing an & bitwise operation and comparing with the flag
-            #  value (because & only includes 1 for bits that match in both numbers, so you end up
-            #  with just the flag value for that given flag, if it exists)
             dice_filters = []
             if "basic" in dice_set:
                 dice_filters.append(
@@ -142,18 +141,27 @@ def list_cards(
                 dice_set.remove("basic")
             # Only add additional filters if we requested more than basic cards
             if dice_set:
-                dice_filters = (
-                    dice_filters
-                    + [
-                        Card.dice_flags.op("&")(DiceFlags[die].value)
-                        == DiceFlags[die].value
-                        for die in dice_set
-                    ]
-                    + [
-                        Card.alt_dice_flags.op("&")(DiceFlags[die].value)
-                        == DiceFlags[die].value
-                        for die in dice_set
-                    ]
+                # We want to match on any combination of the passed dice, so pre-calculate those values
+                dice_flags = [DiceFlags[x].value for x in dice_set]
+                valid_values = set(sum(x) for x in powerset(dice_flags) if x)
+                # Find all cards with dice that match one of our valid values
+                dice_filters.append(Card.dice_flags.in_(valid_values))
+                # Dice are stored in the database as bitwise flags, so we can check for the existence of a dice type
+                #  in the alt dice by doing an & bitwise operation and comparing with the flag value (because &
+                #  only includes 1 for bits that match in both numbers, so you end up with just the flag value for
+                #  that given flag, if it exists). We AND this with empty dice flags, because everything else will be
+                #  captured by the logic above.
+                dice_filters.append(
+                    db.and_(
+                        Card.dice_flags == 0,
+                        db.or_(
+                            *[
+                                Card.alt_dice_flags.op("&")(DiceFlags[die].value)
+                                == DiceFlags[die].value
+                                for die in dice_set
+                            ]
+                        ),
+                    )
                 )
             query = query.filter(db.or_(*dice_filters))
         else:
@@ -229,6 +237,7 @@ def list_cards(
 def get_card(
     stub: str, show_legacy: bool = False, session: db.Session = Depends(get_session)
 ):
+    """Returns the most basic information about this card."""
     query = session.query(Card.json).filter(Card.stub == stub)
     if show_legacy:
         query = query.filter(Card.is_legacy.is_(True))
@@ -238,6 +247,149 @@ def get_card(
     if not card_json:
         raise NotFoundException(detail="Card not found.")
     return card_json
+
+
+@router.get(
+    "/cards/{stub}/details",
+    response_model=CardDetails,
+    response_model_exclude_unset=True,
+    responses={404: {"model": DetailResponse}},
+)
+def get_card_details(
+    stub: str, show_legacy: bool = False, session: db.Session = Depends(get_session)
+):
+    """Returns the full details about the card for use on the card details page"""
+    card = (
+        session.query(Card)
+        .join(Card.release)
+        .options(db.contains_eager(Card.release))
+        .filter(
+            Card.stub == stub,
+            Card.is_legacy.is_(show_legacy),
+            Release.is_public == True,
+        )
+        .scalar()
+    )
+    if not card:
+        raise NotFoundException(detail="Card not found.")
+
+    # Gather up all related conjurations
+    root_cards = gather_root_summons(card)
+    root_card_ids = [x.id for x in root_cards]
+    conjurations = []
+    phoenixborn_ids = []
+    non_phoenixborn_ids = []
+    for root_card in root_cards:
+        if root_card.card_type == "Phoenixborn":
+            phoenixborn_ids.append(root_card.id)
+        else:
+            non_phoenixborn_ids.append(root_card.id)
+        conjurations = conjurations + gather_conjurations(root_card)
+    # Remove duplicate conjurations, if any
+    conjuration_ids = set()
+    unique_conjurations = []
+    for conjuration in conjurations:
+        if conjuration.id not in conjuration_ids:
+            conjuration_ids.add(conjuration.id)
+            unique_conjurations.append(conjuration)
+    conjurations = unique_conjurations
+
+    # Gather stats
+    phoenixborn_counts = (
+        session.query(
+            db.func.count(Deck.id).label("decks"),
+            db.func.count(db.func.distinct(Deck.user_id)).label("users"),
+        )
+        .filter(Deck.phoenixborn_id.in_(root_card_ids), Deck.is_snapshot.is_(False))
+        .first()
+        if phoenixborn_ids
+        else None
+    )
+    card_counts = (
+        session.query(
+            db.func.count(DeckCard.deck_id).label("decks"),
+            db.func.count(db.func.distinct(Deck.user_id)).label("users"),
+        )
+        .join(Deck, Deck.id == DeckCard.deck_id)
+        .filter(
+            DeckCard.card_id.in_(root_card_ids),
+            Deck.is_snapshot.is_(False),
+            Deck.is_legacy.is_(show_legacy),
+        )
+        .first()
+        if non_phoenixborn_ids
+        else None
+    )
+    counts = {"decks": 0, "users": 0}
+    if phoenixborn_counts:
+        counts["decks"] += phoenixborn_counts.decks
+        counts["users"] += phoenixborn_counts.users
+    if card_counts:
+        counts["decks"] += card_counts.decks
+        counts["users"] += card_counts.users
+
+    # Grab preconstructed deck, if available
+    preconstructed = (
+        session.query(Deck.source_id, Deck.title)
+        .join(DeckCard, DeckCard.deck_id == Deck.id)
+        .filter(
+            Deck.is_snapshot.is_(True),
+            Deck.is_public.is_(True),
+            Deck.is_preconstructed.is_(True),
+            Deck.is_legacy.is_(show_legacy),
+            DeckCard.card_id.in_([card.id] + root_card_ids),
+        )
+        .first()
+    )
+
+    # Grab Phoenixborn related card, if available
+    phoenixborn_card = None
+    if card.phoenixborn and card.card_type not in (
+        "Conjuration",
+        "Conjured Alteration Spell",
+    ):
+        phoenixborn_card = (
+            session.query(Card.stub, Card.name)
+            .filter(
+                Card.name == card.phoenixborn,
+                Card.card_type == "Phoenixborn",
+                Card.is_legacy.is_(show_legacy),
+            )
+            .first()
+        )
+    elif card.card_type == "Phoenixborn":
+        phoenixborn_card = (
+            session.query(Card.stub, Card.name)
+            .filter(
+                Card.phoenixborn == card.name,
+                Card.card_type.notin_(("Conjuration", "Conjured Alteration Spell")),
+                Card.is_legacy.is_(show_legacy),
+            )
+            .first()
+        )
+
+    return {
+        "card": card.json,
+        "usage": counts,
+        "preconstructed_deck": {
+            "id": preconstructed.source_id,
+            "title": preconstructed.title,
+        }
+        if preconstructed
+        else None,
+        "phoenixborn_card": {
+            "name": phoenixborn_card.name,
+            "stub": phoenixborn_card.stub,
+        }
+        if phoenixborn_card
+        else None,
+        "related_cards": {
+            "summoning_cards": [{"name": x.name, "stub": x.stub} for x in root_cards]
+            or None,
+            "conjurations": [{"name": x.name, "stub": x.stub} for x in conjurations]
+            or None,
+        },
+    }
 
 
 @router.post(
