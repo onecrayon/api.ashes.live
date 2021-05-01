@@ -12,11 +12,13 @@ from api.depends import (
     paging_options,
 )
 from api.exceptions import APIException, NotFoundException
+from api.models import Deck, DeckCard
 from api.models.card import Card, DiceFlags
 from api.models.release import Release, UserRelease
 from api.models.user import AnonymousUser, User
 from api.schemas import DetailResponse
 from api.schemas.cards import (
+    CardDetails,
     CardDiceCosts,
     CardIn,
     CardListingOut,
@@ -30,6 +32,7 @@ from api.schemas.cards import (
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.card import MissingConjurations
 from api.services.card import create_card as create_card_service
+from api.services.card import gather_conjurations, gather_root_summons
 from api.utils.helpers import powerset, stubify, to_prefixed_tsquery
 from api.utils.pagination import paginated_results_for_query
 
@@ -219,6 +222,7 @@ def list_cards(
 def get_card(
     stub: str, show_legacy: bool = False, session: db.Session = Depends(get_session)
 ):
+    """Returns the most basic information about this card."""
     query = session.query(Card.json).filter(Card.stub == stub)
     if show_legacy:
         query = query.filter(Card.is_legacy.is_(True))
@@ -228,6 +232,149 @@ def get_card(
     if not card_json:
         raise NotFoundException(detail="Card not found.")
     return card_json
+
+
+@router.get(
+    "/cards/{stub}/details",
+    response_model=CardDetails,
+    response_model_exclude_unset=True,
+    responses={404: {"model": DetailResponse}},
+)
+def get_card_details(
+    stub: str, show_legacy: bool = False, session: db.Session = Depends(get_session)
+):
+    """Returns the full details about the card for use on the card details page"""
+    card = (
+        session.query(Card)
+        .join(Card.release)
+        .options(db.contains_eager(Card.release))
+        .filter(
+            Card.stub == stub,
+            Card.is_legacy.is_(show_legacy),
+            Release.is_public == True,
+        )
+        .scalar()
+    )
+    if not card:
+        raise NotFoundException(detail="Card not found.")
+
+    # Gather up all related conjurations
+    root_cards = gather_root_summons(card)
+    root_card_ids = [x.id for x in root_cards]
+    conjurations = []
+    phoenixborn_ids = []
+    non_phoenixborn_ids = []
+    for root_card in root_cards:
+        if root_card.card_type == "Phoenixborn":
+            phoenixborn_ids.append(root_card.id)
+        else:
+            non_phoenixborn_ids.append(root_card.id)
+        conjurations = conjurations + gather_conjurations(root_card)
+    # Remove duplicate conjurations, if any
+    conjuration_ids = set()
+    unique_conjurations = []
+    for conjuration in conjurations:
+        if conjuration.id not in conjuration_ids:
+            conjuration_ids.add(conjuration.id)
+            unique_conjurations.append(conjuration)
+    conjurations = unique_conjurations
+
+    # Gather stats
+    phoenixborn_counts = (
+        session.query(
+            db.func.count(Deck.id).label("decks"),
+            db.func.count(db.func.distinct(Deck.user_id)).label("users"),
+        )
+        .filter(Deck.phoenixborn_id.in_(root_card_ids), Deck.is_snapshot.is_(False))
+        .first()
+        if phoenixborn_ids
+        else None
+    )
+    card_counts = (
+        session.query(
+            db.func.count(DeckCard.deck_id).label("decks"),
+            db.func.count(db.func.distinct(Deck.user_id)).label("users"),
+        )
+        .join(Deck, Deck.id == DeckCard.deck_id)
+        .filter(
+            DeckCard.card_id.in_(root_card_ids),
+            Deck.is_snapshot.is_(False),
+            Deck.is_legacy.is_(show_legacy),
+        )
+        .first()
+        if non_phoenixborn_ids
+        else None
+    )
+    counts = {"decks": 0, "users": 0}
+    if phoenixborn_counts:
+        counts["decks"] += phoenixborn_counts.decks
+        counts["users"] += phoenixborn_counts.users
+    if card_counts:
+        counts["decks"] += card_counts.decks
+        counts["users"] += card_counts.users
+
+    # Grab preconstructed deck, if available
+    preconstructed = (
+        session.query(Deck.source_id, Deck.title)
+        .join(DeckCard, DeckCard.deck_id == Deck.id)
+        .filter(
+            Deck.is_snapshot.is_(True),
+            Deck.is_public.is_(True),
+            Deck.is_preconstructed.is_(True),
+            Deck.is_legacy.is_(show_legacy),
+            DeckCard.card_id.in_([card.id] + root_card_ids),
+        )
+        .first()
+    )
+
+    # Grab Phoenixborn related card, if available
+    phoenixborn_card = None
+    if card.phoenixborn and card.card_type not in (
+        "Conjuration",
+        "Conjured Alteration Spell",
+    ):
+        phoenixborn_card = (
+            session.query(Card.stub, Card.name)
+            .filter(
+                Card.name == card.phoenixborn,
+                Card.card_type == "Phoenixborn",
+                Card.is_legacy.is_(show_legacy),
+            )
+            .first()
+        )
+    elif card.card_type == "Phoenixborn":
+        phoenixborn_card = (
+            session.query(Card.stub, Card.name)
+            .filter(
+                Card.phoenixborn == card.name,
+                Card.card_type.notin_(("Conjuration", "Conjured Alteration Spell")),
+                Card.is_legacy.is_(show_legacy),
+            )
+            .first()
+        )
+
+    return {
+        "card": card.json,
+        "usage": counts,
+        "preconstructed_deck": {
+            "id": preconstructed.source_id,
+            "title": preconstructed.title,
+        }
+        if preconstructed
+        else None,
+        "phoenixborn_card": {
+            "name": phoenixborn_card.name,
+            "stub": phoenixborn_card.stub,
+        }
+        if phoenixborn_card
+        else None,
+        "related_cards": {
+            "summoning_cards": [{"name": x.name, "stub": x.stub} for x in root_cards]
+            or None,
+            "conjurations": [{"name": x.name, "stub": x.stub} for x in conjurations]
+            or None,
+        },
+    }
 
 
 @router.post(

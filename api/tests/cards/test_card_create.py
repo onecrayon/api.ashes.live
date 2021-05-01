@@ -4,7 +4,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from api import db
-from api.models.card import CardConjuration
+from api.models.card import Card, CardConjuration
 from api.models.release import Release
 
 from ..utils import create_admin_token
@@ -103,6 +103,13 @@ def test_create_card_placement_optional_phoenixborn(
 
 def test_create_card_implicit_release(client: TestClient, session: db.Session):
     """Creating a card implicitly creates an unpublished release"""
+    # Verify that the number of releases is what we expect
+    release_query = (
+        session.query(Release)
+        .filter(Release.is_legacy.is_(False))
+        .order_by(Release.id.desc())
+    )
+    assert release_query.count() == 2
     admin, token = create_admin_token(session)
     response = client.post(
         "/v2/cards",
@@ -110,8 +117,7 @@ def test_create_card_implicit_release(client: TestClient, session: db.Session):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_201_CREATED, response.json()
-    release_query = session.query(Release)
-    assert release_query.count() == 1
+    assert release_query.count() == 3
     release: Release = release_query.first()
     assert release.name == MINIMUM_VALID_CARD["release"]
     assert release.is_public == False
@@ -124,7 +130,7 @@ def test_create_card_implicit_release(client: TestClient, session: db.Session):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_201_CREATED, response.json()
-    assert release_query.count() == 1
+    assert release_query.count() == 3
 
 
 def test_create_card_missing_conjuration(client: TestClient, session: db.Session):
@@ -144,6 +150,8 @@ def test_create_card_missing_conjuration(client: TestClient, session: db.Session
 
 def test_create_card_populates_conjurations(client: TestClient, session: db.Session):
     """Creating a card adds its conjuration relationships"""
+    # Verify that the pre-existing number of conjurations is what we expect
+    assert session.query(CardConjuration).count() == 4
     admin, token = create_admin_token(session)
     # Create the conjuration first
     conj_data = copy(MINIMUM_VALID_CARD)
@@ -162,7 +170,7 @@ def test_create_card_populates_conjurations(client: TestClient, session: db.Sess
     )
     assert card_response.status_code == status.HTTP_201_CREATED, card_response.json()
     # Then verify that the conjuration is linked to the card
-    assert session.query(CardConjuration).count() == 1
+    assert session.query(CardConjuration).count() == 5
 
 
 def test_create_card_conjuration_copies_required(
