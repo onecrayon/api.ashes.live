@@ -239,16 +239,17 @@ def get_card_details(
     stub: str, show_legacy: bool = False, session: db.Session = Depends(get_session)
 ):
     """Returns the full details about the card for use on the card details page"""
-    query = (
+    card = (
         session.query(Card)
-        .filter(Card.stub == stub)
+        .join(Card.release)
         .options(db.contains_eager(Card.release))
+        .filter(
+            Card.stub == stub,
+            Card.is_legacy.is_(show_legacy),
+            Release.is_public == True,
+        )
+        .scalar()
     )
-    if show_legacy:
-        query = query.filter(Card.is_legacy.is_(True))
-    else:
-        query = query.filter(Card.is_legacy.is_(False))
-    card = query.join(Card.release).filter(Release.is_public == True).scalar()
     if not card:
         raise NotFoundException(detail="Card not found.")
 
@@ -290,7 +291,11 @@ def get_card_details(
             db.func.count(db.func.distinct(Deck.user_id)).label("users"),
         )
         .join(Deck, Deck.id == DeckCard.deck_id)
-        .filter(DeckCard.card_id.in_(root_card_ids), Deck.is_snapshot.is_(False))
+        .filter(
+            DeckCard.card_id.in_(root_card_ids),
+            Deck.is_snapshot.is_(False),
+            Deck.is_legacy.is_(show_legacy),
+        )
         .first()
         if non_phoenixborn_ids
         else None
@@ -311,6 +316,7 @@ def get_card_details(
             Deck.is_snapshot.is_(True),
             Deck.is_public.is_(True),
             Deck.is_preconstructed.is_(True),
+            Deck.is_legacy.is_(show_legacy),
             DeckCard.card_id.in_([card.id] + root_card_ids),
         )
         .first()
@@ -324,7 +330,11 @@ def get_card_details(
     ):
         phoenixborn_card = (
             session.query(Card.stub, Card.name)
-            .filter(Card.name == card.phoenixborn, Card.card_type == "Phoenixborn")
+            .filter(
+                Card.name == card.phoenixborn,
+                Card.card_type == "Phoenixborn",
+                Card.is_legacy.is_(show_legacy),
+            )
             .first()
         )
     elif card.card_type == "Phoenixborn":
@@ -333,6 +343,7 @@ def get_card_details(
             .filter(
                 Card.phoenixborn == card.name,
                 Card.card_type.notin_(("Conjuration", "Conjured Alteration Spell")),
+                Card.is_legacy.is_(show_legacy),
             )
             .first()
         )
