@@ -299,6 +299,8 @@ def get_card_details(
             related_cards["phoenixborn_conjurations"] = [
                 _card_to_minimal_card(x) for x in phoenixborn_conjurations
             ]
+            if card.id in [x.id for x in phoenixborn_conjurations]:
+                summons = [phoenixborn]
         if phoenixborn_unique:
             related_cards["phoenixborn_unique"] = _card_to_minimal_card(
                 phoenixborn_unique
@@ -307,6 +309,8 @@ def get_card_details(
             related_cards["phoenixborn_unique_conjurations"] = [
                 _card_to_minimal_card(x) for x in phoenixborn_unique_conjurations
             ]
+            if card.id in [x.id for x in phoenixborn_unique_conjurations]:
+                summons = [phoenixborn_unique]
     else:
         # Check to see if we have any conjurations that we need to map to this card
         # We want to look up things in a different order depending on whether we're looking at
