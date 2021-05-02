@@ -151,7 +151,7 @@ def test_create_card_missing_conjuration(client: TestClient, session: db.Session
 def test_create_card_populates_conjurations(client: TestClient, session: db.Session):
     """Creating a card adds its conjuration relationships"""
     # Verify that the pre-existing number of conjurations is what we expect
-    assert session.query(CardConjuration).count() == 4
+    assert session.query(CardConjuration).count() == 5
     admin, token = create_admin_token(session)
     # Create the conjuration first
     conj_data = copy(MINIMUM_VALID_CARD)
@@ -170,7 +170,7 @@ def test_create_card_populates_conjurations(client: TestClient, session: db.Sess
     )
     assert card_response.status_code == status.HTTP_201_CREATED, card_response.json()
     # Then verify that the conjuration is linked to the card
-    assert session.query(CardConjuration).count() == 5
+    assert session.query(CardConjuration).count() == 6
 
 
 def test_create_card_conjuration_copies_required(

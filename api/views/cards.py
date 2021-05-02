@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Optional, Union
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.exc import IntegrityError
@@ -268,7 +268,7 @@ def get_card_details(
     #  related conjurations
     related_cards = {}
     phoenixborn = None
-    summoning_cards = None
+    summoning_cards: Optional[list] = None
     if card.phoenixborn or card.card_type == "Phoenixborn":
         # Grab all cards related to this Phoenixborn
         if card.phoenixborn:
@@ -356,7 +356,9 @@ def get_card_details(
         if phoenixborn
         else None
     )
-    summon_card_ids = [x.id for x in summoning_cards] if summoning_cards else []
+    root_card_ids = [card.id] + (
+        [x.id for x in summoning_cards] if summoning_cards else []
+    )
     card_counts = (
         session.query(
             db.func.count(DeckCard.deck_id).label("decks"),
@@ -364,11 +366,11 @@ def get_card_details(
         )
         .join(Deck, Deck.id == DeckCard.deck_id)
         .filter(
-            DeckCard.card_id.in_(summon_card_ids),
+            DeckCard.card_id.in_(root_card_ids),
             Deck.is_snapshot.is_(False),
         )
         .first()
-        if summoning_cards
+        if root_card_ids
         else None
     )
     counts = {"decks": 0, "users": 0}
@@ -388,7 +390,7 @@ def get_card_details(
             Deck.is_public.is_(True),
             Deck.is_preconstructed.is_(True),
             Deck.is_legacy.is_(show_legacy),
-            DeckCard.card_id.in_([card.id] + summon_card_ids),
+            DeckCard.card_id.in_(root_card_ids),
         )
         .first()
     )
