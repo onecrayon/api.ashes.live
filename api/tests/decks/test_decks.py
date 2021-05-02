@@ -30,7 +30,7 @@ def snapshot1(cards_session, user1, deck1):
         cards_session,
         user1,
         deck1,
-        title="User1 Snapshot",
+        title="First Snapshot",
         is_public=True,
     )
 
@@ -57,7 +57,7 @@ def snapshot2(cards_session, user2, deck2):
         cards_session,
         user2,
         deck2,
-        title="User2 Snapshot",
+        title="Second Snapshot",
         is_public=True,
     )
 
@@ -136,13 +136,13 @@ def test_get_decks_filter_preconstructed(
     assert data["results"][0]["id"] == precon_snapshot.id
 
 
-def test_get_decks_filter_title(client: TestClient, snapshot1):
+def test_get_decks_filter_title(client: TestClient, session, snapshot1):
     """Filtering by snapshot title must work"""
-    response = client.get(f"/v2/decks?q={snapshot1.title}")
+    response = client.get(f"/v2/decks?q={urllib.parse.quote(snapshot1.title)}")
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["count"] == 1
-    assert data["results"][0]["id"] == snapshot1.id
+    assert data["count"] == 1, data
+    assert data["results"][0]["id"] == snapshot1.id, data
 
 
 def test_get_decks_filter_phoenixborn(client: TestClient, snapshot1):

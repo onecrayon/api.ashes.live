@@ -19,7 +19,7 @@ def test_card_filters_legacy(client: TestClient, session: db.Session):
     response = client.get("/v2/cards", params={"show_legacy": True})
     assert response.status_code == status.HTTP_200_OK, response.json()
     # There are 9 different types of cards in our fake card database
-    assert len(response.json()["results"]) == 9, names_from_results(response)
+    assert len(response.json()["results"]) == 10, names_from_results(response)
 
 
 def test_card_filters(client: TestClient, session: db.Session):
@@ -27,7 +27,7 @@ def test_card_filters(client: TestClient, session: db.Session):
     # And request non-legacy cards
     response = client.get("/v2/cards")
     assert response.status_code == status.HTTP_200_OK, response.json()
-    assert len(response.json()["results"]) == 9, names_from_results(response)
+    assert len(response.json()["results"]) == 10, names_from_results(response)
 
 
 def test_card_filters_query(client: TestClient, session: db.Session):
@@ -54,7 +54,7 @@ def test_card_filters_card_type(client: TestClient, session: db.Session):
     # Filtering by "conjurations" shortcut works
     response = client.get("/v2/cards", params={"types": "conjurations"})
     assert response.status_code == status.HTTP_200_OK, response.json()
-    assert len(response.json()["results"]) == 2, names_from_results(response)
+    assert len(response.json()["results"]) == 3, names_from_results(response)
 
 
 def test_card_filters_deckbuilder_mode(client: TestClient, session: db.Session):
@@ -78,8 +78,8 @@ def test_card_filters_basic_cost(client: TestClient, session: db.Session):
     # Show only cards with basic costs
     response = client.get("/v2/cards", params={"dice": "basic"})
     assert response.status_code == status.HTTP_200_OK, response.json()
-    # There are four cards that require basic or no costs: ready spell, alteration, and both conjurations
-    assert len(response.json()["results"]) == 4, names_from_results(response)
+    # There are five cards that require basic or no costs: ready spell, alteration, and all conjurations
+    assert len(response.json()["results"]) == 5, names_from_results(response)
 
 
 def test_card_filters_dice_costs(client: TestClient, session: db.Session):
@@ -172,8 +172,8 @@ def test_pagination_none(client: TestClient, session: db.Session):
     response = client.get("/v2/cards")
     assert response.status_code == 200
     data = response.json()
-    assert data["count"] == 9
-    assert len(data["results"]) == 9
+    assert data["count"] == 10
+    assert len(data["results"]) == 10
     assert data["previous"] is None
     assert data["next"] is None
 
@@ -184,7 +184,7 @@ def test_pagination_paging(client: TestClient, session: db.Session):
     response = client.get("/v2/cards", params={"offset": 3, "limit": 3})
     assert response.status_code == 200
     data = response.json()
-    assert data["count"] == 9
+    assert data["count"] == 10
     assert len(data["results"]) == 3
     assert data["previous"] is not None
     assert data["next"] is not None
@@ -215,7 +215,7 @@ def test_release_filtration(client: TestClient, session: db.Session):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 200, response.json()
-    assert len(response.json()["results"]) == 6, response.json()
+    assert len(response.json()["results"]) == 7, response.json()
 
 
 def test_phg_release_filtration(client: TestClient, session: db.Session):

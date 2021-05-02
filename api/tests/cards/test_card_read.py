@@ -61,6 +61,14 @@ def test_get_details_root_phoenixborn_conjurations(
     assert response.status_code == status.HTTP_200_OK
 
 
+def test_get_details_non_phoenixborn_conjuration(
+    client: TestClient, session: db.Session
+):
+    """Must properly find root summons for non-Phoenixborn conjurations"""
+    response = client.get("/v2/cards/example-conjuration/details")
+    assert response.status_code == status.HTTP_200_OK
+
+
 def test_get_details_phoenixborn(client: TestClient, session: db.Session):
     """Must properly find connected cards when looking up Phoenixborn"""
     response = client.get("/v2/cards/example-phoenixborn/details")
