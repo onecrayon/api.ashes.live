@@ -346,6 +346,14 @@ def get_card_details(
             ]
 
     # Gather stats
+    # If we're looking at a conjuration, then make sure that we gather stats for everything that can
+    #  summon that conjuration
+    if card.card_type.startswith("Conjur"):
+        root_card_ids = [x.id for x in summons] if summons else []
+    else:
+        root_card_ids = [card.id]
+    # We only look up the Phoenixborn if it's in our root summons array (otherwise we might be
+    #  looking at a Phoenixborn unique, and we'll get accurate counts for it in the next query)
     phoenixborn_counts = (
         session.query(
             db.func.count(Deck.id).label("decks"),
@@ -353,14 +361,9 @@ def get_card_details(
         )
         .filter(Deck.phoenixborn_id == phoenixborn.id, Deck.is_snapshot.is_(False))
         .first()
-        if phoenixborn
+        if phoenixborn and phoenixborn.id in root_card_ids
         else None
     )
-    root_card_ids = [card.id]
-    # If we're looking at a conjuration, then make sure that we gather stats for everything that can
-    #  summon that conjuration
-    if card.card_type.startswith("Conjur"):
-        root_card_ids += [x.id for x in summons] if summons else []
     card_counts = (
         session.query(
             db.func.count(DeckCard.deck_id).label("decks"),
