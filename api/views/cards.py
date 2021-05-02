@@ -234,6 +234,10 @@ def get_card(
     return card_json
 
 
+def _card_to_minimal_card(card: Card) -> dict:
+    return {"name": card.name, "stub": card.stub}
+
+
 @router.get(
     "/cards/{stub}/details",
     response_model=CardDetails,
@@ -258,26 +262,88 @@ def get_card_details(
     if not card:
         raise NotFoundException(detail="Card not found.")
 
-    # Gather up all related conjurations
-    root_cards = gather_root_summons(card)
-    root_card_ids = [x.id for x in root_cards]
-    conjurations = []
-    phoenixborn_ids = []
-    non_phoenixborn_ids = []
-    for root_card in root_cards:
-        if root_card.card_type == "Phoenixborn":
-            phoenixborn_ids.append(root_card.id)
+    # Gather up all related cards; there are two scenarios here: not a Phoenixborn card, in which
+    #  case we just look up for the cards that can summon and down for the conjurations that can
+    #  be summoned by one or more of those cards. Or we look up the Phoenixborn, unique, and all
+    #  related conjurations
+    related_cards = {}
+    phoenixborn = None
+    summoning_cards = None
+    if card.phoenixborn or card.card_type == "Phoenixborn":
+        # Grab all cards related to this Phoenixborn
+        if card.phoenixborn:
+            phoenixborn = (
+                session.query(Card)
+                .filter(
+                    Card.name == card.phoenixborn,
+                    Card.card_type == "Phoenixborn",
+                    Card.is_legacy.is_(show_legacy),
+                )
+                .first()
+            )
         else:
-            non_phoenixborn_ids.append(root_card.id)
-        conjurations = conjurations + gather_conjurations(root_card)
-    # Remove duplicate conjurations, if any
-    conjuration_ids = set()
-    unique_conjurations = []
-    for conjuration in conjurations:
-        if conjuration.id not in conjuration_ids:
-            conjuration_ids.add(conjuration.id)
-            unique_conjurations.append(conjuration)
-    conjurations = unique_conjurations
+            phoenixborn = card
+        phoenixborn_conjurations = gather_conjurations(phoenixborn)
+        phoenixborn_unique = (
+            session.query(Card)
+            .filter(
+                Card.phoenixborn == phoenixborn.name,
+                Card.card_type.notin_(("Conjuration", "Conjured Alteration Spell")),
+                Card.is_legacy.is_(show_legacy),
+            )
+            .first()
+        )
+        phoenixborn_unique_conjurations = gather_conjurations(phoenixborn_unique)
+        related_cards["phoenixborn"] = _card_to_minimal_card(phoenixborn)
+        if phoenixborn_conjurations:
+            related_cards["phoenixborn_conjurations"] = [
+                _card_to_minimal_card(x) for x in phoenixborn_conjurations
+            ]
+        if phoenixborn_unique:
+            related_cards["phoenixborn_unique"] = _card_to_minimal_card(
+                phoenixborn_unique
+            )
+        if phoenixborn_unique_conjurations:
+            related_cards["phoenixborn_unique_conjurations"] = [
+                _card_to_minimal_card(x) for x in phoenixborn_unique_conjurations
+            ]
+    else:
+        # Check to see if we have any conjurations that we need to map to this card
+        # We want to look up things in a different order depending on whether we're looking at
+        #  conjuration or not (because if we always start with root summons, we'll lose alternate
+        #  summoning cards when looking at a root summon)
+        if card.card_type.startswith("Conjur"):
+            summons = gather_root_summons(card)
+            all_conjurations = []
+            for root_card in summons:
+                all_conjurations = all_conjurations + gather_conjurations(root_card)
+            ids = set()
+            conjurations = []
+            for conjuration in all_conjurations:
+                if conjuration.id not in ids:
+                    ids.add(conjuration.id)
+                    conjurations.append(conjuration)
+        else:
+            conjurations = gather_conjurations(card)
+            all_summoning_cards = []
+            for conjuration in conjurations:
+                all_summoning_cards = all_summoning_cards + gather_root_summons(
+                    conjuration
+                )
+            ids = set()
+            summons = []
+            for summon in all_summoning_cards:
+                if summon.id not in ids:
+                    ids.add(summon.id)
+                    summons.append(summon)
+        # Only return anything if this card has conjurations related to it
+        if conjurations:
+            related_cards["summoning_cards"] = [
+                _card_to_minimal_card(x) for x in summons
+            ]
+            related_cards["conjurations"] = [
+                _card_to_minimal_card(x) for x in conjurations
+            ]
 
     # Gather stats
     phoenixborn_counts = (
@@ -285,11 +351,12 @@ def get_card_details(
             db.func.count(Deck.id).label("decks"),
             db.func.count(db.func.distinct(Deck.user_id)).label("users"),
         )
-        .filter(Deck.phoenixborn_id.in_(root_card_ids), Deck.is_snapshot.is_(False))
+        .filter(Deck.phoenixborn_id == phoenixborn.id, Deck.is_snapshot.is_(False))
         .first()
-        if phoenixborn_ids
+        if phoenixborn
         else None
     )
+    summon_card_ids = [x.id for x in summoning_cards] if summoning_cards else []
     card_counts = (
         session.query(
             db.func.count(DeckCard.deck_id).label("decks"),
@@ -297,12 +364,11 @@ def get_card_details(
         )
         .join(Deck, Deck.id == DeckCard.deck_id)
         .filter(
-            DeckCard.card_id.in_(root_card_ids),
+            DeckCard.card_id.in_(summon_card_ids),
             Deck.is_snapshot.is_(False),
-            Deck.is_legacy.is_(show_legacy),
         )
         .first()
-        if non_phoenixborn_ids
+        if summoning_cards
         else None
     )
     counts = {"decks": 0, "users": 0}
@@ -322,36 +388,10 @@ def get_card_details(
             Deck.is_public.is_(True),
             Deck.is_preconstructed.is_(True),
             Deck.is_legacy.is_(show_legacy),
-            DeckCard.card_id.in_([card.id] + root_card_ids),
+            DeckCard.card_id.in_([card.id] + summon_card_ids),
         )
         .first()
     )
-
-    # Grab Phoenixborn related card, if available
-    phoenixborn_card = None
-    if card.phoenixborn and card.card_type not in (
-        "Conjuration",
-        "Conjured Alteration Spell",
-    ):
-        phoenixborn_card = (
-            session.query(Card.stub, Card.name)
-            .filter(
-                Card.name == card.phoenixborn,
-                Card.card_type == "Phoenixborn",
-                Card.is_legacy.is_(show_legacy),
-            )
-            .first()
-        )
-    elif card.card_type == "Phoenixborn":
-        phoenixborn_card = (
-            session.query(Card.stub, Card.name)
-            .filter(
-                Card.phoenixborn == card.name,
-                Card.card_type.notin_(("Conjuration", "Conjured Alteration Spell")),
-                Card.is_legacy.is_(show_legacy),
-            )
-            .first()
-        )
 
     return {
         "card": card.json,
@@ -362,18 +402,7 @@ def get_card_details(
         }
         if preconstructed
         else None,
-        "phoenixborn_card": {
-            "name": phoenixborn_card.name,
-            "stub": phoenixborn_card.stub,
-        }
-        if phoenixborn_card
-        else None,
-        "related_cards": {
-            "summoning_cards": [{"name": x.name, "stub": x.stub} for x in root_cards]
-            or None,
-            "conjurations": [{"name": x.name, "stub": x.stub} for x in conjurations]
-            or None,
-        },
+        "related_cards": related_cards,
     }
 
 
