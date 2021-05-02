@@ -356,7 +356,11 @@ def get_card_details(
         if phoenixborn
         else None
     )
-    root_card_ids = [card.id] + ([x.id for x in summons] if summons else [])
+    root_card_ids = [card.id]
+    # If we're looking at a conjuration, then make sure that we gather stats for everything that can
+    #  summon that conjuration
+    if card.card_type.startswith("Conjur"):
+        root_card_ids += [x.id for x in summons] if summons else []
     card_counts = (
         session.query(
             db.func.count(DeckCard.deck_id).label("decks"),
