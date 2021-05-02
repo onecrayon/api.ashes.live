@@ -268,7 +268,7 @@ def get_card_details(
     #  related conjurations
     related_cards = {}
     phoenixborn = None
-    summoning_cards: Optional[list] = None
+    summons: Optional[list] = None
     if card.phoenixborn or card.card_type == "Phoenixborn":
         # Grab all cards related to this Phoenixborn
         if card.phoenixborn:
@@ -356,9 +356,7 @@ def get_card_details(
         if phoenixborn
         else None
     )
-    root_card_ids = [card.id] + (
-        [x.id for x in summoning_cards] if summoning_cards else []
-    )
+    root_card_ids = [card.id] + ([x.id for x in summons] if summons else [])
     card_counts = (
         session.query(
             db.func.count(DeckCard.deck_id).label("decks"),
