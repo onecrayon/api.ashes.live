@@ -74,3 +74,46 @@ def test_get_releases_mine(client: TestClient, session: db.Session):
     assert data[0]["stub"] == master_set.stub
     assert data[0]["is_mine"] == True
     assert data[1]["is_mine"] == False
+
+
+def test_put_releases(client: TestClient, session: db.Session):
+    """Putting my releases must work"""
+    master_set = Release(name="Master Set")
+    master_set.is_public = True
+    session.add(master_set)
+    first_expansion = Release(name="First Expansion")
+    first_expansion.is_public = True
+    session.add(first_expansion)
+    session.commit()
+    user, token = create_user_token(session)
+    assert (
+        session.query(UserRelease).filter(UserRelease.user_id == user.id).count() == 0
+    )
+    response = client.put(
+        "/v2/releases/mine",
+        json=[master_set.stub],
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data[0]["stub"] == master_set.stub
+    assert data[0]["is_mine"] == True
+    assert data[1]["is_mine"] == False
+
+
+def test_put_releases_bad_release(client: TestClient, session: db.Session):
+    """Putting a nonsense stub must work"""
+    master_set = Release(name="Master Set")
+    master_set.is_public = True
+    session.add(master_set)
+    session.commit()
+    user, token = create_user_token(session)
+    response = client.put(
+        "/v2/releases/mine",
+        json=["fake-set"],
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data[0]["stub"] == master_set.stub
+    assert data[0]["is_mine"] == False
