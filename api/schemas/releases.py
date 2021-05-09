@@ -15,3 +15,24 @@ class ReleaseOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class ReleaseOutAdmin(BaseModel):
+    """Main information about a release.
+
+    **Admin only.**
+    """
+
+    name: str
+    stub: str
+    is_legacy: bool
+    is_public: bool
+
+    class Config:
+        orm_mode = True
+
+
+class ReleaseIn(BaseModel):
+    """Information that can be updated about a release; currently only the `is_public` flag."""
+
+    is_public: bool

@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 
 from api import db
 from api.models import Release, UserRelease
-from api.tests.utils import create_user_token
+from api.tests.utils import create_admin_token, create_user_token
 
 
 def test_get_releases(client: TestClient, session: db.Session):
@@ -117,3 +117,45 @@ def test_put_releases_bad_release(client: TestClient, session: db.Session):
     data = response.json()
     assert data[0]["stub"] == master_set.stub
     assert data[0]["is_mine"] == False
+
+
+def test_patch_release_non_admin(client: TestClient, session: db.Session):
+    """Patching a release must require admin access"""
+    master_set = Release(name="Master Set")
+    session.add(master_set)
+    session.commit()
+    user, token = create_user_token(session)
+    response = client.patch(
+        f"/v2/releases/{master_set.stub}",
+        json={"is_public": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_patch_release_missing(client: TestClient, session: db.Session):
+    """Patching a non-existent release must 404"""
+    admin, token = create_admin_token(session)
+    response = client.patch(
+        "/v2/releases/master-set",
+        json={"is_public": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_patch_release(client: TestClient, session: db.Session):
+    """Patching a release to set it public must work"""
+    master_set = Release(name="Master Set")
+    session.add(master_set)
+    session.commit()
+    assert master_set.is_public == False
+    admin, token = create_admin_token(session)
+    response = client.patch(
+        f"/v2/releases/{master_set.stub}",
+        json={"is_public": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    session.refresh(master_set)
+    assert master_set.is_public == True

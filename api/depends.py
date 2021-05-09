@@ -7,7 +7,7 @@ from jose import JWTError, jwt
 
 from .db import Session, SessionLocal
 from .environment import settings
-from .exceptions import BannedUserException, CredentialsException
+from .exceptions import BannedUserException, CredentialsException, NoUserAccessException
 from .models import AnonymousUser, User, UserRevokedToken, UserType
 from .schemas import DetailResponse
 from .schemas.pagination import PaginationOptions
@@ -93,7 +93,7 @@ def login_required(current_user: "UserType" = Depends(get_current_user)) -> "Use
 def admin_required(current_user: "User" = Depends(login_required)) -> "User":
     """Returns authenticated admin user"""
     if not current_user.is_admin:
-        raise CredentialsException()
+        raise NoUserAccessException()
     return current_user
 
 

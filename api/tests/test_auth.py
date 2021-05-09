@@ -190,7 +190,7 @@ def test_admin_required_normal_user(client: TestClient, session: db.Session):
         headers={"Authorization": f"Bearer {token}"},
         json={"username": "newname", "moderation_notes": "Bad name."},
     )
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
+    assert response.status_code == status.HTTP_403_FORBIDDEN, response.json()
     session.refresh(user2)
     assert user2.username == "oldname"
 

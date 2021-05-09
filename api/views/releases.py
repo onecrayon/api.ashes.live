@@ -3,9 +3,17 @@ from typing import List, Union
 from fastapi import APIRouter, Depends
 
 from api import db
-from api.depends import get_current_user, get_session, login_required
+from api.depends import (
+    AUTH_RESPONSES,
+    admin_required,
+    get_current_user,
+    get_session,
+    login_required,
+)
+from api.exceptions import NotFoundException
 from api.models import Release, User, UserRelease, UserType
-from api.schemas.releases import ReleaseOut
+from api.schemas import DetailResponse
+from api.schemas.releases import ReleaseIn, ReleaseOut, ReleaseOutAdmin
 from api.services.releases import get_releases_query
 
 router = APIRouter()
@@ -35,7 +43,10 @@ def list_releases(
 
 
 @router.put(
-    "/releases/mine", response_model=List[ReleaseOut], response_model_exclude_unset=True
+    "/releases/mine",
+    response_model=List[ReleaseOut],
+    response_model_exclude_unset=True,
+    responses=AUTH_RESPONSES,
 )
 def save_collection(
     collection: List[str],
@@ -71,3 +82,36 @@ def save_collection(
         session.commit()
     query = get_releases_query(session=session, current_user=current_user)
     return query.all()
+
+
+@router.patch(
+    "/releases/{release_stub}",
+    response_model=ReleaseOutAdmin,
+    responses={
+        404: {
+            "model": DetailResponse,
+            "description": "Deck could not be found",
+        },
+        **AUTH_RESPONSES,
+    },
+)
+def update_release(
+    release_stub: str,
+    data: ReleaseIn,
+    session: db.Session = Depends(get_session),
+    _: "User" = Depends(admin_required),
+):
+    """Update a release.
+
+    **Admin only.**
+    """
+    release = (
+        session.query(Release)
+        .filter(Release.stub == release_stub, Release.is_legacy.is_(False))
+        .first()
+    )
+    if not release:
+        raise NotFoundException(detail="Release not found.")
+    release.is_public = data.is_public
+    session.commit()
+    return release
