@@ -107,16 +107,10 @@ class Card(db.AlchemyBase):
     def type_weight(cls):
         return db.case(
             [
-                (cls.card_type == "Phoenixborn", 0),
-                (cls.card_type == "Ready Spell", 1),
-                (cls.card_type == "Ally", 2),
-                (cls.card_type == "Alteration Spell", 3),
-                (cls.card_type == "Action Spell", 4),
-                (cls.card_type == "Reaction Spell", 5),
-                (cls.card_type == "Conjuration", 6),
-                (cls.card_type == "Conjured Alteration Spell", 7),
+                (cls.card_type == value, index)
+                for index, value in enumerate(CARD_TYPE_ORDER)
             ],
-            else_=10,
+            else_=len(CARD_TYPE_ORDER),
         )
 
     @staticmethod
