@@ -13,6 +13,7 @@ services:
             - localnet
         env_file: .env
         ports:
+            # Adding 127.0.0.1 ensures that we only listen to local requests
             - '127.0.0.1:5432:5432'
         volumes:
             - pgdata:/var/lib/postgresql/data
@@ -28,8 +29,8 @@ services:
         networks:
             - localnet
         ports:
-            # We only bind ports directly in development; and make sure that we don't listen to remote requests
-            - '127.0.0.1:8000:8000'
+            # We only bind ports directly in development; need to listen to remote requests to allow local network access
+            - '8000:8000'
         volumes:
             # We only mount source code in development:
             - .:/code

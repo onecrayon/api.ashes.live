@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Union
 
 from api import db
 
@@ -47,3 +48,7 @@ class UserRevokedToken(db.AlchemyBase):
     revoked_uuid = db.Column(db.UUID(as_uuid=True), primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=False)
     expires = db.Column(db.DateTime, nullable=False, index=True)
+
+
+# Helper for managing user types around the codebase
+UserType = Union[AnonymousUser, User]

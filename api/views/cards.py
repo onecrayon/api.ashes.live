@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.exc import IntegrityError
@@ -15,7 +15,7 @@ from api.exceptions import APIException, NotFoundException
 from api.models import Deck, DeckCard
 from api.models.card import Card, DiceFlags
 from api.models.release import Release, UserRelease
-from api.models.user import AnonymousUser, User
+from api.models.user import UserType
 from api.schemas import DetailResponse
 from api.schemas.cards import (
     CardDetails,
@@ -53,6 +53,7 @@ def list_cards(
     mode: CardsFilterListingMode = CardsFilterListingMode.listing,
     show_summons: bool = False,
     releases: CardsFilterRelease = CardsFilterRelease.all_,
+    r: List[str] = Query(None),
     dice: List[CardDiceCosts] = Query(None),
     dice_logic: CardsFilterDiceLogic = CardsFilterDiceLogic.any_,
     include_uniques_for: str = None,
@@ -60,7 +61,7 @@ def list_cards(
     order: PaginationOrderOptions = PaginationOrderOptions.asc,
     # Standard dependencies
     paging: PaginationOptions = Depends(paging_options),
-    current_user: Union["User", "AnonymousUser"] = Depends(get_current_user),
+    current_user: "UserType" = Depends(get_current_user),
     session: db.Session = Depends(get_session),
 ):
     """Get a paginated listing of cards with optional filters.
@@ -73,6 +74,7 @@ def list_cards(
     * `types`: list of types to include in filtered cards
     * `show_summons` (default: false): if true, will only show cards whose name starts with "Summon "
     * `releases` (default: `all`): if `mine` will show only releases owned by the current user
+    * `r`: list of release stubs; will only show cards belonging to releases in this list (**Note:** does nothing if `releases` is not `all`!)
     * `dice`: list of dice costs that cards in the listing must use
     * `dice_logic` (default: `any`): if `all` the cards returned must include all costs in `dice`
     * `include_uniques_for`: if set to a Phoenixborn name, listing will also include uniques belonging to the given Phoenixborn
@@ -115,7 +117,7 @@ def list_cards(
     if show_summons:
         query = query.filter(Card.is_summon_spell.is_(True))
     # Filter by releases, if requested
-    if releases:
+    if releases or r:
         if show_legacy and releases is CardsFilterRelease.phg:
             query = query.filter(Release.is_phg.is_(True))
         elif releases is CardsFilterRelease.mine and not current_user.is_anonymous():
@@ -125,6 +127,8 @@ def list_cards(
                 .subquery()
             )
             query = query.filter(Card.release_id.in_(my_release_subquery))
+        elif r:
+            query = query.filter(Release.stub.in_(r))
     # Filter against required dice costs
     if dice:
         dice_set = set(dice)
@@ -184,9 +188,9 @@ def list_cards(
             Card.phoenixborn.is_(None),
         )
     if sort == CardsSortingMode.type_:
-        # This calls the proper ordering function (result is `Card.card_type.asc()`)
+        # This uses a similar ordering to how the front-end organizes cards in deck listings
         query = query.order_by(
-            getattr(Card.card_type, order)(), getattr(Card.name, order)()
+            getattr(Card.type_weight, order)(), getattr(Card.name, order)()
         )
     elif sort == CardsSortingMode.cost:
         query = query.order_by(
@@ -201,6 +205,17 @@ def list_cards(
         query = query.order_by(
             getattr(Card.dice_weight, order)(),
             getattr(Card.cost_weight, order)(),
+            getattr(Card.name, order)(),
+        )
+    elif sort == CardsSortingMode.release:
+        # This one is mainly there for people who organize their sets by preconstructed deck, though
+        #  it groups all Master Set decks into a single group (not really sure how I would separate
+        #  those cards out by preconstructed deck, because there's not an easy join strategy to
+        #  fetch that data; I'd have to denormalize it into the cards. Will consider if people
+        #  request it)
+        query = query.order_by(
+            getattr(Release.id, order)(),
+            getattr(Card.type_weight, order)(),
             getattr(Card.name, order)(),
         )
     else:
