@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional, Union
+from typing import Optional
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -8,7 +8,7 @@ from jose import JWTError, jwt
 from .db import Session, SessionLocal
 from .environment import settings
 from .exceptions import BannedUserException, CredentialsException
-from .models import AnonymousUser, User, UserRevokedToken
+from .models import AnonymousUser, User, UserRevokedToken, UserType
 from .schemas import DetailResponse
 from .schemas.pagination import PaginationOptions
 
@@ -49,7 +49,7 @@ def get_auth_token(token: Optional[str] = Depends(oauth2_scheme)) -> Optional[di
 def get_current_user(
     payload: Optional[dict] = Depends(get_auth_token),
     session: Session = Depends(get_session),
-) -> Union["AnonymousUser", "User"]:
+) -> "UserType":
     """Returns authenticated user or AnonymousUser instance"""
     if payload is None:
         return AnonymousUser()
@@ -83,7 +83,7 @@ def anonymous_required(
     return current_user
 
 
-def login_required(current_user: "AnonymousUser" = Depends(get_current_user)) -> "User":
+def login_required(current_user: "UserType" = Depends(get_current_user)) -> "User":
     """Returns authenticated user"""
     if current_user.is_anonymous():
         raise CredentialsException()

@@ -1,5 +1,3 @@
-from typing import Union
-
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import UUID4
 
@@ -13,7 +11,6 @@ from api.depends import (
 )
 from api.exceptions import APIException, NotFoundException, NoUserAccessException
 from api.models import (
-    AnonymousUser,
     Card,
     Deck,
     DeckCard,
@@ -22,6 +19,7 @@ from api.models import (
     Release,
     Stream,
     User,
+    UserType,
 )
 from api.schemas import DetailResponse
 from api.schemas.decks import (
@@ -178,7 +176,7 @@ def get_deck(
         description="When viewing a source deck ID, whether the actual latest save should be returned.",
     ),
     session: db.Session = Depends(get_session),
-    current_user: Union["User", "AnonymousUser"] = Depends(get_current_user),
+    current_user: "UserType" = Depends(get_current_user),
 ):
     """Read a single deck's details.
 
