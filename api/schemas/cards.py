@@ -148,10 +148,18 @@ class CardUsageCounts(BaseModel):
 
 
 class RelatedCardLists(BaseModel):
-    """Full listing of all cards that can summon or be summoned by this card"""
+    """Full listing of all cards that can summon or be summoned by this card.
+
+    If it includes anything it will *either* contain all the Phoenixborn-related properties,
+    *or* `summoning_cards` and `conjurations`, but not both sets.
+    """
 
     summoning_cards: List[CardMinimalOut] = None
     conjurations: List[CardMinimalOut] = None
+    phoenixborn: CardMinimalOut = None
+    phoenixborn_conjurations: List[CardMinimalOut] = None
+    phoenixborn_unique: CardMinimalOut = None
+    phoenixborn_unique_conjurations: List[CardMinimalOut] = None
 
 
 class PreconstructedDeck(BaseModel):
@@ -171,6 +179,7 @@ class CardDetails(BaseModel):
     usage: CardUsageCounts
     preconstructed_deck: PreconstructedDeck = None
     phoenixborn_card: CardMinimalOut = None
+    phoenixborn_conjurations: List[CardMinimalOut] = None
     related_cards: RelatedCardLists
 
 
