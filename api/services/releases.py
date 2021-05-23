@@ -30,5 +30,5 @@ def get_releases_query(session: db.Session, current_user: UserType, show_legacy=
     query = query.filter(
         Release.is_legacy.is_(show_legacy),
         Release.is_public.is_(True),
-    )
+    ).order_by(Release.id.asc())
     return query
