@@ -30,6 +30,7 @@ from api.schemas.decks import (
     DeckIn,
     DeckListingOut,
     DeckSaveOut,
+    SnapshotEditIn,
     SnapshotIn,
 )
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
@@ -596,3 +597,24 @@ def delete_deck(
     # Commit any pending changes, and return success
     session.commit()
     return success_response
+
+
+@router.patch(
+    "/decks/snapshots/{snapshot_id}",
+    response_model=DeckSaveOut,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Snapshot editing failed.",
+        },
+        **AUTH_RESPONSES,
+    },
+)
+def edit_snapshot(
+    snapshot_id: int,
+    data: SnapshotEditIn,
+    session: db.Session = Depends(get_session),
+    current_user: "User" = Depends(login_required),
+):
+    # TODO: Need to complete the logic for snapshot editing/moderation
+    pass
