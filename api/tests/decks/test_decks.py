@@ -9,7 +9,7 @@ from api import db
 from api.services.deck import create_snapshot_for_deck
 from api.utils.auth import create_access_token
 
-from ..utils import create_user_token
+from ..utils import create_admin_token, create_user_token
 from .deck_utils import create_deck_for_user
 
 
@@ -31,6 +31,7 @@ def snapshot1(cards_session, user1, deck1):
         user1,
         deck1,
         title="First Snapshot",
+        description="First description",
         is_public=True,
     )
 
@@ -333,3 +334,123 @@ def test_get_deck_saved(client: TestClient, deck1, user1):
     data = response.json()
     assert data["deck"]["id"] == deck1.id
     assert data["deck"]["is_saved"] == True
+
+
+def test_edit_snapshot_bad_id(client: TestClient, session: db.Session, user1, deck1):
+    """Not found error thrown when viewing non-existent ID"""
+    snapshot = create_snapshot_for_deck(session, user1, deck1)
+    deleted_id = snapshot.id
+    session.delete(snapshot)
+    session.commit()
+    token = create_access_token(
+        data={"sub": user1.badge},
+        expires_delta=timedelta(minutes=15),
+    )
+    response = client.patch(
+        f"/v2/decks/snapshots/{deleted_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"title": "New title"},
+    )
+    assert response.status_code == status.HTTP_404_NOT_FOUND, response.json()
+
+
+def test_edit_snapshot_others_snapshot(client: TestClient, user1, snapshot2):
+    """Permissions error when attempting to edit other people's decks"""
+    token = create_access_token(
+        data={"sub": user1.badge},
+        expires_delta=timedelta(minutes=15),
+    )
+    response = client.patch(
+        f"/v2/decks/snapshots/{snapshot2.id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"title": "New title"},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_edit_snaphot_not_snapshot(client: TestClient, user1, deck1):
+    """Generic error when trying to edit something that is not a snapshot"""
+    token = create_access_token(
+        data={"sub": user1.badge},
+        expires_delta=timedelta(minutes=15),
+    )
+    response = client.patch(
+        f"/v2/decks/snapshots/{deck1.id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"title": "New title"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_edit_snapshot_notes_required_for_moderation(
+    client: TestClient, session: db.Session, snapshot1
+):
+    """Moderation notes are required for admin moderation"""
+    admin, token = create_admin_token(session)
+    response = client.patch(
+        f"/v2/decks/snapshots/{snapshot1.id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"title": "New title"},
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_edit_snapshot_moderate_description(
+    client: TestClient, session: db.Session, snapshot1
+):
+    """Moderating a description saves the old description"""
+    admin, token = create_admin_token(session)
+    old_description = snapshot1.description
+    new_description = "New description"
+    moderation_notes = "Changed description"
+    response = client.patch(
+        f"/v2/decks/snapshots/{snapshot1.id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"description": new_description, "moderation_notes": moderation_notes},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    session.refresh(snapshot1)
+    assert snapshot1.description == new_description
+    assert snapshot1.original_description == old_description
+    assert snapshot1.is_moderated is True
+    assert snapshot1.moderation_notes == moderation_notes
+
+
+def test_edit_snapshot(client: TestClient, session: db.Session, user1, snapshot1):
+    """Users can edit their own snapshots"""
+    token = create_access_token(
+        data={"sub": user1.badge},
+        expires_delta=timedelta(minutes=15),
+    )
+    new_title = "New title"
+    new_description = "New description"
+    response = client.patch(
+        f"/v2/decks/snapshots/{snapshot1.id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"title": new_title, "description": new_description},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    session.refresh(snapshot1)
+    assert snapshot1.title == new_title
+    assert snapshot1.description == new_description
+
+
+def test_edit_snapshot_clear_description(
+    client: TestClient, session: db.Session, user1, snapshot1
+):
+    """Users can pass empty strings to clear descriptions"""
+    token = create_access_token(
+        data={"sub": user1.badge},
+        expires_delta=timedelta(minutes=15),
+    )
+    old_title = snapshot1.title
+    new_description = ""
+    response = client.patch(
+        f"/v2/decks/snapshots/{snapshot1.id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"description": new_description},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    session.refresh(snapshot1)
+    assert snapshot1.title == old_title
+    assert snapshot1.description is None
