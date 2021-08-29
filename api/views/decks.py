@@ -616,5 +616,40 @@ def edit_snapshot(
     session: db.Session = Depends(get_session),
     current_user: "User" = Depends(login_required),
 ):
-    # TODO: Need to complete the logic for snapshot editing/moderation
-    pass
+    """Edit a snapshot's title or description
+
+    Users can use this to update the descriptions of snapshots that have already been published. Admins can use this
+    endpoint to moderate any snapshot that has been published on the site (as long as they include moderation notes).
+
+    Title and description can be intentionally cleared by passing in an empty string for one or the other.
+    """
+    # First look up the snapshot
+    deck: Deck = session.query(Deck).get(snapshot_id)
+    # Run basic validation to make sure they have access to this snapshot (and it is indeed a snapshot)
+    if not deck:
+        raise NotFoundException(detail="No such snapshot found.")
+    if not current_user.is_admin and deck.user_id != current_user.id:
+        raise NoUserAccessException(detail="You cannot edit a snapshot you do not own.")
+    if not deck.is_snapshot:
+        raise APIException(detail="Not a valid snapshot.")
+    # Ensure admins pass in moderation notes
+    if current_user.is_admin:
+        if deck.user_id != current_user.id:
+            if not data.moderation_notes:
+                raise APIException(detail="Moderation notes are required.")
+            deck.moderation_notes = data.moderation_notes
+            deck.is_moderated = True
+            if data.description is not None and data.description != deck.description:
+                deck.original_description = deck.description
+    elif data.moderation_notes is not None:
+        raise APIException(detail="You do not have permission to moderate snapshots.")
+    # Now that we've verified everything is kosher, update our object
+    for field in ("title", "description"):
+        value = getattr(data, field)
+        if value:
+            setattr(deck, field, value)
+        elif value is not None:
+            # If the value is falsey (empty string) but not none, that means they intentionally want it cleared
+            setattr(deck, field, None)
+    session.commit()
+    return deck_to_dict(session, deck=deck)
