@@ -17,7 +17,7 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column("deck", sa.Column("is_moderated", sa.Boolean(), nullable=False))
+    op.add_column("deck", sa.Column("is_moderated", sa.Boolean(), nullable=False, server_default="0"))
     op.add_column("deck", sa.Column("original_description", sa.Text(), nullable=True))
     op.add_column("deck", sa.Column("moderation_notes", sa.Text(), nullable=True))
 

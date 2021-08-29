@@ -40,7 +40,9 @@ class Deck(db.AlchemyBase):
     source_id = db.Column(db.Integer, db.ForeignKey("deck.id"), index=True)
     user_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=False, index=True)
     phoenixborn_id = db.Column(db.Integer, db.ForeignKey(Card.id), index=True)
-    is_moderated = db.Column(db.Boolean, nullable=False, default=False)
+    is_moderated = db.Column(
+        db.Boolean, nullable=False, default=False, server_default="0"
+    )
     original_description = db.Column(db.Text)
     moderation_notes = db.Column(db.Text)
 
