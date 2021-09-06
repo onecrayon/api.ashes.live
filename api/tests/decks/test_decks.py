@@ -37,6 +37,18 @@ def snapshot1(cards_session, user1, deck1):
 
 
 @pytest.fixture(scope="module", autouse=True)
+def private_snapshot1(cards_session, user1, deck1):
+    return create_snapshot_for_deck(
+        cards_session,
+        user1,
+        deck1,
+        title="Private Snapshot",
+        description="Private description",
+        is_public=False,
+    )
+
+
+@pytest.fixture(scope="module", autouse=True)
 def private_deck1(cards_session, user1):
     return create_deck_for_user(cards_session, user1, release_stub="expansion")
 
@@ -334,6 +346,88 @@ def test_get_deck_saved(client: TestClient, deck1, user1):
     data = response.json()
     assert data["deck"]["id"] == deck1.id
     assert data["deck"]["is_saved"] == True
+
+
+def test_list_snapshots_bad_id(client: TestClient, session: db.Session, user1):
+    """Not found error thrown when viewing non-existent deck"""
+    deck = create_deck_for_user(session, user1)
+    deleted_id = deck.id
+    session.delete(deck)
+    session.commit()
+    response = client.get(f"/v2/decks/{deleted_id}/snapshots")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_list_snapshots_deleted_deck(client: TestClient, session: db.Session, deck1):
+    """Not found error thrown when viewing a deleted deck"""
+    deck1.is_deleted = True
+    session.commit()
+    response = client.get(f"/v2/decks/{deck1.id}/snapshots")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_list_snapshots_snapshot_id(client: TestClient, snapshot1):
+    """Not found error thrown when viewing a snapshot instead of a source deck"""
+    response = client.get(f"/v2/decks/{snapshot1.id}/snapshots")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_list_snapshots_anonymous_user(client: TestClient, private_snapshot1):
+    """Anonymous users can only view public snapshots"""
+    response = client.get(f"/v2/decks/{private_snapshot1.source_id}/snapshots")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["count"] == 1
+    assert len(data["results"]) == 1
+
+
+def test_list_snapshots_other_user(client: TestClient, user2, private_snapshot1):
+    """Users cannot view private snapshots for other user's decks"""
+    token = create_access_token(
+        data={"sub": user2.badge},
+        expires_delta=timedelta(minutes=15),
+    )
+    response = client.get(
+        f"/v2/decks/{private_snapshot1.source_id}/snapshots",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["count"] == 1
+    assert len(data["results"]) == 1
+
+
+def test_list_snapshots(client: TestClient, user1, private_snapshot1):
+    """Users can view both private and public snapshots for decks they own"""
+    token = create_access_token(
+        data={"sub": user1.badge},
+        expires_delta=timedelta(minutes=15),
+    )
+    response = client.get(
+        f"/v2/decks/{private_snapshot1.source_id}/snapshots",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["count"] == 2
+    assert len(data["results"]) == 2
+
+
+def test_list_snapshots_public_only(client: TestClient, user1, private_snapshot1):
+    """Users can view listings that include only public snapshots"""
+    token = create_access_token(
+        data={"sub": user1.badge},
+        expires_delta=timedelta(minutes=15),
+    )
+    response = client.get(
+        f"/v2/decks/{private_snapshot1.source_id}/snapshots",
+        params={"show_public_only": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["count"] == 1
+    assert len(data["results"]) == 1
 
 
 def test_edit_snapshot_bad_id(client: TestClient, session: db.Session, user1, deck1):
