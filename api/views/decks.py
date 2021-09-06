@@ -500,6 +500,55 @@ def create_snapshot(
     return {"detail": "Snapshot successfully created!"}
 
 
+@router.get(
+    "/decks/{deck_id}/snapshots",
+    response_model=DeckListingOut,
+    response_model_exclude_unset=True,
+    responses={
+        404: {
+            "model": DetailResponse,
+            "description": "No such source deck found.",
+        },
+    },
+)
+def list_snapshots(
+    request: Request,
+    deck_id: int,
+    show_public_only: bool = Query(
+        False,
+        description="Only affects output if the current user is the owner of the deck (private snapshots will only be included for owners).",
+    ),
+    order: PaginationOrderOptions = PaginationOrderOptions.desc,
+    paging: PaginationOptions = Depends(paging_options),
+    session: db.Session = Depends(get_session),
+    current_user: "UserType" = Depends(get_current_user),
+):
+    """List snapshots saved for a given deck.
+
+    The `show_public_only` query parameter only does anything if the current user is the owner of the deck (users who
+    do not own decks can only ever see public snapshots, so no private snapshots will be included even if they ask
+    for them).
+    """
+    source_deck: Deck = session.query(Deck).get(deck_id)
+    if not source_deck or source_deck.is_deleted or source_deck.is_snapshot:
+        raise NotFoundException(detail="Deck not found.")
+    query = session.query(Deck).filter(
+        Deck.is_deleted.is_(False),
+        Deck.is_snapshot.is_(True),
+        Deck.source_id == source_deck.id,
+    )
+    if (
+        current_user.is_anonymous()
+        or current_user.id != source_deck.user_id
+        or show_public_only is True
+    ):
+        query = query.filter(Deck.is_public.is_(True))
+    query = query.options(db.joinedload(Deck.user)).order_by(
+        getattr(Deck.created, order)()
+    )
+    return paginate_deck_listing(query, session, request, paging)
+
+
 @router.delete(
     "/decks/{deck_id}", status_code=status.HTTP_204_NO_CONTENT, responses=AUTH_RESPONSES
 )
