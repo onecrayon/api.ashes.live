@@ -136,7 +136,13 @@ def list_cards(
         if dice_logic is CardsFilterDiceLogic.any_:
             if "basic" in dice_set:
                 dice_filters.append(
-                    db.and_(Card.dice_flags == 0, Card.alt_dice_flags == 0)
+                    db.and_(
+                        Card.dice_flags == 0,
+                        Card.alt_dice_flags == 0,
+                        Card.card_type.notin_(
+                            ["Conjuration", "Conjured Alteration Spell"]
+                        ),
+                    )
                 )
                 dice_set.remove("basic")
             # Only add additional filters if we requested more than basic cards
@@ -187,7 +193,9 @@ def list_cards(
                 dice_filters.append(
                     db.and_(
                         Card.dice_flags == sum(subset),
-                        Card.alt_dice_flags.op("&")(missing_values) == missing_values,
+                        Card.alt_dice_flags.op("&")(missing_values) == missing_values
+                        if missing_values
+                        else Card.alt_dice_flags == missing_values,
                     )
                 )
         query = query.filter(db.or_(*dice_filters))
