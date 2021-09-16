@@ -132,8 +132,8 @@ def list_cards(
     # Filter against required dice costs
     if dice:
         dice_set = set(dice)
+        dice_filters = []
         if dice_logic is CardsFilterDiceLogic.any_:
-            dice_filters = []
             if "basic" in dice_set:
                 dice_filters.append(
                     db.and_(Card.dice_flags == 0, Card.alt_dice_flags == 0)
@@ -142,39 +142,55 @@ def list_cards(
             # Only add additional filters if we requested more than basic cards
             if dice_set:
                 # We want to match on any combination of the passed dice, so pre-calculate those values
-                dice_flags = [DiceFlags[x].value for x in dice_set]
-                valid_values = set(sum(x) for x in powerset(dice_flags) if x)
-                # Find all cards with dice that match one of our valid values
-                dice_filters.append(Card.dice_flags.in_(valid_values))
-                # Dice are stored in the database as bitwise flags, so we can check for the existence of a dice type
-                #  in the alt dice by doing an & bitwise operation and comparing with the flag value (because &
-                #  only includes 1 for bits that match in both numbers, so you end up with just the flag value for
-                #  that given flag, if it exists). We AND this with empty dice flags, because everything else will be
-                #  captured by the logic above.
+                dice_values = [DiceFlags[die].value for die in dice_set]
+                dice_sums = [sum(x) for x in powerset(dice_values) if x]
+                # First scenario: the dice flags must match one of the available permutations of the selected dice
+                #  AND the alt flags must be empty or contain at least one of the available dice
+                dice_filters.append(
+                    db.and_(
+                        Card.dice_flags.in_(dice_sums),
+                        # Dice are stored in the database as bitwise flags, so we can check for the existence of a dice
+                        #  type in the alt dice by doing an & bitwise operation and comparing with the flag value
+                        #  (because & only includes 1 for bits that match in both numbers, so you end up with just the
+                        #  flag value for that given flag, if it exists).
+                        db.or_(
+                            Card.alt_dice_flags == 0,
+                            *[
+                                Card.alt_dice_flags.op("&")(die_value) == die_value
+                                for die_value in dice_values
+                            ],
+                        ),
+                    )
+                )
+                # Second scenario: the dice flags must be empty AND the alt flags must match one of the dice
                 dice_filters.append(
                     db.and_(
                         Card.dice_flags == 0,
                         db.or_(
                             *[
-                                Card.alt_dice_flags.op("&")(DiceFlags[die].value)
-                                == DiceFlags[die].value
-                                for die in dice_set
-                            ]
+                                Card.alt_dice_flags.op("&")(die_value) == die_value
+                                for die_value in dice_values
+                            ],
                         ),
                     )
                 )
-            query = query.filter(db.or_(*dice_filters))
         else:
-            dice_filters = [
-                db.or_(
-                    Card.dice_flags.op("&")(DiceFlags[die].value)
-                    == DiceFlags[die].value,
-                    Card.alt_dice_flags.op("&")(DiceFlags[die].value)
-                    == DiceFlags[die].value,
+            # Since every passed dice type must be included for ALL searches, we go through all
+            #  powersets and look for cards that match the powerset for the dice flags, and
+            #  whatever dice types were missed in the alt flags. So if you pass ceremonial and
+            #  charm, you get cards that require both but have no alt costs, cards that require
+            #  ceremonial with a charm alt cost, etc.
+            dice_values = set(DiceFlags[die].value for die in dice_set)
+            dice_powersets = [set(x) for x in powerset(dice_values)]
+            for subset in dice_powersets:
+                missing_values = sum(dice_values.difference(subset))
+                dice_filters.append(
+                    db.and_(
+                        Card.dice_flags == sum(subset),
+                        Card.alt_dice_flags.op("&")(missing_values) == missing_values,
+                    )
                 )
-                for die in dice_set
-            ]
-            query = query.filter(*dice_filters)
+        query = query.filter(db.or_(*dice_filters))
     # Only Include Phoenixborn uniques for the given Phoenixborn (or no Phoenixborn, in deckbuilder)
     if include_uniques_for:
         query = query.filter(
