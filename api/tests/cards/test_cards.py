@@ -78,8 +78,9 @@ def test_card_filters_basic_cost(client: TestClient, session: db.Session):
     # Show only cards with basic costs
     response = client.get("/v2/cards", params={"dice": "basic"})
     assert response.status_code == status.HTTP_200_OK, response.json()
-    # There are five cards that require basic or no costs: ready spell, alteration, and all conjurations
-    assert len(response.json()["results"]) == 5, names_from_results(response)
+    # There are two cards that require basic or no costs: the ready spell and alteration
+    #  (conjurations are intentionally excluded)
+    assert len(response.json()["results"]) == 2, names_from_results(response)
 
 
 def test_card_filters_dice_costs(client: TestClient, session: db.Session):
