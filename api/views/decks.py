@@ -648,6 +648,31 @@ def delete_deck(
     return success_response
 
 
+@router.get(
+    "/decks/{deck_id}/clone",
+    response_model=DeckSaveOut,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Deck cloning failed.",
+        },
+        404: {"model": DetailResponse, "description": "Invalid deck ID."},
+        **AUTH_RESPONSES,
+    },
+)
+def clone_deck(
+    deck_id: int,
+    session: db.Session = Depends(get_session),
+    current_user: "User" = Depends(login_required),
+):
+    """Clone a snapshot or deck.
+
+    Allows users to create a new deck that is an exact copy of one of their own decks, or of a public snapshot of
+    someone else's deck. Returns a copy of the deck suitable for editing.
+    """
+    pass
+
+
 @router.patch(
     "/decks/snapshots/{snapshot_id}",
     response_model=DeckSaveOut,
