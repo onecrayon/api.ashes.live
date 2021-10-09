@@ -30,6 +30,7 @@ from api.schemas.decks import (
     DeckIn,
     DeckListingOut,
     DeckSaveOut,
+    SnapshotEditIn,
     SnapshotIn,
 )
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
@@ -499,6 +500,55 @@ def create_snapshot(
     return {"detail": "Snapshot successfully created!"}
 
 
+@router.get(
+    "/decks/{deck_id}/snapshots",
+    response_model=DeckListingOut,
+    response_model_exclude_unset=True,
+    responses={
+        404: {
+            "model": DetailResponse,
+            "description": "No such source deck found.",
+        },
+    },
+)
+def list_snapshots(
+    request: Request,
+    deck_id: int,
+    show_public_only: bool = Query(
+        False,
+        description="Only affects output if the current user is the owner of the deck (private snapshots will only be included for owners).",
+    ),
+    order: PaginationOrderOptions = PaginationOrderOptions.desc,
+    paging: PaginationOptions = Depends(paging_options),
+    session: db.Session = Depends(get_session),
+    current_user: "UserType" = Depends(get_current_user),
+):
+    """List snapshots saved for a given deck.
+
+    The `show_public_only` query parameter only does anything if the current user is the owner of the deck (users who
+    do not own decks can only ever see public snapshots, so no private snapshots will be included even if they ask
+    for them).
+    """
+    source_deck: Deck = session.query(Deck).get(deck_id)
+    if not source_deck or source_deck.is_deleted or source_deck.is_snapshot:
+        raise NotFoundException(detail="Deck not found.")
+    query = session.query(Deck).filter(
+        Deck.is_deleted.is_(False),
+        Deck.is_snapshot.is_(True),
+        Deck.source_id == source_deck.id,
+    )
+    if (
+        current_user.is_anonymous()
+        or current_user.id != source_deck.user_id
+        or show_public_only is True
+    ):
+        query = query.filter(Deck.is_public.is_(True))
+    query = query.options(db.joinedload(Deck.user)).order_by(
+        getattr(Deck.created, order)()
+    )
+    return paginate_deck_listing(query, session, request, paging)
+
+
 @router.delete(
     "/decks/{deck_id}", status_code=status.HTTP_204_NO_CONTENT, responses=AUTH_RESPONSES
 )
@@ -596,3 +646,59 @@ def delete_deck(
     # Commit any pending changes, and return success
     session.commit()
     return success_response
+
+
+@router.patch(
+    "/decks/snapshots/{snapshot_id}",
+    response_model=DeckSaveOut,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Snapshot editing failed.",
+        },
+        **AUTH_RESPONSES,
+    },
+)
+def edit_snapshot(
+    snapshot_id: int,
+    data: SnapshotEditIn,
+    session: db.Session = Depends(get_session),
+    current_user: "User" = Depends(login_required),
+):
+    """Edit a snapshot's title or description
+
+    Users can use this to update the descriptions of snapshots that have already been published. Admins can use this
+    endpoint to moderate any snapshot that has been published on the site (as long as they include moderation notes).
+
+    Title and description can be intentionally cleared by passing in an empty string for one or the other.
+    """
+    # First look up the snapshot
+    deck: Deck = session.query(Deck).get(snapshot_id)
+    # Run basic validation to make sure they have access to this snapshot (and it is indeed a snapshot)
+    if not deck:
+        raise NotFoundException(detail="No such snapshot found.")
+    if not current_user.is_admin and deck.user_id != current_user.id:
+        raise NoUserAccessException(detail="You cannot edit a snapshot you do not own.")
+    if not deck.is_snapshot:
+        raise APIException(detail="Not a valid snapshot.")
+    # Ensure admins pass in moderation notes
+    if current_user.is_admin:
+        if deck.user_id != current_user.id:
+            if not data.moderation_notes:
+                raise APIException(detail="Moderation notes are required.")
+            deck.moderation_notes = data.moderation_notes
+            deck.is_moderated = True
+            if data.description is not None and data.description != deck.description:
+                deck.original_description = deck.description
+    elif data.moderation_notes is not None:
+        raise APIException(detail="You do not have permission to moderate snapshots.")
+    # Now that we've verified everything is kosher, update our object
+    for field in ("title", "description"):
+        value = getattr(data, field)
+        if value:
+            setattr(deck, field, value)
+        elif value is not None:
+            # If the value is falsey (empty string) but not none, that means they intentionally want it cleared
+            setattr(deck, field, None)
+    session.commit()
+    return deck_to_dict(session, deck=deck)

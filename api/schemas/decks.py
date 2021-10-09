@@ -243,3 +243,18 @@ class SnapshotIn(BaseModel):
         None,
         description="The stub for the release for which this snapshot is the preconstructed deck. Can only be set by site admins.",
     )
+
+
+class SnapshotEditIn(BaseModel):
+    """Editable information for snapshots"""
+
+    title: str = Field(
+        None, max_length=255, description="The new title to use for this snapshot."
+    )
+    description: str = Field(
+        None, description="The new description to use for this snapshot."
+    )
+    moderation_notes: str = Field(
+        None,
+        description="The reason this snapshot was moderated. Can only be set by site admins.",
+    )
