@@ -14,15 +14,15 @@ from api.tests.utils import create_user_token, generate_random_chars
 
 
 @pytest.fixture(scope="module", autouse=True)
-def user_token(cards_session):
-    user, token = create_user_token(cards_session)
+def user_token(decks_session):
+    user, token = create_user_token(decks_session)
     return user, token
 
 
 @pytest.fixture(scope="module")
-def deck(cards_session, user_token):
+def deck(decks_session, user_token):
     user, _ = user_token
-    return create_deck_for_user(cards_session, user)
+    return create_deck_for_user(decks_session, user)
 
 
 def _valid_deck_dict(session: db.Session) -> dict:

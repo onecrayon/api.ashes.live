@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import UUID4
+from sqlalchemy.orm import make_transient
 
 from api import db
 from api.depends import (
@@ -44,6 +45,7 @@ from api.services.deck import (
     get_decks_query,
     paginate_deck_listing,
 )
+from api.services.stream import create_entity
 
 router = APIRouter()
 
@@ -646,6 +648,105 @@ def delete_deck(
     # Commit any pending changes, and return success
     session.commit()
     return success_response
+
+
+@router.get(
+    "/decks/{deck_id}/clone",
+    response_model=DeckSaveOut,
+    responses={
+        404: {"model": DetailResponse, "description": "Invalid deck ID."},
+        **AUTH_RESPONSES,
+    },
+)
+def clone_deck(
+    deck_id: int,
+    session: db.Session = Depends(get_session),
+    current_user: "User" = Depends(login_required),
+):
+    """Clone a snapshot or deck.
+
+    Allows users to create a new deck that is an exact copy of one of their own decks, or of a public snapshot of
+    someone else's deck. Returns a copy of the deck suitable for editing.
+
+    Note that unlike the legacy site, cloning a deck in v2 will automatically create an initial snapshot of the source
+    deck. This allows viewing the source deck even if it is deleted, overwritten, or otherwise inaccessible.
+    """
+    # Simple check if the snapshot exists first (no need for joins)
+    valid_deck_filters = (
+        db.or_(
+            db.and_(
+                Deck.is_public.is_(True),
+                Deck.is_snapshot.is_(True),
+            ),
+            Deck.user_id == current_user.id,
+        ),
+        Deck.id == deck_id,
+        Deck.is_legacy.is_(False),
+        Deck.is_deleted.is_(False),
+    )
+    deck = session.query(Deck.id).filter(*valid_deck_filters).first()
+    if not deck:
+        raise NotFoundException(detail="Invalid ID for cloning.")
+    # Then we grab a new entity_id first because it causes a commit and kills the process otherwise
+    entity_id = create_entity(session)
+    # Then we can finally grab our full deck and copy it
+    deck = (
+        session.query(Deck)
+        .options(
+            db.joinedload("cards"),
+            db.joinedload("dice"),
+            db.joinedload("selected_cards"),
+        )
+        .filter(*valid_deck_filters)
+        .first()
+    )
+    # Reset our deck object in order to clone it
+    make_transient(deck)
+    original_title = deck.title
+    was_snapshot = deck.is_snapshot
+    deck.id = None
+    deck.entity_id = entity_id
+    deck.direct_share_uuid = None
+    deck.title = f"Copy of {original_title}"
+    deck.user_id = current_user.id
+    deck.is_snapshot = False
+    deck.is_public = False
+    if was_snapshot:
+        deck.source_id = deck_id
+    deck.created = None
+    deck.modified = None
+    deck.is_preconstructed = False
+    deck.preconstructed_release = None
+    dice = []
+    for die in deck.dice:
+        make_transient(die)
+        die.deck_id = None
+        dice.append(die)
+    deck.dice = dice
+    cards = []
+    for card in deck.cards:
+        make_transient(card)
+        card.deck_id = None
+        cards.append(card)
+    deck.cards = cards
+    selected_cards = []
+    for card in deck.selected_cards:
+        make_transient(card)
+        card.deck_id = None
+        selected_cards.append(card)
+    deck.selected_cards = selected_cards
+    session.add(deck)
+    session.commit()
+    # Finally create an initial snapshot for the deck so we can see its original state even if the source changes
+    create_snapshot_for_deck(
+        session,
+        current_user,
+        deck,
+        title=f"Source: {original_title}",
+        is_public=False,
+        include_first_five=True,
+    )
+    return deck_to_dict(session, deck=deck)
 
 
 @router.patch(
