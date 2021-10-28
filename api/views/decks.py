@@ -667,6 +667,9 @@ def clone_deck(
 
     Allows users to create a new deck that is an exact copy of one of their own decks, or of a public snapshot of
     someone else's deck. Returns a copy of the deck suitable for editing.
+
+    Note that unlike the legacy site, cloning a deck in v2 will automatically create an initial snapshot of the source
+    deck. This allows viewing the source deck even if it is deleted, overwritten, or otherwise inaccessible.
     """
     # Simple check if the snapshot exists first (no need for joins)
     valid_deck_filters = (
