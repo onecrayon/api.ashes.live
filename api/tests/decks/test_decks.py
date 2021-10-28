@@ -14,20 +14,20 @@ from .deck_utils import create_deck_for_user
 
 
 @pytest.fixture(scope="module", autouse=True)
-def user1(cards_session):
-    user1, _ = create_user_token(cards_session)
+def user1(decks_session):
+    user1, _ = create_user_token(decks_session)
     return user1
 
 
 @pytest.fixture(scope="module", autouse=True)
-def deck1(cards_session, user1):
-    return create_deck_for_user(cards_session, user1, release_stub="master-set")
+def deck1(decks_session, user1):
+    return create_deck_for_user(decks_session, user1, release_stub="master-set")
 
 
 @pytest.fixture(scope="module", autouse=True)
-def snapshot1(cards_session, user1, deck1):
+def snapshot1(decks_session, user1, deck1):
     return create_snapshot_for_deck(
-        cards_session,
+        decks_session,
         user1,
         deck1,
         title="First Snapshot",
@@ -37,9 +37,9 @@ def snapshot1(cards_session, user1, deck1):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def private_snapshot1(cards_session, user1, deck1):
+def private_snapshot1(decks_session, user1, deck1):
     return create_snapshot_for_deck(
-        cards_session,
+        decks_session,
         user1,
         deck1,
         title="Private Snapshot",
@@ -49,25 +49,25 @@ def private_snapshot1(cards_session, user1, deck1):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def private_deck1(cards_session, user1):
-    return create_deck_for_user(cards_session, user1, release_stub="expansion")
+def private_deck1(decks_session, user1):
+    return create_deck_for_user(decks_session, user1, release_stub="expansion")
 
 
 @pytest.fixture(scope="module", autouse=True)
-def user2(cards_session):
-    user2, _ = create_user_token(cards_session)
+def user2(decks_session):
+    user2, _ = create_user_token(decks_session)
     return user2
 
 
 @pytest.fixture(scope="module", autouse=True)
-def deck2(cards_session, user2):
-    return create_deck_for_user(cards_session, user2, release_stub="expansion")
+def deck2(decks_session, user2):
+    return create_deck_for_user(decks_session, user2, release_stub="expansion")
 
 
 @pytest.fixture(scope="module", autouse=True)
-def snapshot2(cards_session, user2, deck2):
+def snapshot2(decks_session, user2, deck2):
     return create_snapshot_for_deck(
-        cards_session,
+        decks_session,
         user2,
         deck2,
         title="Second Snapshot",
@@ -163,7 +163,7 @@ def test_get_decks_filter_phoenixborn(client: TestClient, snapshot1):
     response = client.get("/v2/decks?phoenixborn=one-phoenixborn")
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["count"] == 1
+    assert data["count"] == 1, data
     assert data["results"][0]["id"] == snapshot1.id
 
 

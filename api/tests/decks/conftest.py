@@ -25,11 +25,21 @@ def cards_session(session_local: Session, monkeypatch_package) -> Session:
         session.close()
 
 
-@pytest.fixture(scope="function")
-def session(cards_session):
-    """Return a nested transaction on the outer session, to prevent rolling back card data"""
+@pytest.fixture(scope="module")
+def decks_session(cards_session):
+    """Adds a module-level layer of nesting to keep the decks and such created in modules isolated"""
     cards_session.begin_nested()
     try:
         yield cards_session
     finally:
         cards_session.rollback()
+
+
+@pytest.fixture(scope="function")
+def session(decks_session):
+    """Return a nested transaction on the outer session, to prevent rolling back card data"""
+    decks_session.begin_nested()
+    try:
+        yield decks_session
+    finally:
+        decks_session.rollback()
