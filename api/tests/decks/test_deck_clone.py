@@ -125,6 +125,6 @@ def test_clone_private_shared_deck(
         params={"direct_share_uuid": str(snapshot.direct_share_uuid)},
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert response.status_code == status.HTTP_200_OK
+    assert response.status_code == status.HTTP_200_OK, response.json()
     # One is the new deck object, and the other is the source ID snapshot
     assert session.query(Deck).filter(Deck.user_id == user.id).count() == 2
