@@ -660,26 +660,40 @@ def delete_deck(
 )
 def clone_deck(
     deck_id: int,
+    direct_share_uuid: UUID4 = Query(
+        None,
+        description="Optional direct share UUID, if cloning a privately shared deck.",
+    ),
     session: db.Session = Depends(get_session),
     current_user: "User" = Depends(login_required),
 ):
-    """Clone a snapshot or deck.
+    """Clone a snapshot, deck, or private share.
 
-    Allows users to create a new deck that is an exact copy of one of their own decks, or of a public snapshot of
-    someone else's deck. Returns a copy of the deck suitable for editing.
+    Allows users to create a new deck that is an exact copy of:
+
+    * one of their own decks
+    * a public snapshot of someone else's deck
+    * a privately shared deck or snapshot
+
+    Returns a copy of the deck suitable for editing.
 
     Note that unlike the legacy site, cloning a deck in v2 will automatically create an initial snapshot of the source
     deck. This allows viewing the source deck even if it is deleted, overwritten, or otherwise inaccessible.
     """
-    # Simple check if the snapshot exists first (no need for joins)
-    valid_deck_filters = (
-        db.or_(
-            db.and_(
-                Deck.is_public.is_(True),
-                Deck.is_snapshot.is_(True),
-            ),
-            Deck.user_id == current_user.id,
+    # Simple check if the target exists first (no need for joins)
+    snapshot_or_deck_filters = [
+        db.and_(
+            Deck.is_public.is_(True),
+            Deck.is_snapshot.is_(True),
         ),
+        Deck.user_id == current_user.id,
+    ]
+    if direct_share_uuid:
+        snapshot_or_deck_filters.append(
+            Deck.direct_share_uuid == direct_share_uuid,
+        )
+    valid_deck_filters = (
+        db.or_(*snapshot_or_deck_filters),
         Deck.id == deck_id,
         Deck.is_legacy.is_(False),
         Deck.is_deleted.is_(False),

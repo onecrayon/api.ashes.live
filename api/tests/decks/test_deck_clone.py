@@ -113,3 +113,18 @@ def test_clone_deck(client: TestClient, session: db.Session, deck, user_token):
     assert response.status_code == status.HTTP_200_OK
     # Check that we now have two more decks than before: new deck, and source snapshot
     assert session.query(Deck).filter(Deck.user_id == user.id).count() == 5
+
+
+def test_clone_private_shared_deck(
+    client: TestClient, session: db.Session, snapshot, user2_token
+):
+    """Can clone a private shared deck with direct_share_uuid"""
+    user, token = user2_token
+    response = client.get(
+        f"/v2/decks/{snapshot.id}/clone",
+        params={"direct_share_uuid": str(snapshot.direct_share_uuid)},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    # One is the new deck object, and the other is the source ID snapshot
+    assert session.query(Deck).filter(Deck.user_id == user.id).count() == 2
