@@ -8,6 +8,12 @@ from .user import User
 
 
 class Deck(db.AlchemyBase):
+    """Base deck object, which represents both editable decks and snapshots
+
+    Note that if you add any attributes without a default, you must implement them in the cloning endpoint within the
+    api/views/decks.py file.
+    """
+
     __tablename__ = "deck"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     entity_id = db.Column(db.Integer, nullable=False, index=True, unique=True)

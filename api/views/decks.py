@@ -660,26 +660,40 @@ def delete_deck(
 )
 def clone_deck(
     deck_id: int,
+    direct_share_uuid: UUID4 = Query(
+        None,
+        description="Optional direct share UUID, if cloning a privately shared deck.",
+    ),
     session: db.Session = Depends(get_session),
     current_user: "User" = Depends(login_required),
 ):
-    """Clone a snapshot or deck.
+    """Clone a snapshot, deck, or private share.
 
-    Allows users to create a new deck that is an exact copy of one of their own decks, or of a public snapshot of
-    someone else's deck. Returns a copy of the deck suitable for editing.
+    Allows users to create a new deck that is an exact copy of:
+
+    * one of their own decks
+    * a public snapshot of someone else's deck
+    * a privately shared deck or snapshot
+
+    Returns a copy of the deck suitable for editing.
 
     Note that unlike the legacy site, cloning a deck in v2 will automatically create an initial snapshot of the source
     deck. This allows viewing the source deck even if it is deleted, overwritten, or otherwise inaccessible.
     """
-    # Simple check if the snapshot exists first (no need for joins)
-    valid_deck_filters = (
-        db.or_(
-            db.and_(
-                Deck.is_public.is_(True),
-                Deck.is_snapshot.is_(True),
-            ),
-            Deck.user_id == current_user.id,
+    # Simple check if the target exists first (no need for joins)
+    snapshot_or_deck_filters = [
+        db.and_(
+            Deck.is_public.is_(True),
+            Deck.is_snapshot.is_(True),
         ),
+        Deck.user_id == current_user.id,
+    ]
+    if direct_share_uuid:
+        snapshot_or_deck_filters.append(
+            Deck.direct_share_uuid == direct_share_uuid,
+        )
+    valid_deck_filters = (
+        db.or_(*snapshot_or_deck_filters),
         Deck.id == deck_id,
         Deck.is_legacy.is_(False),
         Deck.is_deleted.is_(False),
@@ -700,49 +714,45 @@ def clone_deck(
         .filter(*valid_deck_filters)
         .first()
     )
-    # Reset our deck object in order to clone it
-    make_transient(deck)
-    original_title = deck.title
-    was_snapshot = deck.is_snapshot
-    deck.id = None
-    deck.entity_id = entity_id
-    deck.direct_share_uuid = None
-    deck.title = f"Copy of {original_title}"
-    deck.user_id = current_user.id
-    deck.is_snapshot = False
-    deck.is_public = False
-    if was_snapshot:
-        deck.source_id = deck_id
-    deck.created = None
-    deck.modified = None
-    deck.is_preconstructed = False
-    deck.preconstructed_release = None
-    dice = []
+    # Create a clone of our deck object (transient cloning was too error-prone, so we're doing everything by hand)
+    cloned_deck = Deck(
+        entity_id=entity_id,
+        title=f"Copy of {deck.title}",
+        description=deck.description,
+        # Only track source IDs if we own the source or it's a public snapshot
+        source_id=deck.id
+        if current_user.id == deck.user_id or (deck.is_snapshot and deck.is_public)
+        else None,
+        user_id=current_user.id,
+        phoenixborn_id=deck.phoenixborn_id,
+    )
+    session.add(cloned_deck)
+    session.commit()
     for die in deck.dice:
-        make_transient(die)
-        die.deck_id = None
-        dice.append(die)
-    deck.dice = dice
-    cards = []
+        session.add(
+            DeckDie(deck_id=cloned_deck.id, die_flag=die.die_flag, count=die.count)
+        )
     for card in deck.cards:
-        make_transient(card)
-        card.deck_id = None
-        cards.append(card)
-    deck.cards = cards
-    selected_cards = []
+        session.add(
+            DeckCard(deck_id=cloned_deck.id, card_id=card.card_id, count=card.count)
+        )
     for card in deck.selected_cards:
-        make_transient(card)
-        card.deck_id = None
-        selected_cards.append(card)
-    deck.selected_cards = selected_cards
-    session.add(deck)
+        session.add(
+            DeckSelectedCard(
+                deck_id=cloned_deck.id,
+                card_id=card.card_id,
+                tutor_card_id=card.tutor_card_id,
+                is_first_five=card.is_first_five,
+                is_paid_effect=card.is_paid_effect,
+            )
+        )
     session.commit()
     # Finally create an initial snapshot for the deck so we can see its original state even if the source changes
     create_snapshot_for_deck(
         session,
         current_user,
         deck,
-        title=f"Source: {original_title}",
+        title=f"Source: {deck.title}",
         is_public=False,
         include_first_five=True,
     )
