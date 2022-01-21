@@ -751,12 +751,12 @@ def clone_deck(
     create_snapshot_for_deck(
         session,
         current_user,
-        deck,
+        cloned_deck,
         title=f"Source: {deck.title}",
         is_public=False,
         include_first_five=True,
     )
-    return deck_to_dict(session, deck=deck)
+    return deck_to_dict(session, deck=cloned_deck)
 
 
 @router.patch(
