@@ -31,6 +31,7 @@ from api.schemas.decks import (
     DeckIn,
     DeckListingOut,
     DeckSaveOut,
+    SnapshotCreateOut,
     SnapshotEditIn,
     SnapshotIn,
 )
@@ -399,7 +400,7 @@ def save_deck(
 
 @router.post(
     "/decks/{deck_id}/snapshot",
-    response_model=DetailResponse,
+    response_model=SnapshotCreateOut,
     status_code=status.HTTP_201_CREATED,
     responses={
         400: {
@@ -489,7 +490,7 @@ def create_snapshot(
     elif data.description is not None:
         # Falsey descriptions that aren't None mean they intentionally want a blank description
         description = None
-    create_snapshot_for_deck(
+    snapshot = create_snapshot_for_deck(
         session,
         current_user,
         deck,
@@ -499,7 +500,7 @@ def create_snapshot(
         preconstructed_release_id=preconstructed_release_id,
         include_first_five=data.include_first_five,
     )
-    return {"detail": "Snapshot successfully created!"}
+    return {"detail": "Snapshot successfully created!", "snapshot_id": snapshot.id}
 
 
 @router.get(

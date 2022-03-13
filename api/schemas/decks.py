@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Union
 from fastapi import Query
 from pydantic import UUID4, BaseModel, Field, validator
 
+from api.schemas import DetailResponse
 from api.schemas.pagination import PaginatedResultsBase
 from api.schemas.user import UserBasicOut
 
@@ -257,4 +258,16 @@ class SnapshotEditIn(BaseModel):
     moderation_notes: str = Field(
         None,
         description="The reason this snapshot was moderated. Can only be set by site admins.",
+    )
+
+
+class SnapshotCreateOut(DetailResponse):
+    """Basic information about a just-created snapshot
+
+    The full snapshot data isn't returned because it's identical to the current deck state, which is presumably already
+    in the front-end client's memory.
+    """
+
+    snapshot_id: int = Field(
+        ..., description="The deck ID that links directly to the new snapshot."
     )
