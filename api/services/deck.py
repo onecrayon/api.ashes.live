@@ -457,6 +457,7 @@ def generate_deck_dict(
         "cards": sorted(card_output, key=itemgetter("name")),
         "conjurations": sorted(conjuration_output, key=itemgetter("name")),
         "is_public": deck.is_public,
+        "is_snapshot": deck.is_snapshot,
     }
     # Legacy-only data
     if deck.is_legacy:
