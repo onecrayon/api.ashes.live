@@ -1,5 +1,5 @@
 [build-system]
-requires = ["poetry==1.1.11"]
+requires = ["poetry_core>=1.0.0"]
 build-backend = "poetry.masonry.api"
 
 [tool.poetry]
@@ -11,7 +11,7 @@ readme = "README.md"
 authors = ["Ian Beck <ian@onecrayon.com>"]
 
 [tool.poetry.dependencies]
-python = "3.9.6"
+python = "^3.10.5"
 fastapi = "^0.78.0"
 gunicorn = "^20.0.4"
 sqlalchemy = "~1.3.23"
