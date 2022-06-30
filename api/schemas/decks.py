@@ -103,6 +103,10 @@ class DeckOut(BaseModel):
     id: int
     entity_id: int
     source_id: int = None
+    direct_share_uuid: UUID4 = Field(
+        None,
+        description="Only included for public snapshots, or decks/snapshots owned by the requesting user. This UUID is used to directly access deck details without requiring authentication (e.g. for private sharing).",
+    )
     title: str = None
     created: datetime
     modified: datetime
@@ -142,10 +146,6 @@ class DeckSaveOut(DeckOut):
 class DeckFullOut(DeckSaveOut):
     """Full deck information."""
 
-    direct_share_uuid: UUID4 = Field(
-        None,
-        description="Only included for public snapshots, or decks/snapshots owned by the requesting user. This UUID is used to directly access deck details without requiring authentication (e.g. for private sharing).",
-    )
     # These are generated properties; not innate parts of the Deck model
     is_saved: bool = Field(
         None,
