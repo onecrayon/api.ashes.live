@@ -382,6 +382,7 @@ def generate_deck_dict(
     card_id_to_conjurations: Dict[int, List[Card]],
     deck_cards: List[DeckCard] = None,
     deck_dice: List[DeckDie] = None,
+    include_share_uuid: bool = False,
 ) -> dict:
     """Formats a deck into the standard deck output dict after looking up card data beforehand.
 
@@ -459,6 +460,8 @@ def generate_deck_dict(
         "is_public": deck.is_public,
         "is_snapshot": deck.is_snapshot,
     }
+    if include_share_uuid:
+        deck_dict["direct_share_uuid"] = deck.direct_share_uuid
     # Legacy-only data
     if deck.is_legacy:
         deck_dict["is_legacy"] = True
@@ -468,7 +471,7 @@ def generate_deck_dict(
 
 
 def paginate_deck_listing(
-    query: db.Query, session: db.Session, request: Request, paging: PaginationOptions
+    query: db.Query, session: db.Session, request: Request, paging: PaginationOptions, include_share_uuids: bool = False
 ) -> dict:
     """Generates a paginated deck listing using as few queries as possible."""
     # Gather our paginated results
@@ -509,6 +512,7 @@ def paginate_deck_listing(
                 card_id_to_conjurations=card_id_to_conjurations,
                 deck_cards=deck_id_to_deck_cards[deck.id],
                 deck_dice=deck_id_to_dice.get(deck.id),
+                include_share_uuid=include_share_uuids,
             )
         )
     output["results"] = deck_output
@@ -516,7 +520,7 @@ def paginate_deck_listing(
 
 
 def deck_to_dict(
-    session: db.Session, deck: Deck, include_comment_entity_id=False
+    session: db.Session, deck: Deck, include_comment_entity_id=False, include_share_uuid=False
 ) -> dict:
     """Converts a Deck object into an output dict using as few queries as possible."""
     needed_cards = set()
@@ -538,6 +542,7 @@ def deck_to_dict(
         card_id_to_conjurations=card_id_to_conjurations,
         deck_cards=deck_cards,
         deck_dice=deck_dice,
+        include_share_uuid=include_share_uuid,
     )
     deck_dict["description"] = deck.description
     deck_dict["is_public"] = deck.is_public
