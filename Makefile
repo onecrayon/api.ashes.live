@@ -16,7 +16,7 @@ _help:
 ##
 ##=== Local development ===
 
-run:      ## Run development server
+up:       ## Run development server
 	@docker-compose up
 
 test:     ## Execute test suite; or specify target: `make test ARGS='api/tests/cards'`
