@@ -82,6 +82,14 @@ class Card(db.AlchemyBase):
     artist_name = db.Column(db.String(100), nullable=True)
     artist_url = db.Column(db.String(255), nullable=True)
 
+    # These fields are used for the traditional Chinese translation
+    name_zh = db.Column(db.String(30), nullable=True)
+    stub_zh = db.Column(db.String(30), nullable=True, index=True)
+    json_zh = db.Column(db.JSONB, nullable=True)
+    # TODO: figure out if I can actually support this, because I'm not so sure I can out of the box
+    search_text_zh = db.Column(db.Text)
+    # TODO: how the heck am I supposed to sort alphabetically by title for traditional Chinese?
+
     conjurations = db.relationship(
         "Card",
         secondary=CardConjuration.__table__,

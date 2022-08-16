@@ -20,6 +20,10 @@ class Release(db.AlchemyBase):
     designer_name = db.Column(db.String(100), nullable=True)
     designer_url = db.Column(db.String(255), nullable=True)
 
+    # These fields are used for traditional Chinese localization
+    name_zh = db.Column(db.String(60), nullable=True)
+    stub_zh = db.Column(db.String(60), nullable=True, index=True)
+
     def __init__(self, name: str, stub: str = None):
         if not stub:
             stub = stubify(name)
