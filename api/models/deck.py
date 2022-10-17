@@ -52,7 +52,7 @@ class Deck(db.AlchemyBase):
     original_description = db.Column(db.Text)
     moderation_notes = db.Column(db.Text)
     # Track which language this deck is using (currently supports `en` and `zh` for traditional Chinese)
-    lang = db.Column(db.String(2), server_default="en")
+    lang = db.Column(db.String(2), nullable=False, server_default="en")
 
     user = db.relationship(User)
     phoenixborn = db.relationship(Card)
