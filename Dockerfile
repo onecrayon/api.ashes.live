@@ -18,7 +18,7 @@ ENV ENV=${ENV} \
   # dockerize:
   DOCKERIZE_VERSION=v0.6.1 \
   # poetry:
-  POETRY_VERSION=1.1.13 \
+  POETRY_VERSION=1.2.2 \
   POETRY_VIRTUALENVS_CREATE=false \
   POETRY_CACHE_DIR='/var/cache/pypoetry'
 
