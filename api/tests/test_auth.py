@@ -18,7 +18,9 @@ def test_bad_username(client: TestClient, session: db.Session):
     """Logging in with invalid username must generate an error"""
     user, password = utils.create_user_password(session)
     bad_email = f"nope_{user.email}"
-    response = client.post("/v2/token", {"username": bad_email, "password": password})
+    response = client.post(
+        "/v2/token", data={"username": bad_email, "password": password}
+    )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
 
 
@@ -27,7 +29,7 @@ def test_bad_password(client: TestClient, session: db.Session):
     user, password = utils.create_user_password(session)
     bad_password = utils.generate_random_chars(len(password) + 2)
     response = client.post(
-        "/v2/token", {"username": user.email, "password": bad_password}
+        "/v2/token", data={"username": user.email, "password": bad_password}
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
 
@@ -37,7 +39,9 @@ def test_banned_user(client: TestClient, session: db.Session):
     user, password = utils.create_user_password(session)
     user.is_banned = True
     session.commit()
-    response = client.post("/v2/token", {"username": user.email, "password": password})
+    response = client.post(
+        "/v2/token", data={"username": user.email, "password": password}
+    )
     assert response.status_code == status.HTTP_403_FORBIDDEN, response.json()
 
 
@@ -46,7 +50,9 @@ def test_token(client: TestClient, session: db.Session):
     # Create a user in the database with a random password
     user, password = utils.create_user_password(session)
     # Verify that we can log in with the random password
-    response = client.post("/v2/token", {"username": user.email, "password": password})
+    response = client.post(
+        "/v2/token", data={"username": user.email, "password": password}
+    )
     assert response.status_code == status.HTTP_200_OK, response.json()
 
 
@@ -57,7 +63,7 @@ def test_longterm_token(client: TestClient, session: db.Session):
     # Verify we can obtain a long-term token
     response = client.post(
         "/v2/token",
-        {"username": user.email, "password": password, "scope": "token:longterm"},
+        data={"username": user.email, "password": password, "scope": "token:longterm"},
     )
     assert response.status_code == status.HTTP_200_OK, response.json()
     # Verify that the token is actually long-term
@@ -327,7 +333,9 @@ def test_reset_password_then_login(
     session.refresh(user)
     assert user.reset_uuid is not None
     # And then verify that we can login
-    response = client.post("/v2/token", {"username": user.email, "password": password})
+    response = client.post(
+        "/v2/token", data={"username": user.email, "password": password}
+    )
     assert response.status_code == status.HTTP_200_OK
 
 
