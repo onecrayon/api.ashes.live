@@ -239,7 +239,12 @@ def get_deck(
         if not deck:
             raise NotFoundException(detail="Deck not found.")
 
-    deck_dict = deck_to_dict(session, deck=deck, include_comment_entity_id=True, include_share_uuid=own_deck or deck.is_public)
+    deck_dict = deck_to_dict(
+        session,
+        deck=deck,
+        include_comment_entity_id=True,
+        include_share_uuid=own_deck or deck.is_public,
+    )
 
     # Add our `is_saved` flag, if we're viewing a saved deck
     if not source_deck.is_snapshot and show_saved:
@@ -549,7 +554,14 @@ def list_snapshots(
     query = query.options(db.joinedload(Deck.user)).order_by(
         getattr(Deck.created, order)()
     )
-    return paginate_deck_listing(query, session, request, paging, include_share_uuids=not current_user.is_anonymous() and current_user.id == source_deck.user_id)
+    return paginate_deck_listing(
+        query,
+        session,
+        request,
+        paging,
+        include_share_uuids=not current_user.is_anonymous()
+        and current_user.id == source_deck.user_id,
+    )
 
 
 @router.delete(
