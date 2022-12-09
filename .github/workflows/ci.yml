@@ -42,6 +42,8 @@ jobs:
           python-version: '3.10'
           cache: 'poetry'
       - run: poetry install
+      - run: poetry run black --check
+      - run: poetry run isort --check
       - run: poetry run pytest --cov=api --cov-config=.coveragerc --cov-report=xml
         env:
           # Configuration details for connecting to Dockerized postgres
@@ -50,6 +52,7 @@ jobs:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: test
+          SECRET_KEY: testsecret
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
