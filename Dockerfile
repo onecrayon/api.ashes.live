@@ -53,7 +53,7 @@ COPY ./poetry.lock ./pyproject.toml /code/
 # Project initialization:
 RUN echo "$ENV" \
   && poetry install \
-    $(if [ "$ENV" = 'production' ]; then echo '--no-dev'; fi) \
+    $(if [ "$ENV" = 'production' ]; then echo '--only main'; fi) \
     --no-interaction --no-ansi \
   # Cleaning poetry installation's cache for production:
   && if [ "$ENV" = 'production' ]; then rm -rf "$POETRY_CACHE_DIR"; fi
