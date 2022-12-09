@@ -16,7 +16,7 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: 'postgres:11'
@@ -41,9 +41,9 @@ jobs:
         with:
           python-version: '3.10'
           cache: 'poetry'
-      - run: poetry install
-      - run: poetry run black --check
-      - run: poetry run isort --check
+      - run: poetry install --without vscode
+      - run: poetry run black --check ./api/
+      - run: poetry run isort --check ./api/
       - run: poetry run pytest --cov=api --cov-config=.coveragerc --cov-report=xml
         env:
           # Configuration details for connecting to Dockerized postgres
