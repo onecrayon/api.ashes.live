@@ -18,7 +18,7 @@ ENV ENV=${ENV} \
   # dockerize:
   DOCKERIZE_VERSION=v0.6.1 \
   # poetry:
-  POETRY_VERSION=1.1.13 \
+  POETRY_VERSION=1.2.2 \
   POETRY_VIRTUALENVS_CREATE=false \
   POETRY_CACHE_DIR='/var/cache/pypoetry'
 
@@ -53,7 +53,7 @@ COPY ./poetry.lock ./pyproject.toml /code/
 # Project initialization:
 RUN echo "$ENV" \
   && poetry install \
-    $(if [ "$ENV" = 'production' ]; then echo '--no-dev'; fi) \
+    $(if [ "$ENV" = 'production' ]; then echo '--only main'; fi) \
     --no-interaction --no-ansi \
   # Cleaning poetry installation's cache for production:
   && if [ "$ENV" = 'production' ]; then rm -rf "$POETRY_CACHE_DIR"; fi

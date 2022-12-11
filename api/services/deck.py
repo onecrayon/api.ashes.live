@@ -471,7 +471,11 @@ def generate_deck_dict(
 
 
 def paginate_deck_listing(
-    query: db.Query, session: db.Session, request: Request, paging: PaginationOptions, include_share_uuids: bool = False
+    query: db.Query,
+    session: db.Session,
+    request: Request,
+    paging: PaginationOptions,
+    include_share_uuids: bool = False,
 ) -> dict:
     """Generates a paginated deck listing using as few queries as possible."""
     # Gather our paginated results
@@ -520,7 +524,10 @@ def paginate_deck_listing(
 
 
 def deck_to_dict(
-    session: db.Session, deck: Deck, include_comment_entity_id=False, include_share_uuid=False
+    session: db.Session,
+    deck: Deck,
+    include_comment_entity_id=False,
+    include_share_uuid=False,
 ) -> dict:
     """Converts a Deck object into an output dict using as few queries as possible."""
     needed_cards = set()
