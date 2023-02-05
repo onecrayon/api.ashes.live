@@ -558,6 +558,7 @@ def deck_to_dict(
     deck_dict["description"] = deck.description
     deck_dict["is_public"] = deck.is_public
     deck_dict["is_snapshot"] = deck.is_snapshot
+    deck_dict["is_red_rains"] = deck.is_red_rains
     if include_comment_entity_id:
         # This is an implicit SQL lookup, but it's going to require a lookup either way, so meh
         deck_dict["comments_entity_id"] = (
