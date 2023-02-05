@@ -215,6 +215,7 @@ def create_snapshot_for_deck(
         #  show up in any listings and break stuff in weird ways
         is_public=False,
         is_snapshot=True,
+        is_red_rains=deck.is_red_rains,
         is_preconstructed=bool(preconstructed_release_id),
         preconstructed_release=preconstructed_release_id,
         source_id=deck.id,
@@ -278,6 +279,7 @@ def create_snapshot_for_deck(
 def get_decks_query(
     session: db.Session,
     show_legacy=False,
+    show_red_rains=False,
     is_public=False,
     order: PaginationOrderOptions = PaginationOrderOptions.desc,
     # Filtering options
@@ -288,7 +290,9 @@ def get_decks_query(
     show_preconstructed=False,
 ) -> db.Query:
     query = session.query(Deck).filter(
-        Deck.is_legacy.is_(show_legacy), Deck.is_deleted.is_(False)
+        Deck.is_legacy.is_(show_legacy),
+        Deck.is_deleted.is_(False),
+        Deck.is_red_rains.is_(show_red_rains),
     )
     if show_preconstructed:
         query = query.filter(Deck.is_preconstructed.is_(True))

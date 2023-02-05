@@ -74,10 +74,12 @@ def list_published_decks(
     * `player`: list of player badges
     * `show_preconstructed` (default: false): if true, only include preconstructed decks
     * `show_legacy` (default: false): if true, legacy 1.0 decks will be returned
+    * `show_red_rains` (default: false): if true, only Red Rains decks will be returned
     """
     query = get_decks_query(
         session,
         show_legacy=filters.show_legacy,
+        show_red_rains=filters.show_red_rains,
         is_public=True,
         order=order,
         q=filters.q,
@@ -114,10 +116,12 @@ def list_my_decks(
     * `phoenixborn`: list of Phoenixborn slugs
     * `card`: list of card slugs
     * `show_legacy` (default: false): if true, legacy 1.0 decks will be returned
+    * `show_red_rains` (default: false): if true, only Red Rains decks will be returned
     """
     query = get_decks_query(
         session,
         show_legacy=filters.show_legacy,
+        show_red_rains=filters.show_red_rains,
         is_public=False,
         order=order,
         q=filters.q,
@@ -677,6 +681,10 @@ def clone_deck(
         None,
         description="Optional direct share UUID, if cloning a privately shared deck.",
     ),
+    red_rains: bool = Query(
+        False,
+        description="Optional boolean to mark the cloned copy of the deck as a Red Rains deck.",
+    ),
     session: db.Session = Depends(get_session),
     current_user: "User" = Depends(login_required),
 ):
@@ -738,6 +746,7 @@ def clone_deck(
         else None,
         user_id=current_user.id,
         phoenixborn_id=deck.phoenixborn_id,
+        is_red_rains=red_rains,
     )
     session.add(cloned_deck)
     session.commit()
