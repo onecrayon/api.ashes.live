@@ -29,6 +29,7 @@ class Deck(db.AlchemyBase):
     is_public = db.Column(db.Boolean, nullable=False, default=False, index=True)
     is_snapshot = db.Column(db.Boolean, nullable=False, default=False, index=True)
     is_preconstructed = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    is_red_rains = db.Column(db.Boolean, nullable=False, default=False, index=True)
     is_legacy = db.Column(db.Boolean, nullable=False, default=False, index=True)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False, index=True)
     # This is not a ForeignKey because it's usually null
