@@ -226,6 +226,12 @@ class DeckIn(BaseModel):
     )
 
 
+class RedRainsToggleOut(DetailResponse):
+    """Information about what mode the given deck is after toggling Red Rains mode."""
+
+    is_red_rains: bool
+
+
 class SnapshotIn(BaseModel):
     """Optional information when creating a snapshot"""
 
