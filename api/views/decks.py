@@ -31,6 +31,7 @@ from api.schemas.decks import (
     DeckIn,
     DeckListingOut,
     DeckSaveOut,
+    RedRainsToggleOut,
     SnapshotCreateOut,
     SnapshotEditIn,
     SnapshotIn,
@@ -457,7 +458,7 @@ def toggle_red_rains(
             Deck.is_public.is_(True),
             Deck.is_deleted.is_(False),
         )
-        .exists()
+        .count()
     ):
         raise APIException(
             detail="You cannot convert between Red Rains and PvP for decks with a public snapshot."
