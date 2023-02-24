@@ -75,6 +75,31 @@ def snapshot2(decks_session, user2, deck2):
     )
 
 
+@pytest.fixture(scope="module", autouse=True)
+def user3(decks_session):
+    user3, _ = create_user_token(decks_session)
+    return user3
+
+
+@pytest.fixture(scope="module", autouse=True)
+def deck3(decks_session, user3):
+    deck3 = create_deck_for_user(decks_session, user3, release_stub="expansion2")
+    deck3.is_red_rains = True
+    decks_session.commit()
+    return deck3
+
+
+@pytest.fixture(scope="module", autouse=True)
+def snapshot3(decks_session, user3, deck3):
+    return create_snapshot_for_deck(
+        decks_session,
+        user3,
+        deck3,
+        title="Red Rains Snapshot",
+        is_public=True,
+    )
+
+
 def test_get_decks(client: TestClient, snapshot1, snapshot2):
     """Basic deck filtration must work properly"""
     # Public deck listings return all public decks, but no private decks
@@ -184,6 +209,15 @@ def test_get_decks_filter_user(client: TestClient, user1, snapshot1):
     data = response.json()
     assert data["count"] == 1
     assert data["results"][0]["id"] == snapshot1.id
+
+
+def test_get_decks_filter_red_rains(client: TestClient, snapshot3):
+    """Filtering for Red Rains decks must work"""
+    response = client.get(f"/v2/decks?show_red_rains=true")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["count"] == 1
+    assert data["results"][0]["id"] == snapshot3.id
 
 
 def test_get_mine(client: TestClient, user1, deck1, private_deck1):

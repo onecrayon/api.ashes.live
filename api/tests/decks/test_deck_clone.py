@@ -128,3 +128,24 @@ def test_clone_private_shared_deck(
     assert response.status_code == status.HTTP_200_OK, response.json()
     # One is the new deck object, and the other is the source ID snapshot
     assert session.query(Deck).filter(Deck.user_id == user.id).count() == 2
+
+
+def test_clone_deck_red_rains(
+    client: TestClient, session: db.Session, public_snapshot, user2_token
+):
+    """Can clone a deck as a Red Rains deck"""
+    assert public_snapshot.is_red_rains is False
+    user, token = user2_token
+    response = client.get(
+        f"/v2/decks/{public_snapshot.id}/clone",
+        params={"red_rains": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    # Verify that we have two decks (deck and snapshot) and both are marked as Red Rains decks
+    assert (
+        session.query(Deck)
+        .filter(Deck.user_id == user.id, Deck.is_red_rains.is_(True))
+        .count()
+        == 2
+    )

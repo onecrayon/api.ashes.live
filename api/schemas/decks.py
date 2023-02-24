@@ -18,11 +18,13 @@ class DeckFiltersMine:
         phoenixborn: Optional[List[str]] = Query(None),
         card: Optional[List[str]] = Query(None),
         show_legacy: bool = False,
+        show_red_rains: bool = False,
     ):
         self.q = q
         self.phoenixborn = phoenixborn
         self.card = card
         self.show_legacy = show_legacy
+        self.show_red_rains = show_red_rains
 
 
 class DeckFilters:
@@ -35,12 +37,14 @@ class DeckFilters:
         card: Optional[List[str]] = Query(None),
         show_legacy: bool = False,
         show_preconstructed: bool = False,
+        show_red_rains: bool = False,
         player: Optional[List[str]] = Query(None),
     ):
         self.q = q
         self.phoenixborn = phoenixborn
         self.card = card
         self.show_legacy = show_legacy
+        self.show_red_rains = show_red_rains
         self.show_preconstructed = show_preconstructed
         self.player = player
 
@@ -118,6 +122,7 @@ class DeckOut(BaseModel):
     is_public: bool = None
     is_snapshot: bool = None
     is_legacy: bool = None
+    is_red_rains: bool = None
     ashes_500_score: int = None
     ashes_500_revision_id: int = None
 
@@ -219,6 +224,12 @@ class DeckIn(BaseModel):
         None,
         description="An object with tutor card stubs in the First Five as keys, and the tutored card stubs as values.",
     )
+
+
+class RedRainsToggleOut(DetailResponse):
+    """Information about what mode the given deck is after toggling Red Rains mode."""
+
+    is_red_rains: bool
 
 
 class SnapshotIn(BaseModel):
