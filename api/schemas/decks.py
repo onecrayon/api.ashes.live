@@ -224,12 +224,10 @@ class DeckIn(BaseModel):
         None,
         description="An object with tutor card stubs in the First Five as keys, and the tutored card stubs as values.",
     )
-
-
-class RedRainsToggleOut(DetailResponse):
-    """Information about what mode the given deck is after toggling Red Rains mode."""
-
-    is_red_rains: bool
+    is_red_rains: bool = Field(
+        False,
+        description="May only be changed when creating a new deck or for a deck that has no public snapshots.",
+    )
 
 
 class SnapshotIn(BaseModel):

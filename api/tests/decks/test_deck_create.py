@@ -192,6 +192,18 @@ def test_put_deck(client: TestClient, session: db.Session, user_token):
     assert response.status_code == status.HTTP_200_OK
 
 
+def test_put_deck_red_rains(client: TestClient, session: db.Session, user_token):
+    """Must allow saving a Red Rains deck"""
+    user, token = user_token
+    valid_deck = _valid_deck_dict(session)
+    valid_deck["is_red_rains"] = True
+    response = client.put(
+        "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["is_red_rains"] is True
+
+
 def test_put_deck_update(client: TestClient, session: db.Session, user_token):
     """Must allow saving a new copy of an existing deck"""
     user, token = user_token
@@ -338,6 +350,52 @@ def test_put_deck_bad_dice(client: TestClient, session: db.Session, user_token):
         "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_put_deck_red_rains_swap(client: TestClient, session: db.Session, user_token):
+    """Must allow swapping Red Rains on or off for decks without public snapshots"""
+    user, token = user_token
+    valid_deck = _valid_deck_dict(session)
+    response = client.put(
+        "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    # Swap our Red Rains flag
+    valid_deck = response.json()
+    assert valid_deck["is_red_rains"] is False
+    valid_deck["is_red_rains"] = True
+    response = client.put(
+        "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["is_red_rains"] is True
+
+
+def test_put_deck_red_rains_bad_swap(
+    client: TestClient, session: db.Session, user_token
+):
+    """Must throw an error when swapping Red Rains flag for a deck with a public snapshot"""
+    user, token = user_token
+    valid_deck = _valid_deck_dict(session)
+    response = client.put(
+        "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    valid_deck = response.json()
+    # Publish a snapshot
+    response = client.post(
+        f"/v2/decks/{valid_deck['id']}/snapshot",
+        json={"is_public": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    # And now try to swap our Red Rains flag
+    assert valid_deck["is_red_rains"] is False
+    valid_deck["is_red_rains"] = True
+    response = client.put(
+        "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 def test_post_snapshot_bad_deck_id(client: TestClient, session: db.Session, user_token):

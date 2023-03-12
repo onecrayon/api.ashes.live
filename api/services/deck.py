@@ -49,6 +49,12 @@ class BadPhoenixbornUnique(Exception):
         super().__init__()
 
 
+class RedRainsConversionFailed(Exception):
+    """Raised when trying to change the Red Rains status of a deck that has a published snapshot."""
+
+    pass
+
+
 def create_or_update_deck(
     session: db.Session,
     current_user: "User",
@@ -61,6 +67,7 @@ def create_or_update_deck(
     first_five: List[str] = None,
     effect_costs: List[str] = None,
     tutor_map: Dict[str, str] = None,
+    is_red_rains: bool = False,
 ) -> "Deck":
     """Creates or updates a deck in place."""
     now = datetime.utcnow()
@@ -78,6 +85,19 @@ def create_or_update_deck(
         deck.description = description
         deck.phoenixborn_id = phoenixborn.id
         deck.modified = now
+        if deck.is_red_rains != is_red_rains:
+            if (
+                session.query(Deck)
+                .filter(
+                    Deck.source_id == deck_id,
+                    Deck.is_snapshot.is_(True),
+                    Deck.is_public.is_(True),
+                    Deck.is_deleted.is_(False),
+                )
+                .count()
+            ):
+                raise RedRainsConversionFailed()
+            deck.is_red_rains = is_red_rains
     else:
         deck = Deck(
             entity_id=create_entity(session),
@@ -87,6 +107,7 @@ def create_or_update_deck(
             phoenixborn_id=phoenixborn.id,
             is_snapshot=False,
             is_public=False,
+            is_red_rains=is_red_rains,
         )
 
     # Update the dice listing
