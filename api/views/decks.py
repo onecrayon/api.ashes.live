@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import UUID4
-from sqlalchemy.orm import make_transient
 
 from api import db
 from api.depends import (
@@ -31,7 +30,6 @@ from api.schemas.decks import (
     DeckIn,
     DeckListingOut,
     DeckSaveOut,
-    RedRainsToggleOut,
     SnapshotCreateOut,
     SnapshotEditIn,
     SnapshotIn,
@@ -41,6 +39,7 @@ from api.services.deck import (
     BadPhoenixbornUnique,
     ConjurationInDeck,
     PhoenixbornInDeck,
+    RedRainsConversionFailed,
     create_or_update_deck,
     create_snapshot_for_deck,
     deck_to_dict,
@@ -392,6 +391,7 @@ def save_deck(
             first_five=data.first_five,
             effect_costs=data.effect_costs,
             tutor_map=data.tutor_map,
+            is_red_rains=data.is_red_rains,
         )
     except PhoenixbornInDeck:
         raise APIException(
@@ -405,72 +405,11 @@ def save_deck(
         raise APIException(
             detail=f"Your deck includes {e.card_name}, but this card requires {e.required_phoenixborn}."
         )
-    return deck_to_dict(session, deck=deck)
-
-
-@router.post(
-    "/decks/{deck_id}/toggle-red-rains",
-    status_code=status.HTTP_200_OK,
-    response_model=RedRainsToggleOut,
-    responses={
-        400: {
-            "model": DetailResponse,
-            "description": "Toggling between Red Rains and PvP deck types failed because a public snapshot already exists.",
-        },
-        **AUTH_RESPONSES,
-    },
-)
-def toggle_red_rains(
-    deck_id: int,
-    session: db.Session = Depends(get_session),
-    current_user: "User" = Depends(login_required),
-):
-    """Toggle between Red Rains and PvP for a given deck.
-
-    The only difference between a PvP and Red Rains deck is how they show up in listings, and users can freely move
-    between the two as long as the deck does not have a public snapshot (since that affects how *other* people can see
-    the deck in listings). If you wish to convert from PvP to Red Rains for something with a published snapshot, you
-    will need to instead use the "clone" endpoint.
-
-    Converting a private snapshot is technically supported, but discouraged.
-    """
-    deck: Deck = session.query(Deck).get(deck_id)
-    if not deck or deck.user_id != current_user.id:
-        raise NoUserAccessException(detail="You cannot modify decks you do not own.")
-    if deck.is_legacy:
-        raise APIException(
-            detail="You cannot convert legacy decks to be Red Rains decks."
-        )
-    if deck.is_public:
-        raise APIException(
-            detail="You cannot convert a published snapshot to or from a Red Rains deck."
-        )
-    if deck.is_deleted:
-        raise APIException(
-            detail="This deck has been deleted and can no longer be updated."
-        )
-    source_deck_id = deck.source_id if deck.is_snapshot else deck.id
-    if (
-        session.query(Deck)
-        .filter(
-            Deck.source_id == source_deck_id,
-            Deck.is_snapshot.is_(True),
-            Deck.is_public.is_(True),
-            Deck.is_deleted.is_(False),
-        )
-        .count()
-    ):
+    except RedRainsConversionFailed as e:
         raise APIException(
             detail="You cannot convert between Red Rains and PvP for decks with a public snapshot."
         )
-    deck.is_red_rains = not deck.is_red_rains
-    session.commit()
-    message = (
-        "Your deck is now a Red Rains deck!"
-        if deck.is_red_rains
-        else "Your deck is now a PvP deck!"
-    )
-    return {"detail": message, "is_red_rains": deck.is_red_rains}
+    return deck_to_dict(session, deck=deck)
 
 
 @router.post(
