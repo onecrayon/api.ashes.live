@@ -20,6 +20,7 @@ def test_generate_badges_ten_failures(session: db.Session):
 
 def test_generate_badges_kid_friendly_failure(session: db.Session, monkeypatch):
     """Unit test to simulate badge generation failing kid-friendly test"""
+
     # Monkeypatch the resopnse from our badge generator
     def _fake_badges(*args, **kwargs):
         # We only want this to hijack the function once
