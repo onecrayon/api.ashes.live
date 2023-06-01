@@ -56,3 +56,9 @@ class CommentIn(BaseModel):
     """Necessary fields for creating or updating a comment."""
 
     text: str
+
+
+class CommentAdminIn(CommentIn):
+    """This field is required when an admin moderates another user's comment."""
+
+    moderation_notes: str

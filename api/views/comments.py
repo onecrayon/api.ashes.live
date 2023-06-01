@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends, Request, status
 
 from api import db
-from api.depends import (
-    AUTH_RESPONSES,
-    get_session,
-    login_required,
-    paging_options,
-)
-from api.exceptions import APIException, NotFoundException
+from api.depends import AUTH_RESPONSES, get_session, login_required, paging_options
+from api.exceptions import APIException, NotFoundException, NoUserAccessException
 from api.models import Card, Comment, Deck, UserType
 from api.schemas import DetailResponse
-from api.schemas.comments import CommentIn, CommentOut, CommentsListingOut
+from api.schemas.comments import (
+    CommentAdminIn,
+    CommentIn,
+    CommentOut,
+    CommentsListingOut,
+)
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.stream import create_entity
 from api.utils.pagination import paginated_results_for_query
@@ -91,6 +91,8 @@ def create_comment(
     except AttributeError:
         # Cards don't have this attribute, so we can safely ignore it
         pass
+    if not data.text.strip():
+        raise APIException("You cannot post blank comments.")
     # Now gather a few parameters, and create our comment
     try:
         source_version = source.version
@@ -118,3 +120,53 @@ def create_comment(
     session.add(comment)
     session.commit()
     return {"detail": "Comment successfully posted!"}
+
+
+@router.patch(
+    "/comment/{comment_entity_id}",
+    response_model=CommentOut,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Comment creation failed.",
+        },
+        404: {
+            "model": DetailResponse,
+            "description": "No such comment.",
+        },
+        **AUTH_RESPONSES,
+    },
+)
+def edit_comment(
+    comment_entity_id: int,
+    data: CommentIn | CommentAdminIn,
+    # Standard dependencies
+    current_user: "UserType" = Depends(login_required),
+    session: db.Session = Depends(get_session),
+):
+    """Edit an existing comment.
+
+    **Admin-only:** the `moderation_notes` field is required when modifying another user's comment; should contain a
+    short description of the reason the comment is being moderated.
+    """
+    comment = (
+        session.query(Comment).filter(Comment.entity_id == comment_entity_id).first()
+    )
+    if not comment:
+        raise NotFoundException(detail="No such comment found.")
+    if comment.is_deleted:
+        raise APIException(detail="You cannot edit deleted comments.")
+    if not data.text.strip():
+        raise APIException("You cannot post blank comments.")
+    if current_user.id != comment.user_id:
+        if not current_user.is_admin:
+            raise NoUserAccessException(detail="You may only edit your own comments.")
+        elif not data.moderation_notes:
+            raise APIException(
+                detail="You must include moderation notes when editing other users' comments."
+            )
+        comment.original_text = comment.text
+        comment.moderation_notes = data.moderation_notes
+    comment.text = data.text
+    session.commit()
+    return comment
