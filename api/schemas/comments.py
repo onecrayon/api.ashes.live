@@ -50,3 +50,9 @@ class CommentsListingOut(PaginatedResultsBase):
     """Ordered listing of comments for a resource on the site."""
 
     results = List[CommentOut]
+
+
+class CommentIn(BaseModel):
+    """Necessary fields for creating or updating a comment."""
+
+    text: str
