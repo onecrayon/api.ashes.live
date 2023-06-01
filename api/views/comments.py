@@ -191,6 +191,9 @@ def edit_comment(
             )
         comment.original_text = comment.text
         comment.moderation_notes = data.moderation_notes
+        comment.is_moderated = True
+    elif comment.is_moderated and not current_user.is_admin:
+        raise APIException("This comment has been moderated and cannot be modified.")
     comment.text = data.text
     session.commit()
     return comment
@@ -239,6 +242,7 @@ def delete_comment(
                 detail="You must include moderation notes when deleting other users' comments."
             )
         comment.moderation_notes = data.moderation_notes
+        comment.is_moderated = True
     comment.is_deleted = True
     session.commit()
     return success_response
