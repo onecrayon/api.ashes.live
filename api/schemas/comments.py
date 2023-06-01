@@ -26,7 +26,7 @@ class CommentOut(BaseModel):
             "Only shown for cards; can be used to highlight comments that apply to previous versions of the card."
         ),
     )
-    text: str
+    text: str = None
     ordering_increment: int = Field(
         ...,
         description=(

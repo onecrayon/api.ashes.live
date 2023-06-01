@@ -1,9 +1,15 @@
 from fastapi import APIRouter, Depends, Request, Response, status
 
 from api import db
-from api.depends import AUTH_RESPONSES, get_session, login_required, paging_options
+from api.depends import (
+    AUTH_RESPONSES,
+    get_current_user,
+    get_session,
+    login_required,
+    paging_options,
+)
 from api.exceptions import APIException, NotFoundException, NoUserAccessException
-from api.models import Card, Comment, Deck, UserType
+from api.models import Card, Comment, Deck, User, UserType
 from api.schemas import DetailResponse
 from api.schemas.comments import (
     CommentDeleteIn,
@@ -19,6 +25,17 @@ from api.utils.pagination import paginated_results_for_query
 router = APIRouter()
 
 
+def comment_out(comment: "Comment", current_user: "UserType") -> "CommentOut":
+    """Utility method for ensuring that we don't pass text for deleted comments unless an admin queries them."""
+    output = CommentOut.from_orm(comment)
+    if not comment.is_deleted or (
+        not current_user.is_anonymous() and current_user.is_admin
+    ):
+        return output
+    output.text = None
+    return output
+
+
 @router.get(
     "/comments/{entity_id}",
     response_model=CommentsListingOut,
@@ -30,6 +47,7 @@ def get_comments(
     order: PaginationOrderOptions = PaginationOrderOptions.desc,
     # Standard dependencies
     paging: PaginationOptions = Depends(paging_options),
+    current_user: "UserType" = Depends(get_current_user),
     session: db.Session = Depends(get_session),
 ):
     """Get a listing of comments for a given entity ID.
@@ -43,11 +61,16 @@ def get_comments(
         .filter(Comment.source_entity_id == entity_id)
         .order_by(getattr(Comment.created, order)())
     )
-    return paginated_results_for_query(
+    page_results = paginated_results_for_query(
         query=query,
         paging=paging,
         url=str(request.url),
     )
+    # We need to do a little post-processing to ensure we don't leak the text of deleted comments
+    page_results["results"] = [
+        comment_out(x, current_user) for x in page_results["results"]
+    ]
+    return page_results
 
 
 @router.post(
@@ -70,7 +93,7 @@ def create_comment(
     entity_id: int,
     data: CommentIn,
     # Standard dependencies
-    current_user: "UserType" = Depends(login_required),
+    current_user: "User" = Depends(login_required),
     session: db.Session = Depends(get_session),
 ):
     """Post a comment to a resource on the site."""
@@ -142,7 +165,7 @@ def edit_comment(
     comment_entity_id: int,
     data: CommentEditIn,
     # Standard dependencies
-    current_user: "UserType" = Depends(login_required),
+    current_user: "User" = Depends(login_required),
     session: db.Session = Depends(get_session),
 ):
     """Edit an existing comment.
@@ -192,7 +215,7 @@ def delete_comment(
     comment_entity_id: int,
     data: CommentDeleteIn = None,
     # Standard dependencies
-    current_user: "UserType" = Depends(login_required),
+    current_user: "User" = Depends(login_required),
     session: db.Session = Depends(get_session),
 ):
     """Delete a comment.
