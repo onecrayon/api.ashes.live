@@ -18,6 +18,7 @@ from api.models import (
     DeckSelectedCard,
     Release,
     Stream,
+    Subscription,
     User,
     UserType,
 )
@@ -323,6 +324,26 @@ def get_deck(
             )
             .count()
         )
+
+    # If the user is subscribed to this deck, note their last seen entity ID for this deck
+    if not current_user.is_anonymous():
+        deck_source_entity_id = (
+            deck.entity_id
+            if not deck.is_snapshot
+            else session.query(Deck.entity_id)
+            .filter(Deck.id == deck.source_id)
+            .scalar()
+        )
+        subscription = (
+            session.query(Subscription)
+            .filter(
+                Subscription.user_id == current_user.id,
+                Subscription.source_entity_id == deck_source_entity_id,
+            )
+            .first()
+        )
+        if subscription:
+            deck_details["last_seen_entity_id"] = subscription.last_seen_entity_id
 
     return deck_details
 

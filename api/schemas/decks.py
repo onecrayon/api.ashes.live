@@ -177,6 +177,15 @@ class DeckDetails(BaseModel):
         None,
         description="Set to true for private decks and snapshots if they have a public snapshot available.",
     )
+    last_seen_entity_id: int = Field(
+        None,
+        description=(
+            "If the user is subscribed to this deck, this will be the highest entity ID for comments or deck snapshots "
+            "that they have viewed. **Please note:** this only works if comments are displayed in chronological order. "
+            "Otherwise, the last seen entity ID will be meaningless (because it relies on the fact that entity IDs are "
+            "always increasing)."
+        ),
+    )
 
 
 class DeckListingOut(PaginatedResultsBase):

@@ -181,6 +181,15 @@ class CardDetails(BaseModel):
     phoenixborn_card: CardMinimalOut = None
     phoenixborn_conjurations: List[CardMinimalOut] = None
     related_cards: RelatedCardLists
+    last_seen_entity_id: int = Field(
+        None,
+        description=(
+            "If the user is subscribed to this card, this will be the highest entity ID for comments that they have "
+            "viewed. **Please note:** this only works if comments are displayed in chronological order. Otherwise, the "
+            "last seen entity ID will be meaningless (because it relies on the fact that entity IDs are always "
+            "increasing)."
+        ),
+    )
 
 
 class CardListingOut(PaginatedResultsBase):
