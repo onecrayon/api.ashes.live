@@ -58,7 +58,25 @@ class CommentIn(BaseModel):
     text: str
 
 
-class CommentAdminIn(CommentIn):
-    """This field is required when an admin moderates another user's comment."""
+class CommentEditIn(CommentIn):
+    """Fields for editing a comment."""
 
-    moderation_notes: str
+    moderation_notes: str = Field(
+        None,
+        description=(
+            "The reason this comment is being edited. Can only be set by site admins, and required when editing "
+            "another user's comment."
+        ),
+    )
+
+
+class CommentDeleteIn(BaseModel):
+    """Fields for deleting a comment."""
+
+    moderation_notes: str = Field(
+        None,
+        description=(
+            "The reason this comment is being deleted. Can only be set by site admins, and required when deleting "
+            "another user's comment."
+        ),
+    )

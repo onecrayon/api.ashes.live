@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Request, Response, status
 
 from api import db
 from api.depends import AUTH_RESPONSES, get_session, login_required, paging_options
@@ -6,7 +6,8 @@ from api.exceptions import APIException, NotFoundException, NoUserAccessExceptio
 from api.models import Card, Comment, Deck, UserType
 from api.schemas import DetailResponse
 from api.schemas.comments import (
-    CommentAdminIn,
+    CommentDeleteIn,
+    CommentEditIn,
     CommentIn,
     CommentOut,
     CommentsListingOut,
@@ -139,7 +140,7 @@ def create_comment(
 )
 def edit_comment(
     comment_entity_id: int,
-    data: CommentIn | CommentAdminIn,
+    data: CommentEditIn,
     # Standard dependencies
     current_user: "UserType" = Depends(login_required),
     session: db.Session = Depends(get_session),
@@ -170,3 +171,51 @@ def edit_comment(
     comment.text = data.text
     session.commit()
     return comment
+
+
+@router.delete(
+    "/comment/{comment_entity_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Comment creation failed.",
+        },
+        404: {
+            "model": DetailResponse,
+            "description": "No such comment.",
+        },
+        **AUTH_RESPONSES,
+    },
+)
+def delete_comment(
+    comment_entity_id: int,
+    data: CommentDeleteIn = None,
+    # Standard dependencies
+    current_user: "UserType" = Depends(login_required),
+    session: db.Session = Depends(get_session),
+):
+    """Delete a comment.
+
+    **Admin-only:** the `moderation_notes` field is required when modifying another user's comment; should contain a
+    short description of the reason the comment is being moderated.
+    """
+    comment = (
+        session.query(Comment).filter(Comment.entity_id == comment_entity_id).first()
+    )
+    if not comment:
+        raise NotFoundException(detail="No such comment found.")
+    success_response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    if comment.is_deleted:
+        return success_response
+    if current_user.id != comment.user_id:
+        if not current_user.is_admin:
+            raise NoUserAccessException(detail="You may only delete your own comments.")
+        elif not data.moderation_notes:
+            raise APIException(
+                detail="You must include moderation notes when deleting other users' comments."
+            )
+        comment.moderation_notes = data.moderation_notes
+    comment.is_deleted = True
+    session.commit()
+    return success_response
