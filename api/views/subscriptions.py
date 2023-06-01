@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 
 from api import db
 from api.depends import AUTH_RESPONSES, get_session, login_required
@@ -94,3 +94,32 @@ def create_subscription(
     )
     session.commit()
     return success_response
+
+
+@router.delete(
+    "/subscription/{entity_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Subscription deletion failed.",
+        },
+        404: {
+            "model": DetailResponse,
+            "description": "Entity ID could not be found.",
+        },
+        **AUTH_RESPONSES,
+    },
+)
+def delete_subscription(
+    entity_id: int,
+    # Standard dependencies
+    current_user: "User" = Depends(login_required),
+    session: db.Session = Depends(get_session),
+):
+    """Delete a subscription to comments and updates for a deck or card."""
+    session.query(Subscription).filter(
+        Subscription.user_id == current_user.id,
+        Subscription.source_entity_id == entity_id,
+    ).delete()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
