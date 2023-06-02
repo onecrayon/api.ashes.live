@@ -49,7 +49,7 @@ class CommentOut(BaseModel):
 class CommentsListingOut(PaginatedResultsBase):
     """Ordered listing of comments for a resource on the site."""
 
-    results = List[CommentOut]
+    results: List[CommentOut] = []
 
 
 class CommentIn(BaseModel):
