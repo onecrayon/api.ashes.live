@@ -44,7 +44,7 @@ def get_comments(
     entity_id: int,
     request: Request,
     # Filtration query string options
-    order: PaginationOrderOptions = PaginationOrderOptions.desc,
+    order: PaginationOrderOptions = PaginationOrderOptions.asc,
     # Standard dependencies
     paging: PaginationOptions = Depends(paging_options),
     current_user: "UserType" = Depends(get_current_user),
@@ -116,7 +116,7 @@ def create_comment(
         # Cards don't have this attribute, so we can safely ignore it
         pass
     if not data.text.strip():
-        raise APIException("You cannot post blank comments.")
+        raise APIException(detail="You cannot post blank comments.")
     # Now gather a few parameters, and create our comment
     try:
         source_version = source.version
@@ -133,7 +133,7 @@ def create_comment(
     if not previous_ordering_increment:
         previous_ordering_increment = 0
     comment = Comment(
-        entity_id=create_entity(),
+        entity_id=create_entity(session),
         user_id=current_user.id,
         source_entity_id=source.entity_id,
         source_type=source_type,
@@ -181,7 +181,7 @@ def edit_comment(
     if comment.is_deleted:
         raise APIException(detail="You cannot edit deleted comments.")
     if not data.text.strip():
-        raise APIException("You cannot post blank comments.")
+        raise APIException(detail="You cannot post blank comments.")
     if current_user.id != comment.user_id:
         if not current_user.is_admin:
             raise NoUserAccessException(detail="You may only edit your own comments.")
@@ -193,7 +193,9 @@ def edit_comment(
         comment.moderation_notes = data.moderation_notes
         comment.is_moderated = True
     elif comment.is_moderated and not current_user.is_admin:
-        raise APIException("This comment has been moderated and cannot be modified.")
+        raise APIException(
+            detail="This comment has been moderated and cannot be modified."
+        )
     comment.text = data.text
     session.commit()
     return comment
