@@ -2,4 +2,13 @@
 
 View router and application logic
 """
-from . import auth, cards, decks, health_check, players, releases
+from . import (
+    auth,
+    cards,
+    comments,
+    decks,
+    health_check,
+    players,
+    releases,
+    subscriptions,
+)
