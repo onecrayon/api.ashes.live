@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Dict, List, Optional, Union
 
 from fastapi import Query
 from pydantic import UUID4, BaseModel, Field, validator
@@ -15,8 +14,8 @@ class DeckFiltersMine:
     def __init__(
         self,
         q: str = None,
-        phoenixborn: Optional[List[str]] = Query(None),
-        card: Optional[List[str]] = Query(None),
+        phoenixborn: list[str] | None = Query(None),
+        card: list[str] | None = Query(None),
         show_legacy: bool = False,
         show_red_rains: bool = False,
     ):
@@ -33,12 +32,12 @@ class DeckFilters:
     def __init__(
         self,
         q: str = None,
-        phoenixborn: Optional[List[str]] = Query(None),
-        card: Optional[List[str]] = Query(None),
+        phoenixborn: list[str] | None = Query(None),
+        card: list[str] | None = Query(None),
         show_legacy: bool = False,
         show_preconstructed: bool = False,
         show_red_rains: bool = False,
-        player: Optional[List[str]] = Query(None),
+        player: list[str] | None = Query(None),
     ):
         self.q = q
         self.phoenixborn = phoenixborn
@@ -115,10 +114,10 @@ class DeckOut(BaseModel):
     created: datetime
     modified: datetime
     user: UserBasicOut
-    dice: List[DeckDice]
+    dice: list[DeckDice]
     phoenixborn: PhoenixbornCardOut
-    cards: List[DeckCardOut]
-    conjurations: List[DeckCardOut]
+    cards: list[DeckCardOut]
+    conjurations: list[DeckCardOut]
     is_public: bool = None
     is_snapshot: bool = None
     is_legacy: bool = None
@@ -134,15 +133,15 @@ class DeckSaveOut(DeckOut):
     """Full deck information returned from saving endpoint"""
 
     description: str = None
-    first_five: List[str] = Field(
+    first_five: list[str] = Field(
         None,
         description="A list of up to five card stubs intended as the typical First Five. May not be included for public snapshots (owners can opt out of displaying it).",
     )
-    effect_costs: List[str] = Field(
+    effect_costs: list[str] = Field(
         None,
         description="A list of card stubs in the First Five (or the Phoenixborn) whose effects are expected to be paid in the first round. Only included for public snapshots if the First Five is populated.",
     )
-    tutor_map: Dict[str, str] = Field(
+    tutor_map: dict[str, str] = Field(
         None,
         description="An object with tutor card stubs in the First Five as keys, and the tutored card stubs as values. Only included for public snapshots if the First Five is populated.",
     )
@@ -172,7 +171,7 @@ class DeckDetails(BaseModel):
     """JSON output for a deck's details, including required releases and card listing."""
 
     deck: DeckFullOut
-    releases: List[DeckRelease]
+    releases: list[DeckRelease]
     has_published_snapshot: bool = Field(
         None,
         description="Set to true for private decks and snapshots if they have a public snapshot available.",
@@ -191,7 +190,7 @@ class DeckDetails(BaseModel):
 class DeckListingOut(PaginatedResultsBase):
     """Filtered listing of decks"""
 
-    results: List[DeckOut] = []
+    results: list[DeckOut] = []
 
 
 class DeckCardIn(BaseModel):
@@ -215,21 +214,21 @@ class DeckIn(BaseModel):
         max_length=255,
     )
     description: str = None
-    dice: List[DeckDice] = None
-    phoenixborn: Union[str, Dict[str, Union[str, int]]] = Field(
+    dice: list[DeckDice] = None
+    phoenixborn: str | dict[str, str | int] = Field(
         ...,
         description="The stub or an object containing at minimum a `stub` property representing the Phoenixborn for this deck.",
     )
-    cards: List[DeckCardIn]
-    first_five: List[str] = Field(
+    cards: list[DeckCardIn]
+    first_five: list[str] = Field(
         None,
         description="A list of up to five card stubs intended as the typical First Five.",
     )
-    effect_costs: List[str] = Field(
+    effect_costs: list[str] = Field(
         None,
         description="A list of card stubs in the First Five (or the Phoenixborn) whose effects are expected to be paid in the first round.",
     )
-    tutor_map: Dict[str, str] = Field(
+    tutor_map: dict[str, str] = Field(
         None,
         description="An object with tutor card stubs in the First Five as keys, and the tutored card stubs as values.",
     )

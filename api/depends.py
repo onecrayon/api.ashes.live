@@ -1,5 +1,4 @@
 import uuid
-from typing import Optional
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -35,7 +34,7 @@ AUTH_RESPONSES = {
 }
 
 
-def get_auth_token(token: Optional[str] = Depends(oauth2_scheme)) -> Optional[dict]:
+def get_auth_token(token: str | None = Depends(oauth2_scheme)) -> dict | None:
     """Returns the parsed JWT payload data, or raises a CredentialsException"""
     if token is None:
         return None
@@ -47,7 +46,7 @@ def get_auth_token(token: Optional[str] = Depends(oauth2_scheme)) -> Optional[di
 
 
 def get_current_user(
-    payload: Optional[dict] = Depends(get_auth_token),
+    payload: dict | None = Depends(get_auth_token),
     session: Session = Depends(get_session),
 ) -> "UserType":
     """Returns authenticated user or AnonymousUser instance"""

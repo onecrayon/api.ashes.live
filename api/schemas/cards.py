@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import Dict, List, Union
 
 from pydantic import BaseModel, Field, validator
 
@@ -117,18 +116,18 @@ class CardOut(BaseModel):
     type: str
     release: CardReleaseEmbeddedOut
     placement: str = None
-    cost: List[Union[List[str], str]] = None
-    dice: List[str] = None
-    altDice: List[str] = None
-    magicCost: Dict[str, int] = None
-    effectMagicCost: Dict[str, int] = None
+    cost: list[list[str] | str] = None
+    dice: list[str] = None
+    altDice: list[str] = None
+    magicCost: dict[str, int] = None
+    effectMagicCost: dict[str, int] = None
     text: str = None
-    conjurations: List[CardMinimalOut] = None
+    conjurations: list[CardMinimalOut] = None
     phoenixborn: str = None
-    attack: Union[str, int] = None
+    attack: str | int = None
     battlefield: int = None
-    life: Union[str, int] = None
-    recover: Union[str, int] = None
+    life: str | int = None
+    recover: str | int = None
     spellboard: int = None
     copies: int = None
     effectRepeats: bool = None
@@ -154,12 +153,12 @@ class RelatedCardLists(BaseModel):
     *or* `summoning_cards` and `conjurations`, but not both sets.
     """
 
-    summoning_cards: List[CardMinimalOut] = None
-    conjurations: List[CardMinimalOut] = None
+    summoning_cards: list[CardMinimalOut] = None
+    conjurations: list[CardMinimalOut] = None
     phoenixborn: CardMinimalOut = None
-    phoenixborn_conjurations: List[CardMinimalOut] = None
+    phoenixborn_conjurations: list[CardMinimalOut] = None
     phoenixborn_unique: CardMinimalOut = None
-    phoenixborn_unique_conjurations: List[CardMinimalOut] = None
+    phoenixborn_unique_conjurations: list[CardMinimalOut] = None
 
 
 class PreconstructedDeck(BaseModel):
@@ -179,7 +178,7 @@ class CardDetails(BaseModel):
     usage: CardUsageCounts
     preconstructed_deck: PreconstructedDeck = None
     phoenixborn_card: CardMinimalOut = None
-    phoenixborn_conjurations: List[CardMinimalOut] = None
+    phoenixborn_conjurations: list[CardMinimalOut] = None
     related_cards: RelatedCardLists
     last_seen_entity_id: int = Field(
         None,
@@ -195,7 +194,7 @@ class CardDetails(BaseModel):
 class CardListingOut(PaginatedResultsBase):
     """Filtered listing of cards"""
 
-    results: List[CardOut] = []
+    results: list[CardOut] = []
 
 
 class CardType(str, Enum):
@@ -234,7 +233,7 @@ class CardIn(BaseModel):
         None,
         description="The card effect text, formatting using standard Ashes.live card codes.",
     )
-    cost: Union[List[str], str, None] = Field(
+    cost: list[str] | str | None = Field(
         None,
         description=(
             "The cost to play the card formatted with Ashes.live card codes as either a string with costs "
@@ -244,7 +243,7 @@ class CardIn(BaseModel):
             '"1 [[ceremonial:class]]", "1 [[charm:class]] or 1 [[sympathy:class]]"]`'
         ),
     )
-    effect_magic_cost: Union[List[str], str, None] = Field(
+    effect_magic_cost: list[str] | str | None = Field(
         None,
         description=(
             "The *magic* cost(s) to activate all card effects as either a string with costs separated by "
@@ -260,11 +259,11 @@ class CardIn(BaseModel):
         None,
         description="If an effect can be repeated (i.e. only costs dice and does not exhaust the card), then this should be true (very rare).",
     )
-    dice: List[CardDiceCosts] = Field(
+    dice: list[CardDiceCosts] = Field(
         None,
         description="Dice types that are required to play the card or activate its effects. If `null`, will be calculated based on `cost` and `effect_magic_cost`.",
     )
-    alt_dice: List[CardDiceCosts] = Field(
+    alt_dice: list[CardDiceCosts] = Field(
         None,
         description="Dice types that are only required by parallel costs, optional effect costs, etc. If `null` will be calculated based on `cost` and `effect_magic_cost`.",
     )

@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.exc import IntegrityError
 
@@ -49,12 +47,12 @@ def list_cards(
     # Filtration query string options
     q: str = None,
     show_legacy: bool = False,
-    types: List[CardsFilterType] = Query(None),
+    types: list[CardsFilterType] = Query(None),
     mode: CardsFilterListingMode = CardsFilterListingMode.listing,
     show_summons: bool = False,
     releases: CardsFilterRelease = CardsFilterRelease.all_,
-    r: List[str] = Query(None),
-    dice: List[CardDiceCosts] = Query(None),
+    r: list[str] = Query(None),
+    dice: list[CardDiceCosts] = Query(None),
     dice_logic: CardsFilterDiceLogic = CardsFilterDiceLogic.any_,
     include_uniques_for: str = None,
     sort: CardsSortingMode = CardsSortingMode.name,
@@ -310,7 +308,7 @@ def get_card_details(
     #  related conjurations
     related_cards = {}
     phoenixborn = None
-    summons: Optional[list] = None
+    summons: list | None = None
     if card.phoenixborn or card.card_type == "Phoenixborn":
         # Grab all cards related to this Phoenixborn
         if card.phoenixborn:

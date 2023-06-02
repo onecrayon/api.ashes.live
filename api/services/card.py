@@ -1,5 +1,4 @@
 import re
-from typing import List, Union
 
 from api import db
 from api.models.card import Card, CardConjuration
@@ -20,7 +19,7 @@ MAGIC_COSTS = (
 )
 
 
-def gather_conjurations(card: Card) -> List[Card]:
+def gather_conjurations(card: Card) -> list[Card]:
     """Recursively gather all conjurations that can be created by the given card.
 
     WARNING: IMPLICIT EXECUTES SQL VIA RELATIONSHIP!
@@ -31,7 +30,7 @@ def gather_conjurations(card: Card) -> List[Card]:
     return conjurations
 
 
-def gather_root_summons(card: Card) -> List[Card]:
+def gather_root_summons(card: Card) -> list[Card]:
     """Recursively gather the cards that can summon this card (if any).
 
     Ensures that we find all possible cards that could summon a given conjuration; looks up the
@@ -76,7 +75,7 @@ def parse_cost_to_weight(cost: str) -> int:
     return 0
 
 
-def parse_costs_to_mapping(costs: List[Union[List[str], str]]) -> dict:
+def parse_costs_to_mapping(costs: list[list[str] | str]) -> dict:
     """Converts a list of costs into an associative mapping between cost and number"""
     magic_cost_re = re.compile(
         r"(\d+)\s+\[\[((?:" + r"|".join(MAGIC_COSTS) + r")(?::\w+)?)\]\]"
@@ -114,11 +113,11 @@ def create_card(
     release: "Release",
     placement: str = None,
     text: str = None,
-    cost: Union[List[str], str, None] = None,
-    effect_magic_cost: Union[List[str], str, None] = None,
+    cost: list[str] | str | None = None,
+    effect_magic_cost: list[str] | str | None = None,
     can_effect_repeat: bool = False,
-    dice: List[str] = None,
-    alt_dice: List[str] = None,
+    dice: list[str] = None,
+    alt_dice: list[str] = None,
     phoenixborn: str = None,
     attack: str = None,
     battlefield: str = None,

@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -20,7 +19,7 @@ class CommentOut(BaseModel):
     source_entity_id: int = Field(
         ..., description="The entity ID for the resource this comment is commenting on."
     )
-    source_version: Optional[int] = Field(
+    source_version: int | None = Field(
         None,
         description=(
             "Only shown for cards; can be used to highlight comments that apply to previous versions of the card."
@@ -49,7 +48,7 @@ class CommentOut(BaseModel):
 class CommentsListingOut(PaginatedResultsBase):
     """Ordered listing of comments for a resource on the site."""
 
-    results: List[CommentOut] = []
+    results: list[CommentOut] = []
 
 
 class CommentIn(BaseModel):

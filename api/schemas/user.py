@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import UUID4, BaseModel, EmailStr, Field, validator
 
 
@@ -31,13 +29,13 @@ class UserSelfPasswordIn(UserSetPasswordIn):
 class UserRegistrationIn(UserSetPasswordIn):
     """Registration details for a given user"""
 
-    username: Optional[str] = Field(
+    username: str | None = Field(
         ...,
         description="How you wish to be known around the site.",
         min_length=2,
         max_length=42,
     )
-    description: Optional[str] = Field(
+    description: str | None = Field(
         None, description="Supports card codes and star formatting."
     )
     newsletter_opt_in: bool = False
@@ -56,14 +54,14 @@ class UserBasicOut(BaseModel):
 class UserPublicOut(UserBasicOut):
     """Public user information"""
 
-    description: Optional[str]
+    description: str | None
 
 
 class UserSelfOut(UserPublicOut):
     """Private user information"""
 
     email: str
-    reset_uuid: Optional[UUID4]
+    reset_uuid: UUID4 | None
     newsletter_opt_in: bool
     email_subscriptions: bool
     exclude_subscriptions: bool
@@ -105,7 +103,7 @@ class UserModerationOut(BaseModel):
     """Response after moderating a user"""
 
     username: str
-    description: Optional[str]
+    description: str | None
     is_banned: bool
     moderation_notes: str
 
