@@ -218,7 +218,7 @@ def edit_comment(
 )
 def delete_comment(
     comment_entity_id: int,
-    data: CommentDeleteIn = None,
+    moderation_notes: str = None,
     # Standard dependencies
     current_user: "User" = Depends(login_required),
     session: db.Session = Depends(get_session),
@@ -239,11 +239,11 @@ def delete_comment(
     if current_user.id != comment.user_id:
         if not current_user.is_admin:
             raise NoUserAccessException(detail="You may only delete your own comments.")
-        elif not data.moderation_notes:
+        elif not moderation_notes:
             raise APIException(
                 detail="You must include moderation notes when deleting other users' comments."
             )
-        comment.moderation_notes = data.moderation_notes
+        comment.moderation_notes = moderation_notes
         comment.is_moderated = True
     comment.is_deleted = True
     session.commit()
