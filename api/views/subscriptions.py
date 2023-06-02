@@ -5,6 +5,7 @@ from api.depends import AUTH_RESPONSES, get_session, login_required
 from api.exceptions import APIException, NotFoundException
 from api.models import Card, Comment, Deck, Subscription, User
 from api.schemas import DetailResponse
+from api.schemas.subscriptions import SubscriptionIn
 
 router = APIRouter()
 
@@ -123,3 +124,69 @@ def delete_subscription(
         Subscription.source_entity_id == entity_id,
     ).delete()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch(
+    "/subscription/{entity_id}",
+    response_model=DetailResponse,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Subscription update failed.",
+        },
+        404: {
+            "model": DetailResponse,
+            "description": "No such subscription.",
+        },
+        **AUTH_RESPONSES,
+    },
+)
+def update_subscription(
+    entity_id: int,
+    data: SubscriptionIn,
+    # Standard dependencies
+    current_user: "User" = Depends(login_required),
+    session: db.Session = Depends(get_session),
+):
+    """Update a subscription with the last viewed entity ID.
+
+    Card subscriptions should only use an entity ID for a comment attached to the card. Decks may use the entity ID of
+    the latest viewed comment or the latest published deck snapshot.
+    """
+    # Grab the relevant subscription
+    subscription = (
+        session.query(Subscription)
+        .filter(
+            Subscription.user_id == current_user.id,
+            Subscription.source_entity_id == entity_id,
+        )
+        .first()
+    )
+    if not subscription:
+        raise NotFoundException(detail="You are not subscribed to this content.")
+    # Validate the entity ID that was passed in
+    last_seen = (
+        session.query(Comment)
+        .filter(
+            Comment.source_entity_id == entity_id,
+            Comment.entity_id == data.last_seen_entity_id,
+        )
+        .first()
+    )
+    if not last_seen:
+        # This might be a deck snapshot, so check for that
+        last_seen = (
+            session.query(Deck)
+            .filter(
+                Deck.entity_id == data.last_seen_entity_id,
+                Deck.is_snapshot == True,
+                Deck.is_public == True,
+                Deck.is_deleted == False,
+            )
+            .first()
+        )
+    if not last_seen:
+        raise APIException(detail="Invalid entity ID passed for this subscription.")
+    subscription.last_seen_entity_id = data.last_seen_entity_id
+    session.commit()
+    return {"detail": "Subscription updated!"}
