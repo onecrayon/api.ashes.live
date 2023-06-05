@@ -31,22 +31,20 @@ def refresh_stream_for_entity(
         )
     else:
         entity = session.query(Stream).filter(Stream.entity_id == entity_id).first()
+    # Comment edits do not update the stream, hence not handling them here
     if not entity:
         entity = Stream(
             entity_id=entity_id,
             entity_type=entity_type,
             source_entity_id=source_entity_id,
         )
+        session.add(entity)
     elif entity_type == "deck":
         # Decks are a special case; we update the Stream entity because the snapshots effectively
         # replace one another as far as most users are concerned
         entity.posted = datetime.utcnow()
         entity.entity_id = entity_id
-    else:
-        # Ignore comment edits
-        return
-    session.add(entity)
-    # TODO: implement emailing logic to update people who are subscribed to this entity!
+    # TODO: implement emailing logic to update people who are subscribed to this entity?
 
 
 def update_subscription_for_user(

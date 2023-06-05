@@ -6,6 +6,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from api import db
+from api.models import Subscription
 from api.services.deck import create_snapshot_for_deck
 from api.utils.auth import create_access_token
 
@@ -380,6 +381,30 @@ def test_get_deck_saved(client: TestClient, deck1, user1):
     data = response.json()
     assert data["deck"]["id"] == deck1.id
     assert data["deck"]["is_saved"] == True
+
+
+def test_get_deck_last_seen_entity_id(
+    client: TestClient, session: db.Session, deck1, snapshot1, user2
+):
+    """Last seen entity ID for a deck must be output properly"""
+    sub = Subscription(
+        user_id=user2.id,
+        source_entity_id=deck1.entity_id,
+        last_seen_entity_id=snapshot1.entity_id,
+    )
+    session.add(sub)
+    session.commit()
+    token = create_access_token(
+        data={"sub": user2.badge},
+        expires_delta=timedelta(minutes=15),
+    )
+    response = client.get(
+        f"/v2/decks/{deck1.id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["last_seen_entity_id"] == snapshot1.entity_id
 
 
 def test_list_snapshots_bad_id(client: TestClient, session: db.Session, user1):

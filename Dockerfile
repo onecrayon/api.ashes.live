@@ -1,4 +1,4 @@
-FROM python:3.10 as development_build
+FROM python:3.11 as development_build
 
 # This is only available at build, and is a required variable
 ARG ENV
@@ -18,7 +18,7 @@ ENV ENV=${ENV} \
   # dockerize:
   DOCKERIZE_VERSION=v0.6.1 \
   # poetry:
-  POETRY_VERSION=1.4.1 \
+  POETRY_VERSION=1.5.1 \
   POETRY_VIRTUALENVS_CREATE=false \
   POETRY_CACHE_DIR='/var/cache/pypoetry'
 

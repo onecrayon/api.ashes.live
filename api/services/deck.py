@@ -1,7 +1,6 @@
 from collections import defaultdict
 from datetime import datetime
 from operator import itemgetter
-from typing import Dict, List, Optional, Set, Union
 
 from starlette.requests import Request
 
@@ -62,11 +61,11 @@ def create_or_update_deck(
     deck_id: int = None,
     title: str = None,
     description: str = None,
-    dice: List[Dict[str, Union[str, int]]] = None,
-    cards: List[Dict[str, Union[str, int]]] = None,
-    first_five: List[str] = None,
-    effect_costs: List[str] = None,
-    tutor_map: Dict[str, str] = None,
+    dice: list[dict[str, str | int]] = None,
+    cards: list[dict[str, str | int]] = None,
+    first_five: list[str] = None,
+    effect_costs: list[str] = None,
+    tutor_map: dict[str, str] = None,
     is_red_rains: bool = False,
 ) -> "Deck":
     """Creates or updates a deck in place."""
@@ -111,7 +110,7 @@ def create_or_update_deck(
         )
 
     # Update the dice listing
-    deck_dice: List[DeckDie] = []
+    deck_dice: list[DeckDie] = []
     total_dice = 0
     if dice:
         for die_dict in dice:
@@ -127,7 +126,7 @@ def create_or_update_deck(
     deck.dice = deck_dice
 
     # And then the card listing
-    deck_cards: List[DeckCard] = []
+    deck_cards: list[DeckCard] = []
     card_stub_counts = {x["stub"]: x["count"] for x in (cards or [])}
     card_stubs = set(card_stub_counts.keys())
     if first_five:
@@ -178,7 +177,7 @@ def create_or_update_deck(
     #  composite index (tries to insert duplicates instead of updating intelligently based on
     #  tutor_card_id)
     stub_to_card = {x.stub: x for x in minimal_cards}
-    selected_cards: List[DeckSelectedCard] = []
+    selected_cards: list[DeckSelectedCard] = []
     if effect_costs:
         for card_stub in effect_costs:
             card = stub_to_card.get(card_stub)
@@ -304,10 +303,10 @@ def get_decks_query(
     is_public=False,
     order: PaginationOrderOptions = PaginationOrderOptions.desc,
     # Filtering options
-    q: Optional[str] = None,
-    phoenixborn: Optional[List[str]] = None,
-    cards: Optional[List[str]] = None,
-    players: Optional[List[str]] = None,
+    q: str | None = None,
+    phoenixborn: list[str] | None = None,
+    cards: list[str] | None = None,
+    players: list[str] | None = None,
     show_preconstructed=False,
 ) -> db.Query:
     query = session.query(Deck).filter(
@@ -387,7 +386,7 @@ def add_conjurations(card_id_to_conjuration_mapping, root_card_id, conjuration_s
             )
 
 
-def get_conjuration_mapping(session: db.Session, card_ids: Set[int]) -> dict:
+def get_conjuration_mapping(session: db.Session, card_ids: set[int]) -> dict:
     """Gathers top-level conjurations into a mapping keyed off the root card ID"""
     conjuration_results = (
         session.query(Card, CardConjuration.card_id.label("root_card"))
@@ -403,10 +402,10 @@ def get_conjuration_mapping(session: db.Session, card_ids: Set[int]) -> dict:
 
 def generate_deck_dict(
     deck: Deck,
-    card_id_to_card: Dict[int, Card],
-    card_id_to_conjurations: Dict[int, List[Card]],
-    deck_cards: List[DeckCard] = None,
-    deck_dice: List[DeckDie] = None,
+    card_id_to_card: dict[int, Card],
+    card_id_to_conjurations: dict[int, list[Card]],
+    deck_cards: list[DeckCard] = None,
+    deck_dice: list[DeckDie] = None,
     include_share_uuid: bool = False,
 ) -> dict:
     """Formats a deck into the standard deck output dict after looking up card data beforehand.

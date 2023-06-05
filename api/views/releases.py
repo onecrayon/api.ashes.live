@@ -1,5 +1,3 @@
-from typing import List, Union
-
 from fastapi import APIRouter, Depends
 
 from api import db
@@ -20,7 +18,7 @@ router = APIRouter()
 
 
 @router.get(
-    "/releases", response_model=List[ReleaseOut], response_model_exclude_unset=True
+    "/releases", response_model=list[ReleaseOut], response_model_exclude_unset=True
 )
 def list_releases(
     show_legacy: bool = False,
@@ -44,12 +42,12 @@ def list_releases(
 
 @router.put(
     "/releases/mine",
-    response_model=List[ReleaseOut],
+    response_model=list[ReleaseOut],
     response_model_exclude_unset=True,
     responses=AUTH_RESPONSES,
 )
 def save_collection(
-    collection: List[str],
+    collection: list[str],
     session: db.Session = Depends(get_session),
     current_user: "User" = Depends(login_required),
 ):

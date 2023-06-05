@@ -1,5 +1,3 @@
-from typing import List, Tuple
-
 from sqlalchemy import func
 
 from api import db
@@ -303,7 +301,7 @@ def create_cards_for_decks(session: db.Session):
 
 def get_phoenixborn_cards_dice(
     session: db.Session, release_stub: str = None
-) -> Tuple[Card, List[dict], List[dict]]:
+) -> tuple[Card, list[dict], list[dict]]:
     """Returns the Phoenixborn and lists of cards/dice dicts suitable to create a deck
 
     Returns (phoenixborn, cards, dice)
@@ -339,7 +337,7 @@ def get_phoenixborn_cards_dice(
         cards_query = cards_query.filter(Card.release_id == release.id)
     else:
         cards_query = cards_query.order_by(func.random())
-    deck_cards: List[Card] = cards_query.limit(9).all()
+    deck_cards: list[Card] = cards_query.limit(9).all()
     card_dicts = [{"stub": x.stub, "count": 3} for x in deck_cards]
     card_dicts.append({"stub": unique_card.stub, "count": 3})
     dice_dicts = [

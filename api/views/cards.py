@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.exc import IntegrityError
 
@@ -12,7 +10,7 @@ from api.depends import (
     paging_options,
 )
 from api.exceptions import APIException, NotFoundException
-from api.models import Deck, DeckCard
+from api.models import Deck, DeckCard, Subscription
 from api.models.card import Card, DiceFlags
 from api.models.release import Release, UserRelease
 from api.models.user import UserType
@@ -49,12 +47,12 @@ def list_cards(
     # Filtration query string options
     q: str = None,
     show_legacy: bool = False,
-    types: List[CardsFilterType] = Query(None),
+    types: list[CardsFilterType] = Query(None),
     mode: CardsFilterListingMode = CardsFilterListingMode.listing,
     show_summons: bool = False,
     releases: CardsFilterRelease = CardsFilterRelease.all_,
-    r: List[str] = Query(None),
-    dice: List[CardDiceCosts] = Query(None),
+    r: list[str] = Query(None),
+    dice: list[CardDiceCosts] = Query(None),
     dice_logic: CardsFilterDiceLogic = CardsFilterDiceLogic.any_,
     include_uniques_for: str = None,
     sort: CardsSortingMode = CardsSortingMode.name,
@@ -284,7 +282,10 @@ def _card_to_minimal_card(card: Card) -> dict:
     responses={404: {"model": DetailResponse}},
 )
 def get_card_details(
-    stub: str, show_legacy: bool = False, session: db.Session = Depends(get_session)
+    stub: str,
+    show_legacy: bool = False,
+    session: db.Session = Depends(get_session),
+    current_user: "UserType" = Depends(get_current_user),
 ):
     """Returns the full details about the card for use on the card details page"""
     card = (
@@ -307,7 +308,7 @@ def get_card_details(
     #  related conjurations
     related_cards = {}
     phoenixborn = None
-    summons: Optional[list] = None
+    summons: list | None = None
     if card.phoenixborn or card.card_type == "Phoenixborn":
         # Grab all cards related to this Phoenixborn
         if card.phoenixborn:
@@ -443,6 +444,18 @@ def get_card_details(
         .first()
     )
 
+    # Grab the last seen entity ID, if the user is logged in and has a subscription
+    last_seen_entity_id = None
+    if not current_user.is_anonymous():
+        last_seen_entity_id = (
+            session.query(Subscription.last_seen_entity_id)
+            .filter(
+                Subscription.user_id == current_user.id,
+                Subscription.source_entity_id == card.entity_id,
+            )
+            .scalar()
+        )
+
     return {
         "card": card.json,
         "usage": counts,
@@ -453,6 +466,7 @@ def get_card_details(
         if preconstructed
         else None,
         "related_cards": related_cards,
+        "last_seen_entity_id": last_seen_entity_id,
     }
 
 

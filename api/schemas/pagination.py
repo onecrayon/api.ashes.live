@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, List
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -31,4 +31,4 @@ class PaginatedResultsBase(BaseModel):
     count: int = 0
     next: str = None
     previous: str = None
-    results: List[Any] = []
+    results: list[Any] = []

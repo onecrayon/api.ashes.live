@@ -15,7 +15,11 @@ class Comment(db.AlchemyBase):
     source_type = db.Column(db.String(16))
     source_version = db.Column(db.Integer)
     text = db.Column(db.Text)
-    order = db.Column(db.Integer, index=True)
+    # This is an auto-incrementing integer that is specific to the source_entity_id the comment is associated with. It
+    #  is not used by the backend, but it can be used by the front-end to calculate the page that a particular comment
+    #  is living on (since the ordering_increment is from oldest to newest and increments by one each time, if you know
+    #  the total number of results per page you can determine a comment's page based on its ordering_increment).
+    ordering_increment = db.Column(db.Integer, index=True)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False, index=True)
     is_moderated = db.Column(db.Boolean, nullable=False, default=False)
     original_text = db.Column(db.Text)

@@ -2,7 +2,9 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from api import db
-from api.models import Card
+from api.models import Card, Comment, Subscription
+from api.services.stream import create_entity
+from api.tests.utils import create_user_token
 
 
 def test_get_legacy_card(client: TestClient, session: db.Session):
@@ -73,3 +75,32 @@ def test_get_details_phoenixborn(client: TestClient, session: db.Session):
     """Must properly find connected cards when looking up Phoenixborn"""
     response = client.get("/v2/cards/example-phoenixborn/details")
     assert response.status_code == status.HTTP_200_OK
+
+
+def test_get_details_last_seen_entity_id(client: TestClient, session: db.Session):
+    """Must properly output last seen entity ID for cards with comments and subscriptions"""
+    user, token = create_user_token(session)
+    card = session.query(Card).filter(Card.is_legacy == False).first()
+    comment = Comment(
+        entity_id=create_entity(session),
+        user_id=user.id,
+        source_entity_id=card.entity_id,
+        source_type="card",
+        source_version=card.version,
+        text="My first comment",
+        ordering_increment=1,
+    )
+    session.add(comment)
+    sub = Subscription(
+        user_id=user.id,
+        source_entity_id=card.entity_id,
+        last_seen_entity_id=comment.entity_id,
+    )
+    session.add(sub)
+    session.commit()
+    response = client.get(
+        f"/v2/cards/{card.stub}/details", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["last_seen_entity_id"] == comment.entity_id

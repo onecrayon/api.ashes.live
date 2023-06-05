@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import List, Optional
 
 from api import db
 
@@ -114,7 +113,7 @@ class Card(db.AlchemyBase):
         )
 
     @staticmethod
-    def dice_to_flags(dice_list: Optional[List[str]]) -> int:
+    def dice_to_flags(dice_list: list[str] | None) -> int:
         """Converts from a list of dice names to an integer flag; basic == 0"""
         flags = 0
         if not dice_list:
@@ -124,7 +123,7 @@ class Card(db.AlchemyBase):
         return flags
 
     @staticmethod
-    def flags_to_dice(flags_int: int) -> Optional[List[str]]:
+    def flags_to_dice(flags_int: int) -> list[str] | None:
         """Converts from a dice flag to a list of dice names; always excludes basic dice"""
         dice = [
             die.name

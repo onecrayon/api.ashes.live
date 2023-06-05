@@ -1,7 +1,6 @@
 import random
 import string
 from datetime import timedelta
-from typing import Optional, Tuple
 
 from api import db, models
 from api.environment import settings
@@ -15,7 +14,7 @@ def monkeypatch_settings(monkeypatch, new_settings: dict):
         monkeypatch.setattr(settings, key, value)
 
 
-def create_user_password(session: db.Session) -> Tuple[models.User, str]:
+def create_user_password(session: db.Session) -> tuple[models.User, str]:
     """Returns a new user, and their plaintext password"""
     email = generate_random_email()
     password = generate_random_chars(16)
@@ -24,8 +23,8 @@ def create_user_password(session: db.Session) -> Tuple[models.User, str]:
 
 
 def create_user_token(
-    session: db.Session, user: Optional["models.User"] = None
-) -> Tuple[models.User, str]:
+    session: db.Session, user: models.User | None = None
+) -> tuple[models.User, str]:
     """Returns a new user, and their associated bearer token"""
     if not user:
         user, _ = create_user_password(session)
@@ -36,7 +35,7 @@ def create_user_token(
     return user, token
 
 
-def create_admin_token(session: db.Session) -> Tuple[models.User, str]:
+def create_admin_token(session: db.Session) -> tuple[models.User, str]:
     user, token = create_user_token(session)
     user.is_admin = True
     session.commit()

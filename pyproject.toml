@@ -23,7 +23,7 @@ python-multipart = "^0.0.6"
 email-validator = "^1.1.1"
 sendgrid = "^6.4.6"
 # Install uvicorn with the pieces from uvicorn[standard] that we will actually use
-uvicorn = "^0.21.1"
+uvicorn = "^0.22.0"
 uvloop = "^0.17.0"
 httptools = "^0.5.0"
 
@@ -31,9 +31,9 @@ httptools = "^0.5.0"
 # These are used by the test suite
 pytest = "^7.1.2"
 pytest-cov = "^4.0.0"
-sqlalchemy-utils = "^0.40.0"
+sqlalchemy-utils = "^0.41.1"
 freezegun = "^1.1.0"
-httpx = "^0.23.1"
+httpx = "^0.24.1"
 # These are used by `make format`
 black = "^23.3.0"
 isort = "^5.4.2"

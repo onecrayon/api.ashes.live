@@ -42,6 +42,8 @@ app.add_middleware(
 app.include_router(views.health_check.router)
 app.include_router(views.auth.router, prefix="/v2", tags=["auth"])
 app.include_router(views.cards.router, prefix="/v2", tags=["cards"])
+app.include_router(views.comments.router, prefix="/v2", tags=["comments"])
 app.include_router(views.decks.router, prefix="/v2", tags=["decks"])
 app.include_router(views.players.router, prefix="/v2", tags=["players"])
 app.include_router(views.releases.router, prefix="/v2", tags=["releases"])
+app.include_router(views.subscriptions.router, prefix="/v2", tags=["subscriptions"])

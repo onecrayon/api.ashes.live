@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Union
 
 from api import db
 
@@ -51,4 +50,4 @@ class UserRevokedToken(db.AlchemyBase):
 
 
 # Helper for managing user types around the codebase
-UserType = Union[AnonymousUser, User]
+UserType = AnonymousUser | User

@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 import sendgrid.helpers.mail as sendgrid_helpers
 from sendgrid import SendGridAPIClient
@@ -9,7 +8,7 @@ from api.environment import settings
 logger = logging.getLogger(__name__)
 
 
-def send_message(recipient, template_id, data: Optional[dict] = None) -> bool:
+def send_message(recipient, template_id, data: dict | None = None) -> bool:
     """Sends a transactional email through SendGrid
 
     Templates are stored within SendGrid with a copy of the most recent version checked into
