@@ -19,7 +19,11 @@ from api.schemas.comments import (
     CommentsListingOut,
 )
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
-from api.services.stream import create_entity
+from api.services.stream import (
+    create_entity,
+    refresh_stream_for_entity,
+    update_subscription_for_user,
+)
 from api.utils.pagination import paginated_results_for_query
 
 router = APIRouter()
@@ -132,6 +136,7 @@ def create_comment(
     )
     if not previous_ordering_increment:
         previous_ordering_increment = 0
+    # Create our comment and update the stream and the existing user subscription
     comment = Comment(
         entity_id=create_entity(session),
         user_id=current_user.id,
@@ -142,6 +147,18 @@ def create_comment(
         ordering_increment=previous_ordering_increment + 1,
     )
     session.add(comment)
+    refresh_stream_for_entity(
+        session,
+        entity_id=comment.entity_id,
+        entity_type="comment",
+        source_entity_id=source.entity_id,
+    )
+    update_subscription_for_user(
+        session,
+        user=current_user,
+        source_entity_id=source.entity_id,
+        last_seen_entity_id=comment.entity_id,
+    )
     session.commit()
     return {"detail": "Comment successfully posted!"}
 
@@ -197,6 +214,7 @@ def edit_comment(
             detail="This comment has been moderated and cannot be modified."
         )
     comment.text = data.text
+    # There's no reason to update the stream when editing comments, so skip that call
     session.commit()
     return comment
 
