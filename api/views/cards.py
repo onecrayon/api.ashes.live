@@ -53,7 +53,7 @@ def list_cards(
     releases: CardsFilterRelease = CardsFilterRelease.all_,
     r: list[str] = Query(None),
     dice: list[CardDiceCosts] = Query(None),
-    dice_logic: CardsFilterDiceLogic = CardsFilterDiceLogic.any_,
+    dice_logic: CardsFilterDiceLogic = CardsFilterDiceLogic.only_,
     include_uniques_for: str = None,
     sort: CardsSortingMode = CardsSortingMode.name,
     order: PaginationOrderOptions = PaginationOrderOptions.asc,
@@ -74,7 +74,10 @@ def list_cards(
     * `releases` (default: `all`): if `mine` will show only releases owned by the current user
     * `r`: list of release stubs; will only show cards belonging to releases in this list (**Note:** does nothing if `releases` is not `all`!)
     * `dice`: list of dice costs that cards in the listing must use
-    * `dice_logic` (default: `any`): if `all` the cards returned must include all costs in `dice`
+    * `dice_logic` (default: `only`): `only` mean the cards will only use one or more of the selected colors; `any` is
+      deprecated, but is a synonym for `only`; `includes` mean the cards will use at least one of the selected colors
+      (but could require colors that are not selected); and `all` is deprecated but will only show cards that require
+      all of the chosen colors
     * `include_uniques_for`: if set to a Phoenixborn name, listing will also include uniques belonging to the given Phoenixborn
       (only applicable to deckbuilder mode)
     """
@@ -131,7 +134,7 @@ def list_cards(
     if dice:
         dice_set = set(dice)
         dice_filters = []
-        if dice_logic is CardsFilterDiceLogic.any_:
+        if dice_logic in (CardsFilterDiceLogic.any_, CardsFilterDiceLogic.only_):
             if "basic" in dice_set:
                 dice_filters.append(
                     db.and_(
@@ -178,7 +181,7 @@ def list_cards(
                         ),
                     )
                 )
-        else:
+        elif dice_logic == CardsFilterDiceLogic.all_:
             # Since every passed dice type must be included for ALL searches, we go through all
             #  powersets and look for cards that match the powerset for the dice flags, and
             #  whatever dice types were missed in the alt flags. So if you pass ceremonial and
@@ -196,7 +199,19 @@ def list_cards(
                         else Card.alt_dice_flags == missing_values,
                     )
                 )
-        query = query.filter(db.or_(*dice_filters))
+        elif dice_set != {"basic"}:
+            # The only remaining logic is the `includes` logic, which is a lot simpler because we
+            #  can just use bitwise AND `&` to verify that at least one dice flag is set for a
+            #  given combo. However, we must ignore this logic if they are trying to search for only
+            #  basic dice, because those are canonically value `0`.
+            possible_dice = sum(DiceFlags[die].value for die in dice_set)
+            dice_filters.append(Card.dice_flags.op("&")(possible_dice) > 0)
+            dice_filters.append(Card.alt_dice_flags.op("&")(possible_dice) > 0)
+
+        # It's possible, though unlikely, to not have filters here if they passed a bad dice listing
+        #  (e.g. passed "basic" for the dice color and "includes" for the logic)
+        if dice_filters:
+            query = query.filter(db.or_(*dice_filters))
     # Only Include Phoenixborn uniques for the given Phoenixborn (or no Phoenixborn, in deckbuilder)
     if include_uniques_for:
         query = query.filter(
