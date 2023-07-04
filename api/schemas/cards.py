@@ -65,8 +65,16 @@ class CardsFilterRelease(str, Enum):
 class CardsFilterDiceLogic(str, Enum):
     """Dice logic for card listing filters."""
 
+    # These are the legacy terms for dice filtration; "any" is the default and shows any card that includes one or more
+    #  of the chosen colors. "All" shows any card that includes all of the chosen colors. The two show identical result
+    #  sets when filtering by a single color.
     all_ = "all"
     any_ = "any"
+    # These are the new terms for dice filtration. "Only" is identical fo the prior "any" logic (shows cards that only
+    #  use one or more of the chosen colors). "Includes" shows any card that includes at least one of the chosen colors
+    #  (even if it uses colors that have not been chosen).
+    only_ = "only"
+    includes_ = "includes"
 
 
 class CardsSortingMode(str, Enum):

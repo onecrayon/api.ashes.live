@@ -103,6 +103,16 @@ def test_card_filters_dice_costs_all(client: TestClient, session: db.Session):
     assert len(response.json()["results"]) == 1, names_from_results(response)
 
 
+def test_card_filters_dice_costs_includes(client: TestClient, session: db.Session):
+    """Must show cars that have at least one of the specified dice costs"""
+    response = client.get(
+        "/v2/cards", params={"dice": ["natural", "illusion"], "dice_logic": "includes"}
+    )
+    assert response.status_code == status.HTTP_200_OK, response.json()
+    # The Ally and the Phoenixborn requires one or more of these colors
+    assert len(response.json()["results"]) == 2, names_from_results(response)
+
+
 def test_card_filters_deckbuilder_with_uniques(client: TestClient, session: db.Session):
     """Must include uniques when a Phoenixborn is specified in deckbuilder mode"""
     # Include Phoenixborn uniques in deckbuilder mode
