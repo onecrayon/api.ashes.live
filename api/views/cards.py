@@ -481,6 +481,7 @@ def get_card_details(
         if preconstructed
         else None,
         "related_cards": related_cards,
+        "entity_id": card.entity_id,
         "last_seen_entity_id": last_seen_entity_id,
     }
 

@@ -188,6 +188,9 @@ class CardDetails(BaseModel):
     phoenixborn_card: CardMinimalOut = None
     phoenixborn_conjurations: list[CardMinimalOut] = None
     related_cards: RelatedCardLists
+    entity_id: int = Field(
+        ..., description="The card's entity ID (for fetching/posting comments)."
+    )
     last_seen_entity_id: int = Field(
         None,
         description=(
