@@ -84,11 +84,13 @@ jobs:
           SSH_KEY: ${{ secrets.SSH_KEY }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
       - name: Stop the server
-        run: ssh deploy-server 'cd "$SCRIPT_PATH" && ./stop'
+        run: ssh deploy-server "cd \"$SCRIPT_PATH\" && ./stop"
       - name: Check out source
-        run: ssh deploy-server 'cd "${SCRIPT_PATH}/api.ashes.live" && git fetch && git reset --hard origin/main'
+        run: ssh deploy-server "cd \"${SCRIPT_PATH}/${REPO_NAME}\" && git fetch && git reset --hard origin/main"
+        env:
+            REPO_NAME: ${{ github.event.repository.name }}
       - name: Update dependencies & run migrations
-        run: ssh deploy-server 'cd "$SCRIPT_PATH" && ./update'
+        run: ssh deploy-server "cd \"$SCRIPT_PATH\" && ./update"
       - name: Start the server
         if: ${{ always() }}
-        run: ssh deploy-server 'cd "$SCRIPT_PATH" && ./start'
+        run: ssh deploy-server "cd \"$SCRIPT_PATH\" && ./start"
