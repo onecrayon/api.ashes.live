@@ -62,7 +62,7 @@ jobs:
   cd:
     name: Deploy
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: ci
     env:
         SCRIPT_PATH: ${{ secrets.SCRIPT_PATH }}
