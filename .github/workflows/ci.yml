@@ -1,8 +1,8 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: build-and-test
-run-name: Build & Test
+name: build-test-deploy
+run-name: Build, Test, & Deploy
 
 on:
   push:
@@ -15,6 +15,7 @@ permissions:
 
 jobs:
   ci:
+    name: Build & Test
     runs-on: ubuntu-latest
 
     services:
@@ -57,4 +58,35 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           fail_ci_if_error: true
-          flags: unittests
+          flags: unittest
+  cd:
+    name: Deploy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: ci
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$SSH_KEY" > ~/.ssh/deploy.key
+          chmod 600 ~/.ssh/deploy.key
+          cat >>~/.ssh/config <<END
+          Host deploy-server
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/deploy.key
+            StrictHostKeyChecking no
+          END
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+      - name: Stop the server
+        run: ssh deploy-server 'cd ~/apps/api_ashes_live && ./stop'
+      - name: Check out source
+        run: ssh deploy-server 'cd ~/apps/api_ashes_live/api.ashes.live && git fetch && git reset --hard origin/main'
+      - name: Update dependencies & run migrations
+        run: ssh deploy-server 'cd ~/apps/api_ashes_live && ./update'
+      - name: Start the server
+        if: ${{ always() }}
+        run: ssh deploy-server '~/apps/api_ashes_live && ./start'
