@@ -9,6 +9,9 @@ version = "2.0.0a1"
 license = "ISC"
 readme = "README.md"
 authors = ["Ian Beck <ian@onecrayon.com>"]
+packages =[
+    { include = "api" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.10.5"
