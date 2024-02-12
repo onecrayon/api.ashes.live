@@ -57,7 +57,7 @@ testing data in your database (note: this may fail if you have never run `make r
 **Please note:** if you do *not* use the example data, you will need to install the extension
 `pgcrypto` before running any migrations (via the SQL `create extension pgcrypto;`).
 
-At this point, you can execute `make run` to start a local development server, and view your
+At this point, you can execute `make up` to start a local development server, and view your
 site's API documentation at <http:localhost:8000>.
 
 From within the API docs, you can query the API directly and inspect its output. If you need
