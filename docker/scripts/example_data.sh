@@ -3,7 +3,7 @@
 echo 'Populating example data...'
 
 # Source the functions we need to get the database up and running
-source /docker-entrypoint.sh
+source ./usr/local/bin/docker-entrypoint.sh
 
 # Launch the temporary server using the same logic as the entrypoint
 export PGPASSWORD="${PGPASSWORD:-$POSTGRES_PASSWORD}"
