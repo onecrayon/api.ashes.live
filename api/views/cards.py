@@ -266,6 +266,80 @@ def list_cards(
 
 
 @router.get(
+    "/cards/fuzzy-lookup",
+    response_model=CardOut,
+    response_model_exclude_unset=True,
+    responses={404: {"model": DetailResponse}}
+)
+def get_card_fuzzy_lookup(
+    q: str, show_legacy: bool = False, session: db.Session = Depends(get_session)
+):
+    """Returns a single card using fuzzy lookup logic
+
+    This is similar to querying `/cards` limited to a single result, except that it applies the
+    following heuristics when searching for cards:
+
+    * Preference the card with the search term in its stub
+    * Preference the card without "summon" in its stub if "summon" is not in the query
+    * Preference the card with "summon" in its stub if "summon" is in the query
+    """
+    # Make sure we have a search term
+    if not q or not q.strip():
+        raise APIException(detail="Query string is required.")
+    query = session.query(Card).join(Card.release).filter(Release.is_public.is_(True))
+    if show_legacy:
+        query = query.filter(Card.is_legacy.is_(True))
+    else:
+        query = query.filter(Card.is_legacy.is_(False))
+    stub_search = stubify(q)
+    search_vector = db.func.to_tsvector("english", Card.search_text)
+    prefixed_query = to_prefixed_tsquery(q)
+    query = query.filter(
+        db.or_(
+            search_vector.match(
+                prefixed_query
+            ),
+            Card.stub.like(f"%{stub_search}%"),
+        )
+    )
+    # Order by search ranking
+    possible_cards = query.order_by(Card.name.asc()).all()
+    if not possible_cards:
+        raise NotFoundException(detail="No matching cards found.")
+    ranks_with_matches = []
+    # We use this to calculate boost offsets for our three conditions (exact stub match,
+    #  partial stub match, "summon")
+    base_upper_rank = len(possible_cards)
+    # We use this to track the original Postgres alphabetical ordering (our fallback). I originally
+    #  tested this using the full text ranking, and it was incredibly opaque, so tossed that.
+    db_rank = base_upper_rank
+    for card in possible_cards:
+        rank = db_rank
+        # First check for exact stub matches, and give those greatest preference
+        if (
+            card.stub == stub_search
+            or card.stub.startswith(f"{stub_search}-")
+            or card.stub.endswith(f"-{stub_search}")
+            or f"-{stub_search}-" in card.stub
+        ):
+            rank += (base_upper_rank * 3)
+        elif stub_search in card.stub:
+            # We have some level of partial stub match, so give that a big preference boost
+            rank += (base_upper_rank * 2)
+        # And then boost things based on whether "summon" exists (or does not) in both terms
+        if (
+            ("summon" in stub_search and "summon" in card.stub)
+            or ("summon" not in stub_search and "summon" not in card.stub)
+        ):
+            rank += (base_upper_rank + 1)
+        ranks_with_matches.append((rank, card))
+        db_rank -= 1
+    # Sort our cards in descending rank order, then return the JSON from the first result
+    ranks_with_matches.sort(key=lambda x: x[0], reverse=True)
+    return ranks_with_matches[0][1].json
+
+
+@router.get(
     "/cards/{stub}",
     response_model=CardOut,
     response_model_exclude_unset=True,

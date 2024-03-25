@@ -7,18 +7,8 @@ from api.services.stream import create_entity
 from api.tests.utils import create_user_token
 
 
-def test_get_legacy_card(client: TestClient, session: db.Session):
+def test_get_legacy_card(client: TestClient):
     """Must be able to read JSON for a legacy card"""
-    # This is handled by a migration normally (legacy cards can't normally be created by this API)
-    card = (
-        session.query(Card)
-        .filter(Card.stub == "example-phoenixborn", Card.is_legacy == True)
-        .first()
-    )
-    card.json["release"]["is_legacy"] = True
-    card.json["is_legacy"] = True
-    db.flag_modified(card, "json")
-    session.commit()
     response = client.get("/v2/cards/example-phoenixborn", params={"show_legacy": True})
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["is_legacy"] == True, response.json()
@@ -104,3 +94,39 @@ def test_get_details_last_seen_entity_id(client: TestClient, session: db.Session
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["last_seen_entity_id"] == comment.entity_id
+
+
+def test_get_card_fuzzy_lookup_required_query(client: TestClient):
+    """Must require querystring"""
+    response = client.get("/v2/cards/fuzzy-lookup")
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    response = client.get("/v2/cards/fuzzy-lookup?q=%20%20")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_get_card_fuzzy_lookup_legacy(client: TestClient):
+    """Must fetch legacy cards properly"""
+    response = client.get("/v2/cards/fuzzy-lookup?q=action&show_legacy=true")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["is_legacy"] is True, data
+
+
+def test_get_card_fuzzy_lookup_bad_query(client: TestClient):
+    """Must throw appropriate error when search returns no results"""
+    response = client.get("/v2/cards/fuzzy-lookup?q=nada")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_get_card_fuzzy_lookup_exact_stub(client: TestClient):
+    """Must correctly select when the stub is exact"""
+    response = client.get("/v2/cards/fuzzy-lookup?q=Example%20Conjuration")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["stub"] == "example-conjuration"
+
+
+def test_get_fuzzy_lookup_summon_stub(client: TestClient):
+    response = client.get("/v2/cards/fuzzy-lookup?q=Summon%20Example")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["stub"] == "summon-example-conjuration"

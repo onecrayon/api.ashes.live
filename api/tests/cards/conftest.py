@@ -127,6 +127,10 @@ def _create_cards_for_filtration(session: db.Session, is_legacy=False):
     if is_legacy:
         for card in cards:
             card.is_legacy = True
+            # This is normally handled by a migration, since legacy cards can't be added
+            card.json["release"]["is_legacy"] = True
+            card.json["is_legacy"] = True
+            db.flag_modified(card, "json")
         session.commit()
 
 
