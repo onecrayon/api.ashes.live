@@ -269,7 +269,7 @@ def list_cards(
     "/cards/fuzzy-lookup",
     response_model=CardOut,
     response_model_exclude_unset=True,
-    responses={404: {"model": DetailResponse}}
+    responses={404: {"model": DetailResponse}},
 )
 def get_card_fuzzy_lookup(
     q: str, show_legacy: bool = False, session: db.Session = Depends(get_session)
@@ -296,9 +296,7 @@ def get_card_fuzzy_lookup(
     prefixed_query = to_prefixed_tsquery(q)
     query = query.filter(
         db.or_(
-            search_vector.match(
-                prefixed_query
-            ),
+            search_vector.match(prefixed_query),
             Card.stub.like(f"%{stub_search}%"),
         )
     )
@@ -322,16 +320,15 @@ def get_card_fuzzy_lookup(
             or card.stub.endswith(f"-{stub_search}")
             or f"-{stub_search}-" in card.stub
         ):
-            rank += (base_upper_rank * 3)
+            rank += base_upper_rank * 3
         elif stub_search in card.stub:
             # We have some level of partial stub match, so give that a big preference boost
-            rank += (base_upper_rank * 2)
+            rank += base_upper_rank * 2
         # And then boost things based on whether "summon" exists (or does not) in both terms
-        if (
-            ("summon" in stub_search and "summon" in card.stub)
-            or ("summon" not in stub_search and "summon" not in card.stub)
+        if ("summon" in stub_search and "summon" in card.stub) or (
+            "summon" not in stub_search and "summon" not in card.stub
         ):
-            rank += (base_upper_rank + 1)
+            rank += base_upper_rank + 1
         ranks_with_matches.append((rank, card))
         db_rank -= 1
     # Sort our cards in descending rank order, then return the JSON from the first result
