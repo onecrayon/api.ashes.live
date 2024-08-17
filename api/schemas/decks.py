@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import Query
-from pydantic import UUID4, BaseModel, Field, validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
 from api.schemas import DetailResponse
 from api.schemas.pagination import PaginatedResultsBase
@@ -80,7 +80,8 @@ class DeckDice(BaseModel):
     )
     name: str
 
-    @validator("name")
+    @field_validator("name")
+    @classmethod
     def name_is_valid_dice_type(cls, value):
         value = value.lower()
         # This is a common mistake, so we'll just handle it (on the off chance people are using the
@@ -124,9 +125,7 @@ class DeckOut(BaseModel):
     is_red_rains: bool = None
     ashes_500_score: int = None
     ashes_500_revision_id: int = None
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DeckSaveOut(DeckOut):
@@ -253,7 +252,7 @@ class SnapshotIn(BaseModel):
     is_public: bool = Field(
         False, description="Whether this snapshot should be published publicly."
     )
-    include_first_five = Field(
+    include_first_five: bool = Field(
         False,
         description="For public snapshots, whether this snapshot should include your selected First Five cards.",
     )

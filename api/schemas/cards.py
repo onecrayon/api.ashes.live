@@ -291,6 +291,8 @@ class CardIn(BaseModel):
     spellboard: str = None
     copies: int = None
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator("placement", always=True)
     def placement_required_without_phoenixborn(cls, val, values):
         """Placement is required if this isn't a Phoenixborn"""
@@ -302,6 +304,8 @@ class CardIn(BaseModel):
             raise ValueError("required for non-Phoenixborn cards")
         return val
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator("copies", always=True)
     def copies_required_for_conjurations(cls, val, values):
         """Copies is required for all conjured cards"""

@@ -1,4 +1,4 @@
-from pydantic import UUID4, BaseModel, EmailStr, Field, validator
+from pydantic import ConfigDict, UUID4, BaseModel, EmailStr, Field, validator
 
 
 class UserEmailIn(BaseModel):
@@ -13,6 +13,8 @@ class UserSetPasswordIn(BaseModel):
     password: str = Field(..., min_length=8, max_length=50)
     password_confirm: str = Field(..., min_length=8, max_length=50)
 
+    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
+    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
     @validator("password_confirm")
     def passwords_match(cls, v, values, **kwargs):
         if "password" in values and v != values["password"]:
@@ -46,22 +48,20 @@ class UserBasicOut(BaseModel):
 
     username: str
     badge: str
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserPublicOut(UserBasicOut):
     """Public user information"""
 
-    description: str | None
+    description: str | None = None
 
 
 class UserSelfOut(UserPublicOut):
     """Private user information"""
 
     email: str
-    reset_uuid: UUID4 | None
+    reset_uuid: UUID4 | None = None
     newsletter_opt_in: bool
     email_subscriptions: bool
     exclude_subscriptions: bool
@@ -103,9 +103,7 @@ class UserModerationOut(BaseModel):
     """Response after moderating a user"""
 
     username: str
-    description: str | None
+    description: str | None = None
     is_banned: bool
     moderation_notes: str
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

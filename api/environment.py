@@ -4,7 +4,8 @@ Typical usage:
 
     from api.environment import settings
 """
-from pydantic import BaseSettings
+
+from pydantic_settings import BaseSettings
 
 
 class ApplicationSettings(BaseSettings):

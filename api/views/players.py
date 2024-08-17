@@ -3,7 +3,6 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import UUID4
-from pydantic.error_wrappers import ErrorWrapper
 
 from api import db
 from api.depends import (
@@ -145,12 +144,7 @@ def update_my_password(
         # We need to fake a normal validation error, because we can't really do this in the schema
         #  (need access to the database session for the password verification)
         raise RequestValidationError(
-            errors=(
-                ErrorWrapper(
-                    exc=ValueError("Current password is invalid."),
-                    loc="current_password",
-                ),
-            )
+            errors=(ValueError("Current password is invalid."),)
         )
     current_user.password = generate_password_hash(updates.password)
     session.commit()
