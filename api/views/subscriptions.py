@@ -60,7 +60,12 @@ def create_subscription(
         .first()
     )
     if subscription:
-        return {"last_seen_entity_id": subscription.last_seen_entity_id}
+        # The front-end expects that if last_seen_entity_id is None it means we are not subscribed,
+        #  so this is a bit of a hack to ensure that it always has some sort of value for comparison
+        last_seen_entity_id = (
+            subscription.last_seen_entity_id if subscription.last_seen_entity_id else 1
+        )
+        return {"last_seen_entity_id": last_seen_entity_id}
 
     # Look up the most recently seen entity ID (assumes that they subscribed from the detail page, since it's silly to
     #  force them to immediately update the last seen ID after subscribing).
@@ -84,16 +89,21 @@ def create_subscription(
             .first()
         )
 
+    last_seen_entity_id = last_seen.entity_id if last_seen else None
+
     # Create a new subscription
     session.add(
         Subscription(
             user_id=current_user.id,
             source_entity_id=entity_id,
-            last_seen_entity_id=last_seen.entity_id,
+            last_seen_entity_id=last_seen_entity_id,
         )
     )
     session.commit()
-    return {"last_seen_entity_id": last_seen.entity_id}
+
+    # As above, we must coerce our entity ID into a positive number to ensure the front-end
+    #  recognizes the subscription
+    return {"last_seen_entity_id": last_seen_entity_id if last_seen_entity_id else 1}
 
 
 @router.delete(
