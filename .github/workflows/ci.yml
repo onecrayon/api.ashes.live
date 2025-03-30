@@ -54,11 +54,6 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: test
           SECRET_KEY: testsecret
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          fail_ci_if_error: true
-          flags: unittest
   cd:
     name: Deploy
     runs-on: ubuntu-latest
