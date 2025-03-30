@@ -10,8 +10,10 @@ def stubify(text: str) -> str:
     return re.sub(r"[^a-z0-9-]", "", text.lower().replace(" ", "-"), flags=re.I)
 
 
-def str_or_int(value: str) -> str | int:
+def str_or_int(value: str | None) -> str | int | None:
     """Converts to an integer, but only if it's nothing but digits"""
+    if value is None:
+        return value
     if isinstance(value, int):
         return value
     if re.fullmatch(r"\d+", value):

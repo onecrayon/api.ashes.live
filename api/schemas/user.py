@@ -1,4 +1,6 @@
-from pydantic import ConfigDict, UUID4, BaseModel, EmailStr, Field, validator
+from typing import Self
+
+from pydantic import UUID4, BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 
 class UserEmailIn(BaseModel):
@@ -13,13 +15,11 @@ class UserSetPasswordIn(BaseModel):
     password: str = Field(..., min_length=8, max_length=50)
     password_confirm: str = Field(..., min_length=8, max_length=50)
 
-    # TODO[pydantic]: We couldn't refactor the `validator`, please replace it by `field_validator` manually.
-    # Check https://docs.pydantic.dev/dev-v2/migration/#changes-to-validators for more information.
-    @validator("password_confirm")
-    def passwords_match(cls, v, values, **kwargs):
-        if "password" in values and v != values["password"]:
+    @model_validator(mode="after")
+    def passwords_match(self) -> Self:
+        if self.password != self.password_confirm:
             raise ValueError("Passwords do not match.")
-        return v
+        return self
 
 
 class UserSelfPasswordIn(UserSetPasswordIn):
@@ -90,9 +90,9 @@ class UserSelfIn(BaseModel):
 class UserModerationIn(BaseModel):
     """Moderate a user"""
 
-    username: str = None
-    description: str = None
-    is_banned: bool = False
+    username: str | None = None
+    description: str | None = None
+    is_banned: bool | None = False
     moderation_notes: str = Field(
         ...,
         description="Required notes about what and why moderation actions were taken. May be exposed to the moderated user.",

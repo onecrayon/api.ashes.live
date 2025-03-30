@@ -1,4 +1,4 @@
-from pydantic import ConfigDict, BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ReleaseOut(BaseModel):
@@ -10,8 +10,9 @@ class ReleaseOut(BaseModel):
 
     name: str
     stub: str
-    is_mine: bool = None
-    is_legacy: bool = None
+    is_mine: bool | None = None
+    is_legacy: bool | None = None
+
     model_config = ConfigDict(from_attributes=True)
 
 

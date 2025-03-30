@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import ConfigDict, BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .pagination import PaginatedResultsBase
 from .user import UserBasicOut
@@ -25,7 +25,7 @@ class CommentOut(BaseModel):
             "Only shown for cards; can be used to highlight comments that apply to previous versions of the card."
         ),
     )
-    text: str = None
+    text: str | None = None
     ordering_increment: int = Field(
         ...,
         description=(
