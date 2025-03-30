@@ -4,7 +4,6 @@
 # and is automatically loaded when running a docker-compose command without passing
 # specific files with the `-f` flag.
 
-version: '3.7'
 services:
     postgres:
         image: postgres:11
