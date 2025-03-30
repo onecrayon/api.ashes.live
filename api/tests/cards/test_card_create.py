@@ -137,9 +137,9 @@ def test_create_card_missing_conjuration(client: TestClient, session: db.Session
     """Creating a card requires all conjurations to be created first"""
     admin, token = create_admin_token(session)
     card_data = copy(MINIMUM_VALID_CARD)
-    card_data[
-        "text"
-    ] = "Place a [[Missing Conjuration]] conjuration on your battlefield."
+    card_data["text"] = (
+        "Place a [[Missing Conjuration]] conjuration on your battlefield."
+    )
     response = client.post(
         "/v2/cards",
         json=card_data,

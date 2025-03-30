@@ -2,6 +2,7 @@
 
 View router and application logic
 """
+
 from . import (
     auth,
     cards,

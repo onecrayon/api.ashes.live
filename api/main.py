@@ -1,4 +1,5 @@
 """Configures the main FastAPI app and routes"""
+
 import logging
 
 from fastapi import FastAPI

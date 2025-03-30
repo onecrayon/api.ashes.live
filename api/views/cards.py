@@ -194,9 +194,12 @@ def list_cards(
                 dice_filters.append(
                     db.and_(
                         Card.dice_flags == sum(subset),
-                        Card.alt_dice_flags.op("&")(missing_values) == missing_values
-                        if missing_values
-                        else Card.alt_dice_flags == missing_values,
+                        (
+                            Card.alt_dice_flags.op("&")(missing_values)
+                            == missing_values
+                            if missing_values
+                            else Card.alt_dice_flags == missing_values
+                        ),
                     )
                 )
         elif dice_set != {"basic"}:
@@ -545,12 +548,14 @@ def get_card_details(
     return {
         "card": card.json,
         "usage": counts,
-        "preconstructed_deck": {
-            "id": preconstructed.source_id,
-            "title": preconstructed.title,
-        }
-        if preconstructed
-        else None,
+        "preconstructed_deck": (
+            {
+                "id": preconstructed.source_id,
+                "title": preconstructed.title,
+            }
+            if preconstructed
+            else None
+        ),
         "related_cards": related_cards,
         "entity_id": card.entity_id,
         "last_seen_entity_id": last_seen_entity_id,

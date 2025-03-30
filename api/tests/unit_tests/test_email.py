@@ -40,9 +40,9 @@ def _set_sender_token(
     utils.monkeypatch_settings(
         monkeypatch,
         {
-            "mail_sender_address": utils.generate_random_email()
-            if sender_email
-            else None,
+            "mail_sender_address": (
+                utils.generate_random_email() if sender_email else None
+            ),
             "sendgrid_api_key": SendGridAPIMock.VALID_TOKEN if sendgrid_token else None,
         },
     )
