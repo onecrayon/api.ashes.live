@@ -1,6 +1,7 @@
 from enum import Enum
+from typing import Annotated, Self
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, BeforeValidator, Field, model_validator
 
 from api.utils.helpers import str_or_int
 
@@ -101,9 +102,9 @@ class CardReleaseEmbeddedOut(BaseModel):
     name: str
     stub: str
     # These are only include on legacy cards
-    is_phg: bool = None
-    is_promo: bool = None
-    is_retiring: bool = None
+    is_phg: bool | None = None
+    is_promo: bool | None = None
+    is_retiring: bool | None = None
 
 
 class CardMinimalOut(BaseModel):
@@ -123,28 +124,23 @@ class CardOut(BaseModel):
     stub: str
     type: str
     release: CardReleaseEmbeddedOut
-    placement: str = None
-    cost: list[list[str] | str] = None
-    dice: list[str] = None
-    altDice: list[str] = None
-    magicCost: dict[str, int] = None
-    effectMagicCost: dict[str, int] = None
-    text: str = None
-    conjurations: list[CardMinimalOut] = None
-    phoenixborn: str = None
-    attack: str | int = None
+    placement: str | None = None
+    cost: list[list[str] | str] | None = None
+    dice: list[str] | None = None
+    altDice: list[str] | None = None
+    magicCost: dict[str, int] | None = None
+    effectMagicCost: dict[str, int] | None = None
+    text: str | None = None
+    conjurations: list[CardMinimalOut] | None = None
+    phoenixborn: str | None = None
+    attack: Annotated[str | int | None, BeforeValidator(str_or_int)] = None
     battlefield: int = None
-    life: str | int = None
-    recover: str | int = None
-    spellboard: int = None
-    copies: int = None
-    effectRepeats: bool = None
-    is_legacy: bool = None
-
-    # Custom parsing to ensure proper stats output
-    _parse_attack = validator("attack", allow_reuse=True)(str_or_int)
-    _parse_life = validator("life", allow_reuse=True)(str_or_int)
-    _parse_recover = validator("recover", allow_reuse=True)(str_or_int)
+    life: Annotated[str | int | None, BeforeValidator(str_or_int)] = None
+    recover: Annotated[str | int | None, BeforeValidator(str_or_int)] = None
+    spellboard: int | None = None
+    copies: int | None = None
+    effectRepeats: bool | None = None
+    is_legacy: bool | None = None
 
 
 class CardUsageCounts(BaseModel):
@@ -161,12 +157,12 @@ class RelatedCardLists(BaseModel):
     *or* `summoning_cards` and `conjurations`, but not both sets.
     """
 
-    summoning_cards: list[CardMinimalOut] = None
-    conjurations: list[CardMinimalOut] = None
-    phoenixborn: CardMinimalOut = None
-    phoenixborn_conjurations: list[CardMinimalOut] = None
-    phoenixborn_unique: CardMinimalOut = None
-    phoenixborn_unique_conjurations: list[CardMinimalOut] = None
+    summoning_cards: list[CardMinimalOut] | None = None
+    conjurations: list[CardMinimalOut] | None = None
+    phoenixborn: CardMinimalOut | None = None
+    phoenixborn_conjurations: list[CardMinimalOut] | None = None
+    phoenixborn_unique: CardMinimalOut | None = None
+    phoenixborn_unique_conjurations: list[CardMinimalOut] | None = None
 
 
 class PreconstructedDeck(BaseModel):
@@ -184,14 +180,14 @@ class CardDetails(BaseModel):
 
     card: CardOut
     usage: CardUsageCounts
-    preconstructed_deck: PreconstructedDeck = None
-    phoenixborn_card: CardMinimalOut = None
-    phoenixborn_conjurations: list[CardMinimalOut] = None
+    preconstructed_deck: PreconstructedDeck | None = None
+    phoenixborn_card: CardMinimalOut | None = None
+    phoenixborn_conjurations: list[CardMinimalOut] | None = None
     related_cards: RelatedCardLists
     entity_id: int = Field(
         ..., description="The card's entity ID (for fetching/posting comments)."
     )
-    last_seen_entity_id: int = Field(
+    last_seen_entity_id: int | None = Field(
         None,
         description=(
             "If the user is subscribed to this card, this will be the highest entity ID for comments that they have "
@@ -278,38 +274,32 @@ class CardIn(BaseModel):
         None,
         description="Dice types that are only required by parallel costs, optional effect costs, etc. If `null` will be calculated based on `cost` and `effect_magic_cost`.",
     )
-    phoenixborn: str = Field(
+    phoenixborn: str | None = Field(
         None,
         min_length=3,
         max_length=30,
         description="The full name of the Phoenixborn for whom this card is unique.",
     )
-    attack: str = None
-    battlefield: str = None
-    life: str = None
-    recover: str = None
-    spellboard: str = None
-    copies: int = None
+    attack: str | None = None
+    battlefield: str | None = None
+    life: str | None = None
+    recover: str | None = None
+    spellboard: str | None = None
+    copies: int | None = None
 
-    @validator("placement", always=True)
-    def placement_required_without_phoenixborn(cls, val, values):
+    @model_validator(mode="after")
+    def placement_required_without_phoenixborn(self) -> Self:
         """Placement is required if this isn't a Phoenixborn"""
-        if (
-            not val
-            and "card_type" in values
-            and values["card_type"] != CardType.phoenixborn
-        ):
+        if not self.placement and self.card_type != CardType.phoenixborn:
             raise ValueError("required for non-Phoenixborn cards")
-        return val
+        return self
 
-    @validator("copies", always=True)
-    def copies_required_for_conjurations(cls, val, values):
+    @model_validator(mode="after")
+    def copies_required_for_conjurations(self) -> Self:
         """Copies is required for all conjured cards"""
-        if (
-            not val
-            and "card_type" in values
-            and values["card_type"]
-            in (CardType.conjuration, CardType.conjured_alteration_spell)
+        if not self.copies and self.card_type in (
+            CardType.conjuration,
+            CardType.conjured_alteration_spell,
         ):
             raise ValueError("required for conjurations and conjured alteration spells")
-        return val
+        return self

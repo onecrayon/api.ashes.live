@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import Query
-from pydantic import UUID4, BaseModel, Field, validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
 from api.schemas import DetailResponse
 from api.schemas.pagination import PaginatedResultsBase
@@ -13,7 +13,7 @@ class DeckFiltersMine:
 
     def __init__(
         self,
-        q: str = None,
+        q: str | None = None,
         phoenixborn: list[str] | None = Query(None),
         card: list[str] | None = Query(None),
         show_legacy: bool = False,
@@ -31,7 +31,7 @@ class DeckFilters:
 
     def __init__(
         self,
-        q: str = None,
+        q: str | None = None,
         phoenixborn: list[str] | None = Query(None),
         card: list[str] | None = Query(None),
         show_legacy: bool = False,
@@ -56,7 +56,7 @@ class PhoenixbornCardOut(BaseModel):
     battlefield: int
     life: int
     spellboard: int
-    is_legacy: bool = None
+    is_legacy: bool | None = None
 
 
 class DeckCardOut(BaseModel):
@@ -66,8 +66,8 @@ class DeckCardOut(BaseModel):
     name: str
     stub: str
     type: str
-    phoenixborn: str = None
-    is_legacy: bool = None
+    phoenixborn: str | None = None
+    is_legacy: bool | None = None
 
 
 class DeckDice(BaseModel):
@@ -80,7 +80,8 @@ class DeckDice(BaseModel):
     )
     name: str
 
-    @validator("name")
+    @field_validator("name")
+    @classmethod
     def name_is_valid_dice_type(cls, value):
         value = value.lower()
         # This is a common mistake, so we'll just handle it (on the off chance people are using the
@@ -105,12 +106,12 @@ class DeckOut(BaseModel):
 
     id: int
     entity_id: int
-    source_id: int = None
-    direct_share_uuid: UUID4 = Field(
+    source_id: int | None = None
+    direct_share_uuid: UUID4 | None = Field(
         None,
         description="Only included for public snapshots, or decks/snapshots owned by the requesting user. This UUID is used to directly access deck details without requiring authentication (e.g. for private sharing).",
     )
-    title: str = None
+    title: str | None = None
     created: datetime
     modified: datetime
     user: UserBasicOut
@@ -118,21 +119,20 @@ class DeckOut(BaseModel):
     phoenixborn: PhoenixbornCardOut
     cards: list[DeckCardOut]
     conjurations: list[DeckCardOut]
-    is_public: bool = None
-    is_snapshot: bool = None
-    is_legacy: bool = None
-    is_red_rains: bool = None
-    ashes_500_score: int = None
-    ashes_500_revision_id: int = None
+    is_public: bool | None = None
+    is_snapshot: bool | None = None
+    is_legacy: bool | None = None
+    is_red_rains: bool | None = None
+    ashes_500_score: int | None = None
+    ashes_500_revision_id: int | None = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DeckSaveOut(DeckOut):
     """Full deck information returned from saving endpoint"""
 
-    description: str = None
+    description: str | None = None
     first_five: list[str] = Field(
         None,
         description="A list of up to five card stubs intended as the typical First Five. May not be included for public snapshots (owners can opt out of displaying it).",
@@ -151,11 +151,11 @@ class DeckFullOut(DeckSaveOut):
     """Full deck information."""
 
     # These are generated properties; not innate parts of the Deck model
-    is_saved: bool = Field(
+    is_saved: bool | None = Field(
         None,
         description="Only included when directly accessing the most recently saved copy of a deck by the owner.",
     )
-    comments_entity_id: int = None
+    comments_entity_id: int | None = None
 
 
 class DeckRelease(BaseModel):
@@ -163,8 +163,8 @@ class DeckRelease(BaseModel):
 
     name: str
     stub: str
-    is_legacy: bool = None
-    preconstructed_deck_id: int = None
+    is_legacy: bool | None = None
+    preconstructed_deck_id: int | None = None
 
 
 class DeckDetails(BaseModel):
@@ -172,11 +172,11 @@ class DeckDetails(BaseModel):
 
     deck: DeckFullOut
     releases: list[DeckRelease]
-    has_published_snapshot: bool = Field(
+    has_published_snapshot: bool | None = Field(
         None,
         description="Set to true for private decks and snapshots if they have a public snapshot available.",
     )
-    last_seen_entity_id: int = Field(
+    last_seen_entity_id: int | None = Field(
         None,
         description=(
             "If the user is subscribed to this deck, this will be the highest entity ID for comments or deck snapshots "
@@ -206,14 +206,14 @@ class DeckCardIn(BaseModel):
 
 
 class DeckIn(BaseModel):
-    id: int = Field(
+    id: int | None = Field(
         None, description="If no `id` is provided, a new deck will be created."
     )
-    title: str = Field(
+    title: str | None = Field(
         None,
         max_length=255,
     )
-    description: str = None
+    description: str | None = None
     dice: list[DeckDice] = None
     phoenixborn: str | dict[str, str | int] = Field(
         ...,
@@ -253,7 +253,7 @@ class SnapshotIn(BaseModel):
     is_public: bool = Field(
         False, description="Whether this snapshot should be published publicly."
     )
-    include_first_five = Field(
+    include_first_five: bool = Field(
         False,
         description="For public snapshots, whether this snapshot should include your selected First Five cards.",
     )

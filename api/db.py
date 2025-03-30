@@ -5,6 +5,7 @@ Typical usage:
     class SomeModel(db.AlchemyBase):
         id = db.Column(db.Integer, primary_key=True)
 """
+
 from sqlalchemy import (
     BigInteger,
     Binary,

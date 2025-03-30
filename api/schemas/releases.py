@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ReleaseOut(BaseModel):
@@ -10,11 +10,10 @@ class ReleaseOut(BaseModel):
 
     name: str
     stub: str
-    is_mine: bool = None
-    is_legacy: bool = None
+    is_mine: bool | None = None
+    is_legacy: bool | None = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ReleaseOutAdmin(BaseModel):
@@ -27,9 +26,7 @@ class ReleaseOutAdmin(BaseModel):
     stub: str
     is_legacy: bool
     is_public: bool
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ReleaseIn(BaseModel):

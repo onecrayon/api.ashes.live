@@ -29,6 +29,6 @@ class PaginatedResultsBase(BaseModel):
     """
 
     count: int = 0
-    next: str = None
-    previous: str = None
+    next: str | None = None
+    previous: str | None = None
     results: list[Any] = []

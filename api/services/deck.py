@@ -378,9 +378,9 @@ def add_conjurations(card_id_to_conjuration_mapping, root_card_id, conjuration_s
         if conjuration.json.get("conjurations"):
             # Trigger our implicit SQL lookup if we haven't cached it before
             if not card_id_to_conjuration_mapping.get(conjuration.id):
-                card_id_to_conjuration_mapping[
-                    conjuration.id
-                ] = conjuration.conjurations
+                card_id_to_conjuration_mapping[conjuration.id] = (
+                    conjuration.conjurations
+                )
             add_conjurations(
                 card_id_to_conjuration_mapping, conjuration.id, conjuration_set
             )

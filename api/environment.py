@@ -4,7 +4,8 @@ Typical usage:
 
     from api.environment import settings
 """
-from pydantic import BaseSettings
+
+from pydantic_settings import BaseSettings
 
 
 class ApplicationSettings(BaseSettings):
@@ -27,12 +28,12 @@ class ApplicationSettings(BaseSettings):
     pagination_max_limit: int = 100
 
     # Email properties
-    mail_sender_address: str = None
-    mail_debug_recipient: str = None
+    mail_sender_address: str | None = None
+    mail_debug_recipient: str | None = None
 
-    sendgrid_api_key: str = None
-    sendgrid_invite_template: str = None
-    sendgrid_reset_template: str = None
+    sendgrid_api_key: str | None = None
+    sendgrid_invite_template: str | None = None
+    sendgrid_reset_template: str | None = None
 
     @property
     def access_token_expiry(self) -> int:

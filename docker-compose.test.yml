@@ -5,7 +5,6 @@
 # merging logic wasn't working well (always conflicted over ports with the default
 # database if it were running).
 
-version: '3.7'
 services:
     postgres:
         image: postgres:11.7

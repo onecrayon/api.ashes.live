@@ -199,9 +199,11 @@ def create_card(
                 if isinstance(cost_entry, str)
                 else cost_entry
             )
-            effect_cost_list.append(split_cost) if len(
-                split_cost
-            ) > 1 else effect_cost_list.append(split_cost[0])
+            (
+                effect_cost_list.append(split_cost)
+                if len(split_cost) > 1
+                else effect_cost_list.append(split_cost[0])
+            )
     # Convert our cost lists into magicCost and effectMagicCost mappings
     json_magic_cost = parse_costs_to_mapping(json_cost_list)
     json_effect_cost = parse_costs_to_mapping(effect_cost_list)

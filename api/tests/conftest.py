@@ -8,6 +8,7 @@
         response = client.get("/my-endpoint/")
         assert response.status_code == status.HTTP_200_OK
 """
+
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
