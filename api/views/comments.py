@@ -31,7 +31,7 @@ router = APIRouter()
 
 def comment_out(comment: "Comment", current_user: "UserType") -> "CommentOut":
     """Utility method for ensuring that we don't pass text for deleted comments unless an admin queries them."""
-    output = CommentOut.from_orm(comment)
+    output = CommentOut.model_validate(comment)
     if not comment.is_deleted or (
         not current_user.is_anonymous() and current_user.is_admin
     ):

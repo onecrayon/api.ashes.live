@@ -124,7 +124,7 @@ def update_my_data(
     session: db.Session = Depends(get_session),
 ):
     """Update user information for the logged-in user."""
-    update_dict = updates.dict(exclude_unset=True)
+    update_dict = updates.model_dump(exclude_unset=True)
     for key, value in update_dict.items():
         setattr(current_user, key, value)
     session.commit()
@@ -192,7 +192,7 @@ def moderate_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You cannot moderate yourself.",
         )
-    update_dict = updates.dict(exclude_unset=True)
+    update_dict = updates.model_dump(exclude_unset=True)
     if "is_banned" in update_dict:
         user.is_banned = update_dict["is_banned"]
         user.moderation_notes = update_dict["moderation_notes"]

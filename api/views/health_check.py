@@ -14,7 +14,7 @@ router = APIRouter()
 # Construct example error output for OpenAPI spec
 _error_out_example = HealthCheckOut()
 _error_out_example.services.database = HealthCheckStatusResponses.error
-_error_out_example = _error_out_example.has_errors and _error_out_example.dict()
+_error_out_example = _error_out_example.has_errors and _error_out_example.model_dump()
 
 
 @router.get(

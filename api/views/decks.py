@@ -407,8 +407,8 @@ def save_deck(
             deck_id=data.id,
             title=data.title,
             description=data.description,
-            dice=[x.dict() for x in data.dice] if data.dice else None,
-            cards=[x.dict() for x in data.cards] if data.cards else None,
+            dice=[x.model_dump() for x in data.dice] if data.dice else None,
+            cards=[x.model_dump() for x in data.cards] if data.cards else None,
             first_five=data.first_five,
             effect_costs=data.effect_costs,
             tutor_map=data.tutor_map,
@@ -767,9 +767,11 @@ def clone_deck(
         title=f"Copy of {deck.title}",
         description=deck.description,
         # Only track source IDs if we own the source or it's a public snapshot
-        source_id=deck.id
-        if current_user.id == deck.user_id or (deck.is_snapshot and deck.is_public)
-        else None,
+        source_id=(
+            deck.id
+            if current_user.id == deck.user_id or (deck.is_snapshot and deck.is_public)
+            else None
+        ),
         user_id=current_user.id,
         phoenixborn_id=deck.phoenixborn_id,
         is_red_rains=red_rains,
