@@ -112,6 +112,12 @@ class Card(db.AlchemyBase):
             else_=len(CARD_TYPE_ORDER),
         )
 
+    @property
+    def search_keywords(self) -> str | None:
+        if self.search_text.startswith(f"{self.name}\n"):
+            return None
+        return self.search_text.split("\n", 1)[0].replace(f"{self.name} ", "")
+
     @staticmethod
     def dice_to_flags(dice_list: list[str] | None) -> int:
         """Converts from a list of dice names to an integer flag; basic == 0"""

@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from api import db
 from api.models import Card, Comment, Subscription
 from api.services.stream import create_entity
-from api.tests.utils import create_user_token
+from api.tests.utils import create_admin_token, create_user_token
 
 
 def test_get_legacy_card(client: TestClient):
@@ -19,6 +19,52 @@ def test_get_card(client: TestClient, session: db.Session):
     response = client.get("/v2/cards/example-phoenixborn")
     assert response.status_code == status.HTTP_200_OK
     assert "is_legacy" not in response.json(), response.json()
+
+
+def test_get_card_for_update_anonymous(client: TestClient, session: db.Session):
+    """Anonymous users cannot get update details for a card, but do get a response"""
+    response = client.get("/v2/cards/example-phoenixborn", params={"for_update": True})
+    assert response.status_code == status.HTTP_200_OK
+    assert "is_errata" not in response.json(), response.json()
+
+
+def test_get_card_for_update_user(client: TestClient, session: db.Session):
+    """Normal users cannot get update details for a card, but do get a response"""
+    user, token = create_user_token(session)
+    response = client.get(
+        "/v2/cards/example-phoenixborn",
+        params={"for_update": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert "is_errata" not in response.json(), response.json()
+
+
+def test_get_card_for_update_admin(client: TestClient, session: db.Session):
+    """Admins can get update details"""
+    admin, token = create_admin_token(session)
+    response = client.get(
+        "/v2/cards/example-phoenixborn",
+        params={"for_update": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert "is_errata" in response.json(), response.json()
+
+
+def test_get_card_for_update_search_keywords(client: TestClient, session: db.Session):
+    """Search keywords are rendered correctly to update output for admins"""
+    card = session.query(Card).filter(Card.stub == "example-phoenixborn").first()
+    card.search_text = f"{card.name} nonesuch\n{card.json['text']}"
+    session.commit()
+    admin, token = create_admin_token(session)
+    response = client.get(
+        "/v2/cards/example-phoenixborn",
+        params={"for_update": True},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["search_keywords"] == "nonesuch", response.json()
 
 
 def test_get_nonexistent_card(client: TestClient, session: db.Session):

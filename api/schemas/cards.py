@@ -143,6 +143,36 @@ class CardOut(BaseModel):
     is_legacy: bool | None = None
 
 
+class CardUpdate(BaseModel):
+    """JSON output that mirrors the card update input for easier patches.
+
+    To clear a property, set it to an empty value (not `null`; empty string or similar).
+    """
+
+    is_errata: bool = False
+    name: str | None = None
+    text: str | None = None
+    search_keywords: str | None = Field(
+        None,
+        description=(
+            "Search keywords are appended to the standardized search text and allow customizing output. For instance, "
+            "Mirror Spirit has the search keywords 'donut dog' causing it to show up in searches for those terms."
+        ),
+    )
+    cost: list[list[str] | str] | None = None
+    dice: list[str] | None = None
+    altDice: list[str] | None = None
+    magicCost: dict[str, int] | None = None
+    effectMagicCost: dict[str, int] | None = None
+    effectRepeats: bool | None = None
+    attack: Annotated[str | int | None, BeforeValidator(str_or_int)] = None
+    battlefield: int = None
+    life: Annotated[str | int | None, BeforeValidator(str_or_int)] = None
+    recover: Annotated[str | int | None, BeforeValidator(str_or_int)] = None
+    spellboard: int | None = None
+    copies: int | None = None
+
+
 class CardUsageCounts(BaseModel):
     """The counts in which this card appears in unique decks vs. users"""
 
