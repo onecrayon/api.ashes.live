@@ -372,13 +372,13 @@ def get_card(
         query = query.filter(Card.is_legacy.is_(True))
     else:
         query = query.filter(Card.is_legacy.is_(False))
-    if not user.is_admin:
+    if user.is_anonymous() or not user.is_admin:
         query = query.join(Card.release).filter(Release.is_public == True)
     card = query.scalar()
     if not card:
         raise NotFoundException(detail="Card not found.")
     card_json = deepcopy(card.json)
-    if for_update and user.is_admin:
+    if for_update and not user.is_anonymous() and user.is_admin:
         # Default to non-errata changes, as these will be most common
         card_json["is_errata"] = False
         # Check if this card has "search keywords" embedded in its search text

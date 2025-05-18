@@ -180,7 +180,7 @@ def create_card(
     card.placement = placement
     card.release_id = release.id
     card.is_summon_spell = name.startswith("Summon ")
-    card.search_text = compose_card_search_text(card)
+    card.search_text = compose_card_search_text(card, text)
     existing_conjurations = None
     if text:
         # Check for conjurations before we do any more work
