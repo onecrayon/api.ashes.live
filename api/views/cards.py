@@ -440,6 +440,8 @@ def update_card(
     if data.name and data.name != card.name:
         card.name = data.name
         json_data["name"] = data.name
+        card.stub = stubify(data.name)
+        json_data["stub"] = card.stub
         name_updated = True
     search_keywords = card.search_keywords
     search_keywords_updated = False
@@ -505,7 +507,6 @@ def update_card(
                 del json_data[prop]
     # And finally perform the update!
     card.json = json_data
-    session.add(card)
     session.commit()
     return card.json
 
