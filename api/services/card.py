@@ -106,6 +106,51 @@ def dice_name_from_cost(cost: str) -> str:
     return cost.split(":")[0]
 
 
+def compose_card_search_text(
+    card: "Card", text: str | None = None, search_keywords: str | None = None
+) -> str:
+    """Composes our common card "search text" which is normalized text for the card that
+    is used by the full text search."""
+    # Compose our first line, which is the card name followed by any search keywords
+    search_text = f"{card.name}"
+    if search_keywords:
+        search_text += f" {search_keywords}"
+    search_text += "\n"
+    # Compose the second line, which is the Phoenixborn for this card, if any
+    if card.phoenixborn:
+        search_text += f"{card.phoenixborn}\n"
+    # Compose the following lines, which are normalized versions of the card text
+    if text:
+        # Remove apostrophes and formatting characters from search text to ensure words are treated as lexemes
+        search_text += re.sub(
+            r"\n+", " ", text.replace("[[", "").replace("]]", "").replace("'", "")
+        )
+    return search_text
+
+
+def cost_to_weight(cost):
+    """Shared helper function for parsing card costs from endpoints into weights and JSON data."""
+    cost_list = re.split(r"\s+-\s+", cost) if isinstance(cost, str) else cost
+    weight = 0
+    json_cost_list = []
+    if cost_list:
+        for cost_entry in cost_list:
+            split_cost = (
+                re.split(r"\s+(?:/|or)\s+", cost_entry)
+                if isinstance(cost_entry, str)
+                else cost_entry
+            )
+            if len(split_cost) > 1:
+                first_weight = parse_cost_to_weight(split_cost[0])
+                second_weight = parse_cost_to_weight(split_cost[1])
+                weight += max(first_weight, second_weight)
+                json_cost_list.append(split_cost)
+            else:
+                weight += parse_cost_to_weight(split_cost[0])
+                json_cost_list.append(split_cost[0])
+    return weight, json_cost_list
+
+
 def create_card(
     session: db.Session,
     name: str,
@@ -134,16 +179,10 @@ def create_card(
     card.card_type = card_type
     card.placement = placement
     card.release_id = release.id
-    card.search_text = f"{card.name}\n"
-    if card.phoenixborn:
-        card.search_text += f"{card.phoenixborn}\n"
     card.is_summon_spell = name.startswith("Summon ")
+    card.search_text = compose_card_search_text(card)
     existing_conjurations = None
     if text:
-        # Remove apostrophes and formatting characters from search text to ensure words are treated as lexemes
-        card.search_text += re.sub(
-            r"\n+", " ", text.replace("[[", "").replace("]]", "").replace("'", "")
-        )
         # Check for conjurations before we do any more work
         conjuration_stubs = set()
         for match in re.finditer(
@@ -166,44 +205,11 @@ def create_card(
     if copies is not None:
         card.copies = copies
     card.entity_id = create_entity(session)
-    cost_list = re.split(r"\s+-\s+", cost) if isinstance(cost, str) else cost
-    weight = 0
-    json_cost_list = []
-    if cost_list:
-        for cost_entry in cost_list:
-            split_cost = (
-                re.split(r"\s+(?:/|or)\s+", cost_entry)
-                if isinstance(cost_entry, str)
-                else cost_entry
-            )
-            if len(split_cost) > 1:
-                first_weight = parse_cost_to_weight(split_cost[0])
-                second_weight = parse_cost_to_weight(split_cost[1])
-                weight += max(first_weight, second_weight)
-                json_cost_list.append(split_cost)
-            else:
-                weight += parse_cost_to_weight(split_cost[0])
-                json_cost_list.append(split_cost[0])
+    weight, json_cost_list = cost_to_weight(cost)
     card.cost_weight = weight
-    # Extract our effect costs into a list of strings and lists
-    effect_cost_list = []
-    effect_costs = (
-        re.split(r"\s+-\s+", effect_magic_cost)
-        if isinstance(effect_magic_cost, str)
-        else effect_magic_cost
-    )
-    if effect_costs:
-        for cost_entry in effect_costs:
-            split_cost = (
-                re.split(r"\s+(?:/|or)\s+", cost_entry)
-                if isinstance(cost_entry, str)
-                else cost_entry
-            )
-            (
-                effect_cost_list.append(split_cost)
-                if len(split_cost) > 1
-                else effect_cost_list.append(split_cost[0])
-            )
+    # Extract our effect costs into a list of strings and lists. We don't actually need the weight, but the parsing
+    #  logic is identical otherwise.
+    _, effect_cost_list = cost_to_weight(effect_magic_cost)
     # Convert our cost lists into magicCost and effectMagicCost mappings
     json_magic_cost = parse_costs_to_mapping(json_cost_list)
     json_effect_cost = parse_costs_to_mapping(effect_cost_list)
