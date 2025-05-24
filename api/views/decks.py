@@ -1,9 +1,12 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import UUID4
 
 from api import db
 from api.depends import (
     AUTH_RESPONSES,
+    anonymous_required,
     get_current_user,
     get_session,
     login_required,
@@ -11,6 +14,7 @@ from api.depends import (
 )
 from api.exceptions import APIException, NotFoundException, NoUserAccessException
 from api.models import (
+    AnonymousUser,
     Card,
     Deck,
     DeckCard,
@@ -863,3 +867,37 @@ def edit_snapshot(
             setattr(deck, field, None)
     session.commit()
     return deck_to_dict(session, deck=deck)
+
+
+# TODO: need to add schema and internal logic for both of these endpoints
+@router.get(
+    "/decks/import/{export_token}",
+)
+def import_decks(
+    export_token: UUID4,
+    from_date: datetime = None,
+    source_host: str = "api.ashes.live",
+    session: db.Session = Depends(get_session),
+    current_user: "User" = Depends(login_required),
+):
+    """Imports decks from another instance of the Ashes.live backend.
+
+    Mainly intended to be called on the Plaid Hat AshesDB in order to import decks from Ashes.live.
+    """
+    pass
+
+
+@router.get(
+    "/decks/export/{export_token}",
+)
+def export_decks(
+    export_token: UUID4,
+    from_date: datetime = None,
+    session: db.Session = Depends(get_session),
+    current_user: "AnonymousUser" = Depends(anonymous_required),
+):
+    """Exports user decks.
+
+    Intended to be called from another instance via its `/decks/import/{export_token}` endpoint.
+    """
+    pass
