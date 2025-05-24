@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
@@ -30,6 +31,7 @@ from api.models import (
 from api.schemas import DetailResponse
 from api.schemas.decks import (
     DeckDetails,
+    DeckExportResults,
     DeckFilters,
     DeckFiltersMine,
     DeckFullOut,
@@ -49,6 +51,8 @@ from api.services.deck import (
     create_or_update_deck,
     create_snapshot_for_deck,
     deck_to_dict,
+    generate_deck_dict,
+    get_conjuration_mapping,
     get_decks_query,
     paginate_deck_listing,
 )
@@ -890,18 +894,111 @@ def import_decks(
 
 @router.get(
     "/decks/export/{export_token}",
+    response_model=DeckExportResults,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Error when trying to generate list of decks for export.",
+        },
+        **AUTH_RESPONSES,
+    },
 )
 def export_decks(
     export_token: UUID4,
     from_date: datetime = None,
     session: db.Session = Depends(get_session),
-    current_user: "AnonymousUser" = Depends(anonymous_required),
+    _: "AnonymousUser" = Depends(anonymous_required),
 ):
     """Exports user decks.
 
     Intended to be called from another instance via its `/decks/import/{export_token}` endpoint.
     """
-    pass
+    if not settings.allow_exports:
+        raise APIException(detail="Deck exports are not allowed from this site.")
+    deck_user = (
+        session.query(User).filter(User.deck_export_uuid == export_token).first()
+    )
+    if not deck_user:
+        raise NotFoundException(detail="No user matching export token.")
+    deck_filters = [
+        Deck.user_id == deck_user.id,
+        Deck.is_exported == False,
+        Deck.is_deleted == False,
+        Deck.is_legacy == False,
+    ]
+    if from_date:
+        deck_filters.append(Deck.created > from_date)
+    # Find our next 100 decks to export
+    decks_to_export = (
+        session.query(Deck)
+        .filter(*deck_filters)
+        .order_by(Deck.created.asc())
+        # We limit by 1 more than our max so we can determine if there is a next page
+        .limit(101)
+        .all()
+    )
+    # Check if we have a next page, and discard the extra, if so
+    have_next_page = len(decks_to_export) == 101
+    if have_next_page:
+        decks_to_export.pop()
+
+    # Parse through the decks so that we can load their cards en masse with a single query; this is largely lifted
+    #  straight from the deck services pagination logic, but we need to look up source created dates so I'mma copy/paste
+    deck_ids = set()
+    source_ids = set()
+    needed_cards = set()
+    for deck_row in decks_to_export:
+        deck_ids.add(deck_row.id)
+        if deck_row.source_id:
+            source_ids.add(deck_row.source_id)
+        # Ensure we lookup our Phoenixborn cards
+        needed_cards.add(deck_row.phoenixborn_id)
+    # Fetch and collate our dice information for all decks
+    deck_dice = session.query(DeckDie).filter(DeckDie.deck_id.in_(deck_ids)).all()
+    deck_id_to_dice = defaultdict(list)
+    for deck_die in deck_dice:
+        deck_id_to_dice[deck_die.deck_id].append(deck_die)
+    # Now that we have all our basic deck information, look up the cards and quantities they include
+    deck_cards = session.query(DeckCard).filter(DeckCard.deck_id.in_(deck_ids)).all()
+    deck_id_to_deck_cards = defaultdict(list)
+    for deck_card in deck_cards:
+        needed_cards.add(deck_card.card_id)
+        deck_id_to_deck_cards[deck_card.deck_id].append(deck_card)
+    # And finally we need to fetch all top-level conjurations
+    card_id_to_conjurations = get_conjuration_mapping(
+        session=session, card_ids=needed_cards
+    )
+    # Now that we have root-level conjurations, we can gather all our cards and setup our decks
+    cards = session.query(Card).filter(Card.id.in_(needed_cards)).all()
+    card_id_to_card = {x.id: x for x in cards}
+    # Gather all source IDs *that belong to this user* and stick them in a mapping
+    source_decks = (
+        session.query(Deck.id, Deck.created)
+        .filter(
+            Deck.id.in_(source_ids),
+            Deck.is_deleted == False,
+        )
+        .all()
+    )
+    source_id_to_created = {x[0]: x[1] for x in source_decks}
+    # And finally generate a dict for our deck export
+    deck_output = []
+    for deck in decks_to_export:
+        deck_dict = generate_deck_dict(
+            deck=deck,
+            card_id_to_card=card_id_to_card,
+            card_id_to_conjurations=card_id_to_conjurations,
+            deck_cards=deck_id_to_deck_cards[deck.id],
+            deck_dice=deck_id_to_dice.get(deck.id),
+            include_share_uuid=False,
+        )
+        if deck_row.source_id and deck_row.source_id in source_id_to_created:
+            deck_dict["source_created"] = source_id_to_created[deck_row.source_id]
+        deck_output.append(deck_row)
+    return {
+        "next_page_from_date": decks_to_export[-1].created if have_next_page else None,
+        "decks": deck_output,
+    }
 
 
 @router.post(
