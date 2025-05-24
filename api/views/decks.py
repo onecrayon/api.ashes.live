@@ -12,6 +12,7 @@ from api.depends import (
     login_required,
     paging_options,
 )
+from api.environment import settings
 from api.exceptions import APIException, NotFoundException, NoUserAccessException
 from api.models import (
     AnonymousUser,
@@ -901,3 +902,50 @@ def export_decks(
     Intended to be called from another instance via its `/decks/import/{export_token}` endpoint.
     """
     pass
+
+
+@router.post(
+    "/decks/export/{export_token}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Error when trying to mark decks as exported.",
+        },
+        404: {
+            "model": DetailResponse,
+            "description": "No user matching the export token.",
+        },
+        **AUTH_RESPONSES,
+    },
+)
+def finalize_exported_decks(
+    export_token: UUID4,
+    deck_create_dates: list[datetime],
+    session: db.Session = Depends(get_session),
+    _: "AnonymousUser" = Depends(anonymous_required),
+):
+    """Final step for importing decks is to call this endpoint and tell it which decks have been successfully
+    imported.
+
+    Accepts a list of deck created dates that were successfully imported.
+    """
+    if not settings.allow_exports:
+        raise APIException(detail="Deck exports are not allowed from this site.")
+    deck_user = (
+        session.query(User).filter(User.deck_export_uuid == export_token).first()
+    )
+    if not deck_user:
+        raise NotFoundException(detail="No user matching export token.")
+    if len(deck_create_dates) == 0:
+        raise APIException(
+            detail="You must pass one or more created dates for decks that were successfully imported."
+        )
+    if len(deck_create_dates) > 100:
+        raise APIException(
+            detail="You cannot mark more than 100 decks as successfully imported."
+        )
+
+    session.query(Deck).filter(
+        Deck.user_id == deck_user.id, Deck.created.in_(deck_create_dates)
+    ).update({Deck.is_exported: True}, synchronize_session=False)
