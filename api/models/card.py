@@ -31,13 +31,13 @@ CARD_TYPE_ORDER = [
 class CardConjuration(db.AlchemyBase):
     __tablename__ = "card_conjuration"
     card_id = db.Column(
-        db.Integer,
+        db.BigInteger,
         db.ForeignKey("card.id"),
         nullable=False,
         primary_key=True,
     )
     conjuration_id = db.Column(
-        db.Integer,
+        db.BigInteger,
         db.ForeignKey("card.id"),
         nullable=False,
         primary_key=True,
@@ -58,22 +58,22 @@ class Card(db.AlchemyBase):
         # It is not included here because it kills the test suite (not compatible with create_all
         # evidently) and because alembic ignores it, anyway.
     )
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    entity_id = db.Column(db.Integer, nullable=False, index=True, unique=True)
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
+    entity_id = db.Column(db.BigInteger, nullable=False, index=True, unique=True)
     name = db.Column(db.String(30), nullable=False)
     stub = db.Column(db.String(30), nullable=False)
     phoenixborn = db.Column(db.String(25), nullable=True, index=True)
     release_id = db.Column(
-        db.Integer, db.ForeignKey(Release.id), nullable=False, index=True, default=0
+        db.BigInteger, db.ForeignKey(Release.id), nullable=False, index=True, default=0
     )
     # This gets incremented when a card's text is updated due to errata
-    version = db.Column(db.Integer, nullable=False, default=1)
+    version = db.Column(db.BigInteger, nullable=False, default=1)
     card_type = db.Column(db.String(25), nullable=False, index=True)
     is_summon_spell = db.Column(db.Boolean, nullable=False, default=False)
     is_legacy = db.Column(db.Boolean, nullable=False, default=False, index=True)
-    cost_weight = db.Column(db.Integer, nullable=False, index=True, default=0)
-    dice_flags = db.Column(db.Integer, nullable=False, index=True, default=0)
-    alt_dice_flags = db.Column(db.Integer, nullable=False, index=True, default=0)
+    cost_weight = db.Column(db.BigInteger, nullable=False, index=True, default=0)
+    dice_flags = db.Column(db.BigInteger, nullable=False, index=True, default=0)
+    alt_dice_flags = db.Column(db.BigInteger, nullable=False, index=True, default=0)
     copies = db.Column(db.SmallInteger, nullable=True, default=None)
     json = db.Column(db.JSONB)
     search_text = db.Column(db.Text)
