@@ -70,6 +70,8 @@ def create_or_update_deck(
 ) -> "Deck":
     """Creates or updates a deck in place."""
     now = datetime.utcnow()
+    # Tracks if dice or cards changed, as this necessitates resetting the export flag
+    needs_new_export = False
     if deck_id:
         deck = (
             session.query(Deck)
@@ -123,6 +125,8 @@ def create_or_update_deck(
                     break
                 total_dice = total_dice + count
                 deck_dice.append(DeckDie(die_flag=DiceFlags[die].value, count=count))
+    if deck.dice != deck_dice:
+        needs_new_export = True
     deck.dice = deck_dice
 
     # And then the card listing
@@ -165,7 +169,13 @@ def create_or_update_deck(
         ):
             raise ConjurationInDeck(card)
         deck_cards.append(DeckCard(card_id=card.id, count=count))
+    if deck.cards != deck_cards:
+        needs_new_export = True
     deck.cards = deck_cards
+
+    # If dice or cards changed, reset the export flag
+    if needs_new_export:
+        deck.is_exported = False
 
     # Save everything up!
     deck.selected_cards = []
