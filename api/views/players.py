@@ -154,7 +154,15 @@ def update_my_password(
 
 
 @router.get(
-    "/players/me/export", response_model=UserExportToken, responses=AUTH_RESPONSES
+    "/players/me/export",
+    response_model=UserExportToken,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Deck exports are disallowed for this site.",
+        },
+        **AUTH_RESPONSES,
+    },
 )
 def get_deck_export_token(
     current_user: "User" = Depends(login_required),
@@ -163,6 +171,8 @@ def get_deck_export_token(
     """Generates (if necessary) and returns the UUID that allows the current user to export their decks to other
     instances. Mainly intended for migrating decks into the official Plaid Hat AshesDB.
     """
+    if not settings.allow_exports:
+        raise APIException(detail="Deck exports are disallowed for this site.")
     if current_user.deck_export_uuid is None:
         current_user.deck_export_uuid = uuid.uuid4()
         session.commit()
