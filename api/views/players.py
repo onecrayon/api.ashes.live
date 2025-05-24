@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.exceptions import RequestValidationError
@@ -18,6 +19,7 @@ from api.models import Invite, User
 from api.schemas import DetailResponse
 from api.schemas import user as schema
 from api.schemas.auth import AuthTokenOut
+from api.schemas.user import UserExportToken
 from api.services.user import access_token_for_user, create_user, get_invite_for_email
 from api.utils.auth import generate_password_hash, verify_password
 from api.utils.email import send_message
@@ -149,6 +151,22 @@ def update_my_password(
     current_user.password = generate_password_hash(updates.password)
     session.commit()
     return {"detail": "Your password has been updated!"}
+
+
+@router.get(
+    "/players/me/export", response_model=UserExportToken, responses=AUTH_RESPONSES
+)
+def get_deck_export_token(
+    current_user: "User" = Depends(login_required),
+    session: db.Session = Depends(get_session),
+):
+    """Generates (if necessary) and returns the UUID that allows the current user to export their decks to other
+    instances. Mainly intended for migrating decks into the official Plaid Hat AshesDB.
+    """
+    if current_user.deck_export_uuid is None:
+        current_user.deck_export_uuid = uuid.uuid4()
+        session.commit()
+    return {"export_token": current_user.deck_export_uuid}
 
 
 @router.get(

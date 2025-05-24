@@ -107,3 +107,9 @@ class UserModerationOut(BaseModel):
     is_banned: bool
     moderation_notes: str
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserExportToken(BaseModel):
+    """Export token used for moving decks from one instance to another."""
+
+    export_token: UUID4
