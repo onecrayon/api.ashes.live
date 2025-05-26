@@ -494,6 +494,7 @@ def generate_deck_dict(
         "conjurations": sorted(conjuration_output, key=itemgetter("name")),
         "is_public": deck.is_public,
         "is_snapshot": deck.is_snapshot,
+        "is_red_rains": deck.is_red_rains,
     }
     if include_share_uuid:
         deck_dict["direct_share_uuid"] = deck.direct_share_uuid
@@ -587,9 +588,6 @@ def deck_to_dict(
         include_share_uuid=include_share_uuid,
     )
     deck_dict["description"] = deck.description
-    deck_dict["is_public"] = deck.is_public
-    deck_dict["is_snapshot"] = deck.is_snapshot
-    deck_dict["is_red_rains"] = deck.is_red_rains
     if include_comment_entity_id:
         # This is an implicit SQL lookup, but it's going to require a lookup either way, so meh
         deck_dict["comments_entity_id"] = (

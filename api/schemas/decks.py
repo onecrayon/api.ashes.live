@@ -176,6 +176,9 @@ class DeckExportOut(BaseModel):
     is_public: bool | None = None
     is_snapshot: bool | None = None
     is_red_rains: bool | None = None
+    first_five: list[str] | None = None
+    effect_costs: list[str] | None = None
+    tutor_map: dict[str, str] | None = None
 
     # This is a generated property, because the root object only knows the source ID
     source_created: datetime | None = None

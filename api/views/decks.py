@@ -971,6 +971,15 @@ def export_decks(
     # Now that we have root-level conjurations, we can gather all our cards and setup our decks
     cards = session.query(Card).filter(Card.id.in_(needed_cards)).all()
     card_id_to_card = {x.id: x for x in cards}
+    # Gather our selected cards for these decks
+    deck_selected_cards = (
+        session.query(DeckSelectedCard)
+        .filter(DeckSelectedCard.deck_id.in_(deck_ids))
+        .all()
+    )
+    deck_id_to_selected_cards = defaultdict(list)
+    for deck_selected_card in deck_selected_cards:
+        deck_id_to_selected_cards[deck_selected_card.deck_id].append(deck_selected_card)
     # Gather all source IDs *that belong to this user* and stick them in a mapping
     source_decks = (
         session.query(Deck.id, Deck.created)
@@ -992,8 +1001,29 @@ def export_decks(
             deck_dice=deck_id_to_dice.get(deck.id),
             include_share_uuid=False,
         )
+        deck_dict["description"] = deck.description
         if deck_row.source_id and deck_row.source_id in source_id_to_created:
             deck_dict["source_created"] = source_id_to_created[deck_row.source_id]
+        selected_cards = deck_id_to_selected_cards.get(deck.id, [])
+        first_five = []
+        effect_costs = []
+        tutor_map = {}
+        for selected_card in selected_cards:
+            card = card_id_to_card.get(selected_card.card_id)
+            # This situation should theoretically never happen, but just in case...
+            if not card:
+                continue
+            if selected_card.is_first_five:
+                first_five.append(card.stub)
+            if selected_card.is_paid_effect:
+                effect_costs.append(card.stub)
+            if selected_card.tutor_card_id:
+                tutor_card = card_id_to_card.get(selected_card.tutor_card_id)
+                if tutor_card:
+                    tutor_map[tutor_card.stub] = card.stub
+        deck_dict["first_five"] = first_five
+        deck_dict["effect_costs"] = effect_costs
+        deck_dict["tutor_map"] = tutor_map
         deck_output.append(deck_row)
     return {
         "next_page_from_date": decks_to_export[-1].created if have_next_page else None,
