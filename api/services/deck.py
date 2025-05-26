@@ -175,7 +175,7 @@ def create_or_update_deck(
     deck.cards = deck_cards
 
     # If dice or cards changed, reset the export flag
-    if needs_new_export:
+    if needs_new_export and settings.allow_exports:
         deck.is_exported = False
 
     # Save everything up!
