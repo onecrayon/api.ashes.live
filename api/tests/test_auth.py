@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -10,6 +10,7 @@ import api.views.players
 from api import db
 from api.environment import settings
 from api.models import Invite, UserRevokedToken
+from api.utils.dates import utcnow
 
 from . import utils
 
@@ -67,7 +68,7 @@ def test_longterm_token(client: TestClient, session: db.Session):
     )
     assert response.status_code == status.HTTP_200_OK, response.json()
     # Verify that the token is actually long-term
-    with freeze_time(datetime.utcnow() + timedelta(days=60)):
+    with freeze_time(utcnow() + timedelta(days=60)):
         response = client.get(
             "/v2/players/me",
             headers={"Authorization": f"Bearer {response.json()['access_token']}"},
@@ -120,7 +121,7 @@ def test_login_required_no_token(client: TestClient, session: db.Session):
 def test_login_required_old_token(client: TestClient, session: db.Session):
     """login_required dependency requires a current token"""
     user, token = utils.create_user_token(session)
-    tomorrow = datetime.utcnow() + timedelta(days=1)
+    tomorrow = utcnow() + timedelta(days=1)
     with freeze_time(tomorrow):
         response = client.get(
             "/v2/players/me", headers={"Authorization": f"Bearer {token}"}
@@ -130,7 +131,7 @@ def test_login_required_old_token(client: TestClient, session: db.Session):
 
 def test_login_required_missing_sub(client: TestClient, session: db.Session):
     """login_required dependency requires the user badge in the `sub`"""
-    expire = datetime.utcnow() + timedelta(minutes=15)
+    expire = utcnow() + timedelta(minutes=15)
     fake_data = {"jti": uuid.uuid4().hex, "exp": expire}
     fake_token = jwt.encode(fake_data, settings.secret_key)
     response = client.get(
@@ -142,7 +143,7 @@ def test_login_required_missing_sub(client: TestClient, session: db.Session):
 def test_login_required_missing_jti(client: TestClient, session: db.Session):
     """login_required dependency requires a JWT ID in the `jti`"""
     user, _ = utils.create_user_token(session)
-    expire = datetime.utcnow() + timedelta(minutes=15)
+    expire = utcnow() + timedelta(minutes=15)
     fake_data = {"sub": user.badge, "exp": expire}
     fake_token = jwt.encode(fake_data, settings.secret_key)
     response = client.get(
@@ -153,7 +154,7 @@ def test_login_required_missing_jti(client: TestClient, session: db.Session):
 
 def test_login_required_no_such_badge(client: TestClient, session: db.Session):
     """login_required dependency can handled badges that don't exist"""
-    expire = datetime.utcnow() + timedelta(minutes=15)
+    expire = utcnow() + timedelta(minutes=15)
     fake_data = {"exp": expire, "sub": "nopers", "jti": uuid.uuid4().hex}
     fake_token = jwt.encode(fake_data, settings.secret_key)
     response = client.get(
@@ -372,7 +373,7 @@ def test_revoke_token_cleanup(client: TestClient, session: db.Session):
             )
             assert response.status_code == status.HTTP_200_OK, response.json()
 
-    now = datetime.utcnow()
+    now = utcnow()
     # Revoke a token 2 days ago
     one_day = now - timedelta(days=2)
     revoke_token(one_day)

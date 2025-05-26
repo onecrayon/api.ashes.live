@@ -1,7 +1,6 @@
-from datetime import datetime
-
 from api import db
 from api.models.stream import Stream, Streamable, Subscription
+from api.utils.dates import utcnow
 
 
 def create_entity(session: db.Session) -> int:
@@ -42,7 +41,7 @@ def refresh_stream_for_entity(
     elif entity_type == "deck":
         # Decks are a special case; we update the Stream entity because the snapshots effectively
         # replace one another as far as most users are concerned
-        entity.posted = datetime.utcnow()
+        entity.posted = utcnow()
         entity.entity_id = entity_id
     # TODO: implement emailing logic to update people who are subscribed to this entity?
 

@@ -1,10 +1,10 @@
 from collections import defaultdict
-from datetime import datetime
 from operator import itemgetter
 
 from starlette.requests import Request
 
 from api import db
+from api.environment import settings
 from api.models import Deck, DeckCard, DeckDie, DeckSelectedCard, Release, User
 from api.models.card import Card, CardConjuration, DiceFlags
 from api.schemas.cards import CardType
@@ -14,6 +14,7 @@ from api.services.stream import (
     refresh_stream_for_entity,
     update_subscription_for_user,
 )
+from api.utils.dates import utcnow
 from api.utils.helpers import to_prefixed_tsquery
 from api.utils.pagination import paginated_results_for_query
 
@@ -69,7 +70,7 @@ def create_or_update_deck(
     is_red_rains: bool = False,
 ) -> "Deck":
     """Creates or updates a deck in place."""
-    now = datetime.utcnow()
+    now = utcnow()
     # Tracks if dice or cards changed, as this necessitates resetting the export flag
     needs_new_export = False
     if deck_id:
@@ -191,7 +192,7 @@ def create_or_update_deck(
     if effect_costs:
         for card_stub in effect_costs:
             card = stub_to_card.get(card_stub)
-            # TODO: remove pragmas once I've updated to Python 3.10 and this coverage bug is fixed
+            # pytest-cov simply can't handle catching this usage, so we have to skip it
             if not card:  # pragma: no cover
                 continue
             if first_five and card_stub not in first_five:

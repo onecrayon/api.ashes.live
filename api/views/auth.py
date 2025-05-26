@@ -27,6 +27,7 @@ from api.schemas import auth as schema
 from api.schemas.user import UserEmailIn, UserSetPasswordIn
 from api.services.user import access_token_for_user
 from api.utils.auth import generate_password_hash, verify_password
+from api.utils.dates import utcnow
 from api.utils.email import send_message
 
 logger = logging.getLogger(__name__)
@@ -82,7 +83,7 @@ def log_out(
     """
     # Do some quick clean-up to keep our table lean and mean; deletes any tokens that expired more than 24 hours ago
     session.query(UserRevokedToken).filter(
-        UserRevokedToken.expires < dt.datetime.utcnow() - dt.timedelta(days=1)
+        UserRevokedToken.expires < utcnow() - dt.timedelta(days=1)
     ).delete(synchronize_session=False)
     session.commit()
     # Then add our newly revoked token
