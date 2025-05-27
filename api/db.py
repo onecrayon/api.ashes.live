@@ -3,7 +3,7 @@
 Typical usage:
     from api import db
     class SomeModel(db.AlchemyBase):
-        id = db.Column(db.Integer, primary_key=True)
+        id = db.Column(db.BigInteger, primary_key=True)
 """
 
 from sqlalchemy import (
@@ -72,7 +72,7 @@ from sqlalchemy import (
     union_all,
     within_group,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 from sqlalchemy.engine import RowProxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -95,6 +95,7 @@ __all__ = (
     "AlchemyBase",
     Session,
     "SessionLocal",
+    "UTCTimestamp",
     # SQLAlchemy convenience access
     #  "Holy verbosity, Batman! Why not programmatically include these like in Flask-SQLAlchemy?"
     #  "Well, Robin, I happen to like accurate autocomplete in my editors."
@@ -194,3 +195,5 @@ meta = MetaData(
     }
 )
 AlchemyBase = declarative_base(metadata=meta)
+
+UTCTimestamp = TIMESTAMP(timezone=True)

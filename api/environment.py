@@ -12,6 +12,9 @@ class ApplicationSettings(BaseSettings):
     site_name: str = "Ashes.live"
     env: str = "production"
 
+    allow_exports: bool = False
+    exports_per_request: int = 30
+
     postgres_user: str
     postgres_password: str = ""
     postgres_db: str

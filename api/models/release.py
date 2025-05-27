@@ -7,7 +7,7 @@ from .user import User
 class Release(db.AlchemyBase):
     __tablename__ = "releases"
     __table_args__ = (db.UniqueConstraint("stub", "is_legacy"),)
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     name = db.Column(db.String(60), nullable=False)
     stub = db.Column(db.String(60), nullable=False)
     is_legacy = db.Column(db.Boolean, nullable=False, default=False, index=True)
@@ -30,10 +30,14 @@ class Release(db.AlchemyBase):
 class UserRelease(db.AlchemyBase):
     __tablename__ = "user_release"
     user_id = db.Column(
-        db.Integer, db.ForeignKey(User.id), nullable=False, primary_key=True, index=True
+        db.BigInteger,
+        db.ForeignKey(User.id),
+        nullable=False,
+        primary_key=True,
+        index=True,
     )
     release_id = db.Column(
-        db.Integer, db.ForeignKey(Release.id), nullable=False, primary_key=True
+        db.BigInteger, db.ForeignKey(Release.id), nullable=False, primary_key=True
     )
 
     user = db.relationship(
