@@ -167,6 +167,7 @@ class DeckExportOut(BaseModel):
     """
 
     title: str | None = None
+    description: str | None = None
     created: datetime
     modified: datetime
     dice: list[DeckDice]
@@ -190,7 +191,27 @@ class DeckExportResults(BaseModel):
     next_page_from_date: datetime | None = Field(
         None, description="The from_date to use to export the next set of decks."
     )
+    total: int
     decks: list[DeckExportOut]
+
+
+class DeckImportOut(BaseModel):
+    """Result reporting for deck import requests"""
+
+    next_page_from_date: datetime | None = Field(
+        None, description="The from_date to use to export the next set of decks."
+    )
+    total_count: int = Field(
+        0,
+        description="The total decks to import (including the successes in this request).",
+    )
+    success_count: int = Field(
+        0, description="The total decks successfully imported in this request."
+    )
+    errors: list = Field(
+        ...,
+        description="An array of errors describing which decks failed to import and why.",
+    )
 
 
 class DeckRelease(BaseModel):
