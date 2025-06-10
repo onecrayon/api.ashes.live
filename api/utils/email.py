@@ -24,19 +24,39 @@ def read_template(template_name: str) -> tuple[str, str]:
     return text_template, html_template
 
 
+def send_to_smtp(
+    from_address: str, to_address: str, email_body: str
+) -> bool:  # pragma: no cover
+    """Actually sends the email via SMTP
+
+    Separated into its own method for easier testing.
+    """
+    # Figure out if we're using TLS or SSL
+    use_starttls = settings.smtp_port == 587
+    SMTP_Class = SMTP if use_starttls else SMTP_SSL
+    try:
+        with SMTP_Class(host=smtp_host, port=settings.smtp_port) as smtp:
+            if use_starttls:
+                smtp.starttls()
+            if settings.smtp_username and settings.smtp_password:
+                smtp.login(settings.smtp_username, settings.smtp_password)
+            smtp.sendmail(from_address, to_address, email_body)
+        return True
+    except SMTPException as e:
+        logger.error(f"Unable to send email due to SMTP error: {e}", exc_info=e)
+        return False
+
+
 def send_message(recipient, template_name: str, subject: str, data: dict) -> bool:
-    """Sends a transactional email through SendGrid
+    """Sends a transactional email through SMTP
 
-    Templates are stored within SendGrid with a copy of the most recent version checked into
-    version control within the root `email_templates` folder. You can define templates in either
-    location, as long as you sync them up afterward (automated process for this is a WIP).
+    Template names are the shared filename between the `*.txt` and `*.html` files in the
+    `email_templates` directory (and both files are REQUIRED!).
 
-    Once you have a template, you will need to define its ID in your `.env` file.
+    Templates use `string.Template` syntax (e.g. variables are `$var_name` and literal dollars are
+    `$$`).
 
-    Then you can send it by passing recipient email, the template ID, and the dynamic data
-    with which to populate the template (which data is required depends on the template).
-
-    Returns a bool whether the email was successfully queued up by SendGrid or not.
+    Returns a bool whether the email was successfully sent or not.
     """
     smtp_host = settings.smtp_host
     sender = settings.mail_sender_address
@@ -84,17 +104,4 @@ def send_message(recipient, template_name: str, subject: str, data: dict) -> boo
     message.attach(text_part)
     message.attach(html_part)
 
-    # Figure out if we're using TLS or SSL
-    use_starttls = settings.smtp_port == 587
-    SMTP_Class = SMTP if use_starttls else SMTP_SSL
-    try:
-        with SMTP_Class(host=smtp_host, port=settings.smtp_port) as smtp:
-            if use_starttls:
-                smtp.starttls()
-            if settings.smtp_username and settings.smtp_password:
-                smtp.login(settings.smtp_username, settings.smtp_password)
-            smtp.sendmail(settings.mail_sender_address, recipient, message.as_string())
-        return True
-    except SMTPException as e:
-        logger.error(f"Unable to send email due to SMTP error: {e}", exc_info=e)
-        return False
+    return send_to_smtp(settings.mail_sender_address, recipient, message.as_string())
