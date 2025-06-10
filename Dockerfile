@@ -80,4 +80,5 @@ ENTRYPOINT ["/entrypoint.sh"]
 FROM development_build as production_build
 COPY --chown=web:web ./alembic.ini /code/
 COPY --chown=web:web ./api /code/api
+COPY --chown=web:web ./email_templates /code/email_templates
 COPY --chown=web:web ./migrations /code/migrations
