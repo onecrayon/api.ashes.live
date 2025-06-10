@@ -12,7 +12,7 @@ class AnonymousUser:
 
 class User(db.AlchemyBase, AnonymousUser):
     __tablename__ = "user"
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.BigInteger, primary_key=True)
     email = db.Column(db.String(254), unique=True, nullable=False, index=True)
     # Usernames are not unique, but the randomly-generated badge is; e.g. "Skaak#4eh?"
     badge = db.Column(db.String(8), unique=True, nullable=False, index=True)
@@ -25,14 +25,19 @@ class User(db.AlchemyBase, AnonymousUser):
     reset_uuid = db.Column(
         db.UUID(as_uuid=True), nullable=True, default=None, index=True, unique=True
     )
+    deck_export_uuid = db.Column(
+        db.UUID(as_uuid=True), nullable=True, default=None, index=True, unique=True
+    )
     newsletter_opt_in = db.Column(db.Boolean, nullable=False, default=False)
     exclude_subscriptions = db.Column(db.Boolean, nullable=False, default=False)
     email_subscriptions = db.Column(
         db.Boolean, nullable=False, default=False, index=True
     )
     colorize_icons = db.Column(db.Boolean, nullable=False, default=False)
-    created = db.Column(db.DateTime, default=datetime.utcnow)
-    modified = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created = db.Column(db.UTCTimestamp, default=datetime.utcnow)
+    modified = db.Column(
+        db.UTCTimestamp, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     # `collection` defined via backref in api.models.release.UserRelease
 
@@ -45,8 +50,8 @@ class UserRevokedToken(db.AlchemyBase):
 
     __tablename__ = "user_revoked_tokens"
     revoked_uuid = db.Column(db.UUID(as_uuid=True), primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=False)
-    expires = db.Column(db.DateTime, nullable=False, index=True)
+    user_id = db.Column(db.BigInteger, db.ForeignKey(User.id), nullable=False)
+    expires = db.Column(db.UTCTimestamp, nullable=False, index=True)
 
 
 # Helper for managing user types around the codebase

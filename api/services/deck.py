@@ -1,10 +1,10 @@
 from collections import defaultdict
-from datetime import datetime
 from operator import itemgetter
 
 from starlette.requests import Request
 
 from api import db
+from api.environment import settings
 from api.models import Deck, DeckCard, DeckDie, DeckSelectedCard, Release, User
 from api.models.card import Card, CardConjuration, DiceFlags
 from api.schemas.cards import CardType
@@ -14,6 +14,7 @@ from api.services.stream import (
     refresh_stream_for_entity,
     update_subscription_for_user,
 )
+from api.utils.dates import utcnow
 from api.utils.helpers import to_prefixed_tsquery
 from api.utils.pagination import paginated_results_for_query
 
@@ -69,7 +70,9 @@ def create_or_update_deck(
     is_red_rains: bool = False,
 ) -> "Deck":
     """Creates or updates a deck in place."""
-    now = datetime.utcnow()
+    now = utcnow()
+    # Tracks if dice or cards changed, as this necessitates resetting the export flag
+    needs_new_export = False
     if deck_id:
         deck = (
             session.query(Deck)
@@ -123,6 +126,8 @@ def create_or_update_deck(
                     break
                 total_dice = total_dice + count
                 deck_dice.append(DeckDie(die_flag=DiceFlags[die].value, count=count))
+    if deck.dice != deck_dice:
+        needs_new_export = True
     deck.dice = deck_dice
 
     # And then the card listing
@@ -165,7 +170,13 @@ def create_or_update_deck(
         ):
             raise ConjurationInDeck(card)
         deck_cards.append(DeckCard(card_id=card.id, count=count))
+    if deck.cards != deck_cards:
+        needs_new_export = True
     deck.cards = deck_cards
+
+    # If dice or cards changed, reset the export flag
+    if needs_new_export and settings.allow_exports:
+        deck.is_exported = False
 
     # Save everything up!
     deck.selected_cards = []
@@ -181,7 +192,7 @@ def create_or_update_deck(
     if effect_costs:
         for card_stub in effect_costs:
             card = stub_to_card.get(card_stub)
-            # TODO: remove pragmas once I've updated to Python 3.10 and this coverage bug is fixed
+            # pytest-cov simply can't handle catching this usage, so we have to skip it
             if not card:  # pragma: no cover
                 continue
             if first_five and card_stub not in first_five:
@@ -483,6 +494,7 @@ def generate_deck_dict(
         "conjurations": sorted(conjuration_output, key=itemgetter("name")),
         "is_public": deck.is_public,
         "is_snapshot": deck.is_snapshot,
+        "is_red_rains": deck.is_red_rains,
     }
     if include_share_uuid:
         deck_dict["direct_share_uuid"] = deck.direct_share_uuid
@@ -576,9 +588,6 @@ def deck_to_dict(
         include_share_uuid=include_share_uuid,
     )
     deck_dict["description"] = deck.description
-    deck_dict["is_public"] = deck.is_public
-    deck_dict["is_snapshot"] = deck.is_snapshot
-    deck_dict["is_red_rains"] = deck.is_red_rains
     if include_comment_entity_id:
         # This is an implicit SQL lookup, but it's going to require a lookup either way, so meh
         deck_dict["comments_entity_id"] = (
