@@ -27,8 +27,8 @@ from . import utils
 
 @pytest.fixture(scope="function", autouse=True)
 def testing_environment(monkeypatch):
-    # Ensure we don't have any SendGrid API key stored for a real SendGrid account
-    utils.monkeypatch_settings(monkeypatch, {"sendgrid_api_key": None})
+    # Ensure we don't have any SMTP host key stored so the tests won't accidentally send emails
+    utils.monkeypatch_settings(monkeypatch, {"smtp_host": None})
 
 
 @pytest.fixture(scope="session")

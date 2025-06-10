@@ -34,9 +34,10 @@ class ApplicationSettings(BaseSettings):
     mail_sender_address: str | None = None
     mail_debug_recipient: str | None = None
 
-    sendgrid_api_key: str | None = None
-    sendgrid_invite_template: str | None = None
-    sendgrid_reset_template: str | None = None
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
 
     @property
     def access_token_expiry(self) -> int:

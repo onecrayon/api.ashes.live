@@ -58,7 +58,8 @@ def request_invite(
     # Email the user
     if not send_message(
         recipient=invitation.email,
-        template_id=settings.sendgrid_invite_template,
+        template_name="invite",
+        subject=f"Create your {settings.site_name} account!",
         data={
             "invite_token": str(invitation.uuid),
             "email": invitation.email,
