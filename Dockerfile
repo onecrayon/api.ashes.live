@@ -18,7 +18,7 @@ ENV ENV=${ENV} \
   # dockerize:
   DOCKERIZE_VERSION=v0.6.1 \
   # poetry:
-  POETRY_VERSION=1.8.3 \
+  POETRY_VERSION=2.1.3 \
   POETRY_VIRTUALENVS_CREATE=false \
   POETRY_CACHE_DIR='/var/cache/pypoetry'
 
@@ -80,4 +80,5 @@ ENTRYPOINT ["/entrypoint.sh"]
 FROM development_build as production_build
 COPY --chown=web:web ./alembic.ini /code/
 COPY --chown=web:web ./api /code/api
+COPY --chown=web:web ./email_templates /code/email_templates
 COPY --chown=web:web ./migrations /code/migrations

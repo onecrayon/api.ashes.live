@@ -24,12 +24,12 @@ python-jose = {extras = ["cryptography"], version = "^3.2.0"}
 bcrypt = "^4.3.0"
 python-multipart = "^0.0.20"
 email-validator = "^2.2.0"
-sendgrid = "^6.4.6"
 # Install uvicorn with the pieces from uvicorn[standard] that we will actually use
 uvicorn = "^0.34.0"
 uvloop = "^0.21.0"
 httptools = "^0.6.1"
 pydantic-settings = "^2.4.0"
+httpx = "^0.28.1"
 
 [tool.poetry.group.dev.dependencies]
 # These are used by the test suite
@@ -37,7 +37,6 @@ pytest = "^8.3.2"
 pytest-cov = "^6.0.0"
 sqlalchemy-utils = "^0.41.1"
 freezegun = "^1.1.0"
-httpx = "^0.28.0"
 # These are used by `make format`
 black = "^25.1.0"
 isort = "^6.0.1"

@@ -46,8 +46,8 @@ def test_invite_existing_user(client: TestClient, session: db.Session):
     assert session.query(Invite).filter(Invite.email == user.email).count() == 0
 
 
-def test_invite_sendgrid_failure(client: TestClient, session: db.Session, monkeypatch):
-    """Endpoint throws an error if SendGrid call fails"""
+def test_invite_smtp_failure(client: TestClient, session: db.Session, monkeypatch):
+    """Endpoint throws an error if SMTP fails"""
 
     def _always_false(*args, **kwargs):
         return False

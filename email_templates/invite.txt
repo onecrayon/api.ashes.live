@@ -1,0 +1,3 @@
+You're almost done! Finalize your Ashes.live account and start participating on the site here: https://ashes.live/players/new/$invite_token
+
+This email was sent to <$email>. If you received it in error, please disregard it.

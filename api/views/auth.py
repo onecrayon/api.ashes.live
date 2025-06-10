@@ -122,7 +122,8 @@ def request_password_reset(
     session.commit()
     if not send_message(
         recipient=user.email,
-        template_id=settings.sendgrid_reset_template,
+        template_name="reset_password",
+        subject=f"Reset your {settings.site_name} password",
         data={"reset_token": str(user.reset_uuid), "email": user.email},
     ):
         if settings.debug:
