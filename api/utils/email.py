@@ -35,7 +35,7 @@ def send_to_smtp(
     use_starttls = settings.smtp_port == 587
     SMTP_Class = SMTP if use_starttls else SMTP_SSL
     try:
-        with SMTP_Class(host=smtp_host, port=settings.smtp_port) as smtp:
+        with SMTP_Class(host=settings.smtp_host, port=settings.smtp_port) as smtp:
             if use_starttls:
                 smtp.starttls()
             if settings.smtp_username and settings.smtp_password:
