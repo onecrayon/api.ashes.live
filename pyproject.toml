@@ -30,6 +30,7 @@ uvloop = "^0.21.0"
 httptools = "^0.6.1"
 pydantic-settings = "^2.4.0"
 httpx = "^0.28.1"
+sendgrid = "^6.12.4"
 
 [tool.poetry.group.dev.dependencies]
 # These are used by the test suite
