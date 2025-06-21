@@ -1,4 +1,4 @@
-FROM python:3.11 as development_build
+FROM python:3.11 AS development_build
 
 # This is only available at build, and is a required variable
 ARG ENV
@@ -77,7 +77,7 @@ ENTRYPOINT ["/entrypoint.sh"]
 # The following stage is only for production deployments.
 # (The development_build sets things up for a full local stack; this step
 # copies in the code so we don't need volumes)
-FROM development_build as production_build
+FROM development_build AS production_build
 COPY --chown=web:web ./alembic.ini /code/
 COPY --chown=web:web ./api /code/api
 COPY --chown=web:web ./email_templates /code/email_templates
