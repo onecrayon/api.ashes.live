@@ -39,6 +39,10 @@ class ApplicationSettings(BaseSettings):
     smtp_username: str | None = None
     smtp_password: str | None = None
 
+    sendgrid_api_key: str | None = None
+    sendgrid_invite_template: str | None = None
+    sendgrid_reset_template: str | None = None
+
     @property
     def access_token_expiry(self) -> int:
         """Token expiry in minutes"""
