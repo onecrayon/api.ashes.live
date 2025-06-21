@@ -1,9 +1,11 @@
 from collections import defaultdict
 from datetime import datetime
+from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import UUID4
+from sqlalchemy import and_, or_
 
 from api import db
 from api.depends import (
@@ -897,7 +899,13 @@ class DeckImportException(Exception):
 )
 def import_decks(
     export_token: UUID4,
-    from_date: datetime = None,
+    from_date: datetime | None = None,
+    deck_share_uuid: Annotated[
+        UUID4 | None,
+        Query(
+            description="If specified, only this deck and its snapshots will be imported."
+        ),
+    ] = None,
     from_api: str = "api.ashes.live",
     session: db.Session = Depends(get_session),
     current_user: "User" = Depends(login_required),
@@ -913,6 +921,8 @@ def import_decks(
     params = None
     if from_date:
         params = {"from_date": from_date.isoformat()}
+    if deck_share_uuid:
+        params = {"deck_share_uuid": str(deck_share_uuid)}
     try:
         response = httpx.get(
             f"{from_api}/v2/decks/export/{export_token}", params=params
@@ -1023,7 +1033,6 @@ def import_decks(
 
             # And then the card listing
             deck_cards: list[DeckCard] = []
-            card_stub_counts = {x.stub: x.count for x in export_deck.cards}
             for card in export_deck.cards:
                 card_id = card_stub_to_id.get(card.stub)
                 if card_id is None:
@@ -1081,7 +1090,7 @@ def import_decks(
                         )
                     )
             if export_deck.tutor_map:
-                for tutor_stub, card_stub in exort_deck.tutor_map.items():
+                for tutor_stub, card_stub in export_deck.tutor_map.items():
                     tutor_card_id = card_stub_to_id.get(tutor_stub)
                     card_id = card_stub_to_id.get(card_stub)
                     if not tutor_card_id or not card_id:  # pragma: no cover
@@ -1149,7 +1158,13 @@ def import_decks(
 )
 def export_decks(
     export_token: UUID4,
-    from_date: datetime = None,
+    from_date: datetime | None = None,
+    deck_share_uuid: Annotated[
+        UUID4 | None,
+        Query(
+            description="If specified, only this deck and its snapshots will be exported."
+        ),
+    ] = None,
     session: db.Session = Depends(get_session),
     _: "AnonymousUser" = Depends(anonymous_required),
 ):
@@ -1164,12 +1179,42 @@ def export_decks(
     )
     if not deck_user:
         raise NotFoundException(detail="No user matching export token.")
+
+    # If we are exporting a "single" deck, then gather the source deck and all of its snapshots
+    initial_deck = None
+    if deck_share_uuid:
+        initial_deck = (
+            session.query(Deck)
+            .filter(
+                Deck.direct_share_uuid == deck_share_uuid,
+                Deck.user_id == deck_user.id,
+                Deck.is_deleted == False,
+                Deck.is_legacy == False,
+            )
+            .first()
+        )
+        if not initial_deck:
+            raise NotFoundException(
+                detail="Current user does not have a deck with this share UUID."
+            )
+        if initial_deck.is_snapshot:
+            initial_deck = (
+                session.query(Deck).filter(Deck.id == initial_deck.source_id).first()
+            )
+
     deck_filters = [
         Deck.user_id == deck_user.id,
         Deck.is_exported == False,
         Deck.is_deleted == False,
         Deck.is_legacy == False,
     ]
+    if initial_deck:
+        deck_filters.append(
+            or_(
+                Deck.id == initial_deck.id,
+                and_(Deck.source_id == initial_deck.id, Deck.is_snapshot == True),
+            )
+        )
     if from_date:
         deck_filters.append(Deck.created > from_date)
     query = session.query(Deck).filter(*deck_filters).order_by(Deck.created.asc())
