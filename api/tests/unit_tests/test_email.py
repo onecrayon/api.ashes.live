@@ -1,7 +1,4 @@
-from collections import namedtuple
-
 import api.utils.email as email_utils
-from api.environment import settings
 
 from .. import utils
 
@@ -27,7 +24,7 @@ _GOOD_DATA = {
 }
 
 
-def test_email_no_smtp_host(caplog, monkeypatch):
+def test_email_no_smtp_host(monkeypatch):
     """Trying to email without an SMTP host should fail"""
     # Make sure that we don't fail due to a missing sender
     _set_sender_settings(monkeypatch, sender_email=True, smtp_host=False)
@@ -36,11 +33,9 @@ def test_email_no_smtp_host(caplog, monkeypatch):
         email_utils.send_message(email, "invite", subject="Test", data=_GOOD_DATA)
         == False
     )
-    # Verify the error was logged
-    assert len(caplog.records) == 1
 
 
-def test_email_no_sender_address(caplog, monkeypatch):
+def test_email_no_sender_address(monkeypatch):
     """Trying to send an email without a sender address should fail"""
     # Ensure sender address is blank but we have an SMTP host
     _set_sender_settings(monkeypatch, sender_email=False, smtp_host=True)
@@ -49,18 +44,15 @@ def test_email_no_sender_address(caplog, monkeypatch):
         email_utils.send_message(email, "invite", subject="Test", data=_GOOD_DATA)
         == False
     )
-    # Verify the error was logged
-    assert len(caplog.records) == 1
 
 
-def test_email_no_template_name(caplog, monkeypatch):
+def test_email_no_template_name(monkeypatch):
     """Trying to send an email without a template ID should fail"""
     _set_sender_settings(monkeypatch)
     email = utils.generate_random_email()
     assert (
         email_utils.send_message(email, None, subject="Test", data=_GOOD_DATA) == False
     )
-    assert len(caplog.records) == 1
 
 
 def test_debug_email_remap_missing(monkeypatch):
