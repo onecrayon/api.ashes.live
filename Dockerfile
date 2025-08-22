@@ -15,10 +15,8 @@ ENV ENV=${ENV} \
   PIP_NO_CACHE_DIR=off \
   PIP_DISABLE_PIP_VERSION_CHECK=on \
   PIP_DEFAULT_TIMEOUT=100 \
-  # dockerize:
-  DOCKERIZE_VERSION=v0.6.1 \
   # poetry:
-  POETRY_VERSION=2.1.3 \
+  POETRY_VERSION=2.1.4 \
   POETRY_VIRTUALENVS_CREATE=false \
   POETRY_CACHE_DIR='/var/cache/pypoetry'
 
@@ -35,11 +33,6 @@ RUN apt-get update \
     make \
   # Cleaning cache:
   && apt-get autoremove && apt-get clean && rm -rf /var/lib/apt/lists/* \
-  # Installing `dockerize` utility:
-  # https://github.com/jwilder/dockerize
-  && wget "https://github.com/jwilder/dockerize/releases/download/${DOCKERIZE_VERSION}/dockerize-linux-amd64-${DOCKERIZE_VERSION}.tar.gz" \
-  && tar -C /usr/local/bin -xzvf "dockerize-linux-amd64-${DOCKERIZE_VERSION}.tar.gz" \
-  && rm "dockerize-linux-amd64-${DOCKERIZE_VERSION}.tar.gz" && dockerize --version \
   # Update setuptools so that pytest-cov works
   && pip install --upgrade setuptools \
   # Installing `poetry` package manager:
@@ -57,21 +50,17 @@ RUN echo "$ENV" \
   # Cleaning poetry installation's cache for production:
   && if [ "$ENV" = 'production' ]; then rm -rf "$POETRY_CACHE_DIR"; fi
 
-# These are special cases used as code entrypoints:
-COPY ./docker/entrypoint.sh ./docker/gunicorn.sh /
+# This is a special case used as a code entrypoint:
+COPY ./docker/gunicorn.sh /
 
 # Setting up proper permissions:
-RUN chmod +x '/entrypoint.sh' \
-  && chmod +x '/gunicorn.sh' \
+RUN chmod +x '/gunicorn.sh' \
   && groupadd -r web && mkdir -p /home/web \
   && useradd -d /home/web -r -g web web \
   && chown web:web -R /code && chown web:web -R /home/web
 
 # Running as non-root user:
 USER web
-
-# Custom entrypoint ensures that full stack is up and running in local development environment:
-ENTRYPOINT ["/entrypoint.sh"]
 
 
 # The following stage is only for production deployments.
