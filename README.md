@@ -270,6 +270,15 @@ The underlying Dockerfile uses Poetry, pinned to a specific release version. In 
 update poetry, you must update its pinned version in `Dockerfile` then rebuild your API
 container using `make build`.
 
+### AI-generated code
+
+You may notice that there is a `CLAUDE.md` file for providing Claude Code with guidance for
+how to interact with the codebase. I am experimenting with offsetting some of the repetitive
+tasks that are keeping me from actually developing this site onto AI, but please note that
+I am not interested in new features completely coded by AI. If you submit a PR with
+AI-generated code from a careful prompt and a deep understanding of the project, that is fine,
+but please don't try to substitute an LLM for understanding and thinking about the code yourself.
+
 ## Deployment
 
 Ashes.live is currently setup for deployment to [Opalstack](https://opalstack.com).
