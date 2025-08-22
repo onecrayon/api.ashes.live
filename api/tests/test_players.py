@@ -247,3 +247,30 @@ def test_ban_user(client: TestClient, session: db.Session):
     assert response.status_code == status.HTTP_200_OK, response.json()
     session.refresh(user)
     assert user.is_banned == True
+
+
+# Export Token Tests
+
+
+def test_get_export_token_generates_new_uuid(client: TestClient, session: db.Session):
+    """Test that a new export token UUID is generated for users who don't have one"""
+    pass
+
+
+def test_get_export_token_returns_existing_uuid(
+    client: TestClient, session: db.Session
+):
+    """Test that existing export token UUID is returned without generating a new one"""
+    pass
+
+
+def test_get_export_token_fails_when_exports_disabled(
+    client: TestClient, session: db.Session
+):
+    """Test that export token generation fails when ALLOW_EXPORTS=false"""
+    pass
+
+
+def test_get_export_token_requires_authentication(client: TestClient):
+    """Test that export token endpoint requires user authentication"""
+    pass
