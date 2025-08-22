@@ -65,7 +65,7 @@ This is the backend API for Ashes.live, a fan-developed deckbuilder and communit
 ### Adding New Features
 1. Create/update models in `api/models/`
 2. Generate migration: `make migrate-new ARGS='DESCRIPTION HERE'`
-3. Run migration: `make migrate`
+3. Ask user to verify the migration file so they can make any necessary edits
 4. Implement shared business logic in `api/services/`, if any, but for singleton logic keep it in the view code
 5. Create Pydantic schemas in `api/schemas/`
 6. Add route handlers in `api/views/`
@@ -79,7 +79,7 @@ This is the backend API for Ashes.live, a fan-developed deckbuilder and communit
 
 ### Database Migrations
 1. Create the migration: `make migration-new ARGS='DESCRIPTION HERE'`
-2. Review generated migration file
+2. Review generated migration file to ensure no unexpected changes
 3. Execute the migration: `make migrate`
 
 ## AI Assistant Guidelines
