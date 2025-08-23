@@ -1295,7 +1295,7 @@ def export_decks(
         for selected_card in selected_cards:
             card = card_id_to_card.get(selected_card.card_id)
             # This situation should theoretically never happen, but just in case...
-            if not card:
+            if not card:  # pragma: no cover
                 continue
             if selected_card.is_first_five:
                 first_five.append(card.stub)
@@ -1308,7 +1308,7 @@ def export_decks(
         deck_dict["first_five"] = first_five
         deck_dict["effect_costs"] = effect_costs
         deck_dict["tutor_map"] = tutor_map
-        deck_output.append(deck_row)
+        deck_output.append(deck_dict)
     return {
         "next_page_from_date": decks_to_export[-1].created if have_next_page else None,
         "total": total_to_export,
