@@ -252,25 +252,83 @@ def test_ban_user(client: TestClient, session: db.Session):
 # Export Token Tests
 
 
-def test_get_export_token_generates_new_uuid(client: TestClient, session: db.Session):
+def test_get_export_token_generates_new_uuid(
+    client: TestClient, session: db.Session, monkeypatch
+):
     """Test that a new export token UUID is generated for users who don't have one"""
-    pass
+    # Enable exports for this test
+    utils.monkeypatch_settings(monkeypatch, {"allow_exports": True})
+
+    # Create user without export token
+    user, token = utils.create_user_token(session)
+    assert user.deck_export_uuid is None
+
+    # Request export token
+    response = client.get(
+        "/v2/players/me/export", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    data = response.json()
+    assert response.status_code == status.HTTP_200_OK, data
+    assert "export_token" in data
+    assert data["export_token"] is not None
+
+    # Verify token was saved to database
+    session.refresh(user)
+    assert user.deck_export_uuid is not None
+    assert str(user.deck_export_uuid) == data["export_token"]
 
 
 def test_get_export_token_returns_existing_uuid(
-    client: TestClient, session: db.Session
+    client: TestClient, session: db.Session, monkeypatch
 ):
     """Test that existing export token UUID is returned without generating a new one"""
-    pass
+    # Enable exports for this test
+    utils.monkeypatch_settings(monkeypatch, {"allow_exports": True})
+
+    # Create user with existing export token
+    user, token = utils.create_user_token(session)
+    existing_uuid = uuid.uuid4()
+    user.deck_export_uuid = existing_uuid
+    session.commit()
+
+    # Request export token
+    response = client.get(
+        "/v2/players/me/export", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    data = response.json()
+    assert response.status_code == status.HTTP_200_OK, data
+    assert data["export_token"] == str(existing_uuid)
+
+    # Verify UUID wasn't changed in database
+    session.refresh(user)
+    assert user.deck_export_uuid == existing_uuid
 
 
 def test_get_export_token_fails_when_exports_disabled(
-    client: TestClient, session: db.Session
+    client: TestClient, session: db.Session, monkeypatch
 ):
     """Test that export token generation fails when ALLOW_EXPORTS=false"""
-    pass
+    # Ensure exports are disabled
+    utils.monkeypatch_settings(monkeypatch, {"allow_exports": False})
+
+    user, token = utils.create_user_token(session)
+
+    response = client.get(
+        "/v2/players/me/export", headers={"Authorization": f"Bearer {token}"}
+    )
+
+    data = response.json()
+    assert response.status_code == status.HTTP_400_BAD_REQUEST, data
+    assert "export" in data["detail"].lower()
+
+    # Verify no token was created
+    session.refresh(user)
+    assert user.deck_export_uuid is None
 
 
 def test_get_export_token_requires_authentication(client: TestClient):
     """Test that export token endpoint requires user authentication"""
-    pass
+    response = client.get("/v2/players/me/export")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
