@@ -86,11 +86,11 @@ This is the backend API for Ashes.live, a fan-developed deckbuilder and communit
 
 ### When Working on This Codebase:
 1. **Always use Make commands** - Never run Docker/compose commands directly
-2. **Follow the clean architecture** - Views → Services → Models
-3. **Write tests** - Integration tests for endpoints, unit tests for complex logic
-4. **Format code** - Run `make format` before completing work
-5. **Use existing patterns** - Study existing code before implementing new features
-6. **Check coverage** - Run `make test` and review `htmlcov/index.html`
+2. **NEVER use local imports** - Always add imports to the tops of files, unless explicitly told otherwise
+3. **Follow the clean architecture** - Views → Services → Models
+4. **Write tests** - Integration tests for endpoints, unit tests for complex logic
+5. **Format code** - Automatically format changed files after major edits. **NEVER** summarize formatting changes when it succeeds (at most simply report success)
+6. **Use existing patterns** - Study existing code before implementing new features
 
 ### Before Making Changes:
 - Understand the feature requirements
@@ -101,7 +101,6 @@ This is the backend API for Ashes.live, a fan-developed deckbuilder and communit
 ### After Making Changes:
 - Format code: `make format`
 - Run tests: `make test`
-- Verify coverage in browser: `htmlcov/index.html`
 
 ### Common Patterns:
 - Route dependencies in `api/depends.py`
