@@ -133,10 +133,8 @@ def list_cards(
         if show_legacy and releases is CardsFilterRelease.phg:
             query = query.filter(Release.is_phg.is_(True))
         elif releases is CardsFilterRelease.mine and not current_user.is_anonymous():
-            my_release_subquery = (
-                session.query(UserRelease.release_id)
-                .filter(UserRelease.user_id == current_user.id)
-                .subquery()
+            my_release_subquery = session.query(UserRelease.release_id).filter(
+                UserRelease.user_id == current_user.id
             )
             query = query.filter(Card.release_id.in_(my_release_subquery))
         elif r:

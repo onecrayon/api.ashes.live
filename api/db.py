@@ -72,7 +72,6 @@ from sqlalchemy import (
     within_group,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
     Query,
@@ -81,6 +80,7 @@ from sqlalchemy.orm import (
     backref,
     contains_eager,
     joinedload,
+    registry,
     relationship,
     sessionmaker,
 )
@@ -190,6 +190,7 @@ meta = MetaData(
         "pk": "pk_%(table_name)s",
     }
 )
-AlchemyBase = declarative_base(metadata=meta)
+mapper_registry = registry(metadata=meta)
+AlchemyBase = mapper_registry.generate_base()
 
 UTCTimestamp = TIMESTAMP(timezone=True)
