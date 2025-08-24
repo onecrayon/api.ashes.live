@@ -1152,7 +1152,7 @@ def test_import_decks_handles_dice_validation(
     # Verify deck was created with capped dice counts
     created_decks = session.query(Deck).filter(Deck.user_id == user.id).all()
     assert len(created_decks) == 1
-    
+
     created_deck = created_decks[0]
     deck_dice = created_deck.dice
     total_dice_count = sum(die.count for die in deck_dice)
