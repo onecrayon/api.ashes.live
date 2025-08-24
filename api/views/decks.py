@@ -63,6 +63,7 @@ from api.services.deck import (
     paginate_deck_listing,
 )
 from api.services.stream import create_entity
+from api.utils.dates import pydantic_style_datetime_str
 
 router = APIRouter()
 
@@ -918,11 +919,13 @@ def import_decks(
         from_api = f"https://{from_api}"
     if from_api.endswith("/"):
         from_api = from_api[:-1]
-    params = None
+    params = {}
     if from_date:
-        params = {"from_date": from_date.isoformat()}
+        params["from_date"] = from_date.isoformat()
     if deck_share_uuid:
-        params = {"deck_share_uuid": str(deck_share_uuid)}
+        params["deck_share_uuid"] = str(deck_share_uuid)
+    if not params:
+        params = None
     try:
         response = httpx.get(
             f"{from_api}/v2/decks/export/{export_token}", params=params
@@ -979,7 +982,7 @@ def import_decks(
     }
     successfully_imported_created_dates = set()
     errors = []
-    source_created_to_deck = {}
+    source_created_to_deck = defaultdict(list)
     for export_deck in rendered_decks:
         try:
             phoenixborn_id = card_stub_to_id.get(export_deck.phoenixborn.stub)
@@ -1012,13 +1015,13 @@ def import_decks(
             # Save the created date if this has a source set (we have to set these later once everything in this batch
             #  is created or updated, because before then some of them might not have IDs)
             if export_deck.source_created:
-                source_created_to_deck[export_deck.source_created] = deck
+                source_created_to_deck[export_deck.source_created].append(deck)
 
             # Update the dice listing
             deck_dice: list[DeckDie] = []
             total_dice = 0
             for die in export_deck.dice:
-                die = die.name
+                die_name = die.name
                 count = die.count
                 if count:
                     if total_dice + count > 10:
@@ -1027,7 +1030,7 @@ def import_decks(
                         break
                     total_dice = total_dice + count
                     deck_dice.append(
-                        DeckDie(die_flag=DiceFlags[die].value, count=count)
+                        DeckDie(die_flag=DiceFlags[die_name].value, count=count)
                     )
             deck.dice = deck_dice
 
@@ -1114,8 +1117,9 @@ def import_decks(
     ):
         source_created = row[0]
         source_id = row[1]
-        deck = source_created_to_deck.get(source_created)
-        deck.source_id = source_id
+        snapshot_decks = source_created_to_deck[source_created]
+        for deck in snapshot_decks:
+            deck.source_id = source_id
     session.commit()
 
     # Final step is to notify the source API which decks we imported successfully
@@ -1124,7 +1128,10 @@ def import_decks(
         try:
             response = httpx.post(
                 f"{from_api}/v2/decks/export/{export_token}",
-                json=list(successfully_imported_created_dates),
+                json=[
+                    pydantic_style_datetime_str(dt)
+                    for dt in successfully_imported_created_dates
+                ],
             )
             response.raise_for_status()
         except httpx.HTTPStatusError as e:

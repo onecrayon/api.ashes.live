@@ -50,8 +50,3 @@ def generate_random_email() -> str:
 def generate_random_chars(length=10) -> str:
     """Returns a random alphanumeric string of the given length"""
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=length))
-
-
-def format_date_for_querystring(d: datetime) -> str:
-    """Returns a datetime formatted for querystring usage"""
-    return d.isoformat().replace("+00:00", "Z")

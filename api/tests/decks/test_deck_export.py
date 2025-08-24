@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from api import db
 from api.services.deck import create_or_update_deck, create_snapshot_for_deck
 from api.tests import utils
-from api.utils.dates import utcnow
+from api.utils.dates import pydantic_style_datetime_str, utcnow
 
 from .deck_utils import create_deck_for_user, get_phoenixborn_cards_dice
 
@@ -158,14 +158,14 @@ def test_export_decks_filters_by_from_date(
     # Filter by date between old and new decks
     filter_date = utcnow() - timedelta(days=1)
     response = client.get(
-        f"/v2/decks/export/{export_user.deck_export_uuid}?from_date={utils.format_date_for_querystring(filter_date)}"
+        f"/v2/decks/export/{export_user.deck_export_uuid}?from_date={pydantic_style_datetime_str(filter_date)}"
     )
 
     data = response.json()
     assert response.status_code == status.HTTP_200_OK, data
     assert data["total"] == 1  # Only newer deck
     assert len(data["decks"]) == 1
-    assert data["decks"][0]["created"] == utils.format_date_for_querystring(new_date)
+    assert data["decks"][0]["created"] == pydantic_style_datetime_str(new_date)
 
 
 def test_export_decks_single_deck_by_share_uuid(
@@ -189,7 +189,7 @@ def test_export_decks_single_deck_by_share_uuid(
     assert response.status_code == status.HTTP_200_OK, data
     assert data["total"] == 1  # Only the specified deck
     assert len(data["decks"]) == 1
-    assert data["decks"][0]["created"] == utils.format_date_for_querystring(
+    assert data["decks"][0]["created"] == pydantic_style_datetime_str(
         export_deck1.created
     )
 
@@ -222,15 +222,9 @@ def test_export_decks_includes_snapshots_for_single_deck(
 
     # Verify all decks are included
     exported_created_dates = {deck["created"] for deck in data["decks"]}
-    assert (
-        utils.format_date_for_querystring(source_deck.created) in exported_created_dates
-    )
-    assert (
-        utils.format_date_for_querystring(snapshot1.created) in exported_created_dates
-    )
-    assert (
-        utils.format_date_for_querystring(snapshot2.created) in exported_created_dates
-    )
+    assert pydantic_style_datetime_str(source_deck.created) in exported_created_dates
+    assert pydantic_style_datetime_str(snapshot1.created) in exported_created_dates
+    assert pydantic_style_datetime_str(snapshot2.created) in exported_created_dates
 
 
 def test_export_decks_excludes_deleted_legacy_decks(
@@ -260,16 +254,12 @@ def test_export_decks_excludes_deleted_legacy_decks(
     # Should only include normal deck (plus existing export_deck1 and export_deck2 from fixtures)
     # But since we're in a fresh function scope, only the normal_deck should appear
     exported_created_dates = {deck["created"] for deck in data["decks"]}
+    assert pydantic_style_datetime_str(normal_deck.created) in exported_created_dates
     assert (
-        utils.format_date_for_querystring(normal_deck.created) in exported_created_dates
+        pydantic_style_datetime_str(deleted_deck.created) not in exported_created_dates
     )
     assert (
-        utils.format_date_for_querystring(deleted_deck.created)
-        not in exported_created_dates
-    )
-    assert (
-        utils.format_date_for_querystring(legacy_deck.created)
-        not in exported_created_dates
+        pydantic_style_datetime_str(legacy_deck.created) not in exported_created_dates
     )
 
 
@@ -310,7 +300,7 @@ def test_export_decks_includes_selected_cards_data(
     # Find our deck in the results
     target_deck = None
     for exported_deck in data["decks"]:
-        if exported_deck["created"] == utils.format_date_for_querystring(deck.created):
+        if exported_deck["created"] == pydantic_style_datetime_str(deck.created):
             target_deck = exported_deck
             break
 
@@ -516,10 +506,8 @@ def test_export_decks_handles_snapshot_as_initial_deck(
 
     # Verify both decks are included
     exported_created_dates = {deck["created"] for deck in data["decks"]}
-    assert (
-        utils.format_date_for_querystring(source_deck.created) in exported_created_dates
-    )
-    assert utils.format_date_for_querystring(snapshot.created) in exported_created_dates
+    assert pydantic_style_datetime_str(source_deck.created) in exported_created_dates
+    assert pydantic_style_datetime_str(snapshot.created) in exported_created_dates
 
 
 def test_export_decks_pagination_boundary_conditions(
@@ -562,7 +550,7 @@ def test_export_decks_empty_result_set(
     # Test with date filter that matches no decks (future date)
     future_date = utcnow() + timedelta(days=1)
     response = client.get(
-        f"/v2/decks/export/{export_user.deck_export_uuid}?from_date={utils.format_date_for_querystring(future_date)}"
+        f"/v2/decks/export/{export_user.deck_export_uuid}?from_date={pydantic_style_datetime_str(future_date)}"
     )
 
     data = response.json()
