@@ -78,7 +78,7 @@ This is the backend API for Ashes.live, a fan-developed deckbuilder and communit
 2. Rebuild the container: `make build`
 
 ### Database Migrations
-1. Create the migration: `make migration-new ARGS='DESCRIPTION HERE'`
+1. Create the migration: `make migrate-new ARGS='DESCRIPTION HERE'`
 2. Review generated migration file to ensure no unexpected changes
 3. Execute the migration: `make migrate`
 

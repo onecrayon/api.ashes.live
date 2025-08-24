@@ -490,10 +490,10 @@ def update_card(
             card.alt_dice_flags = 0
             del json_data["altDice"]
     # Update JSON-only data that doesn't need parsing
-    for prop in ("magicCost", "effectMagicCost", "effectRepeats"):
+    for prop in ("magicCost", "effectMagicCost", "effectRepeats", "chained"):
         update_value = getattr(data, prop)
         if update_value is not None and update_value != json_data.get(prop):
-            if update_value:
+            if update_value or update_value == 0:
                 json_data[prop] = update_value
             elif prop in json_data:
                 del json_data[prop]
@@ -501,7 +501,7 @@ def update_card(
     for prop in ("attack", "life", "recover", "battlefield", "spellboard"):
         update_value = getattr(data, prop)
         if update_value is not None and update_value != json_data.get(prop):
-            if update_value:
+            if update_value or update_value == 0:
                 json_data[prop] = str_or_int(update_value)
             elif prop in json_data:
                 del json_data[prop]
