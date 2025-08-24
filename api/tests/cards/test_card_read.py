@@ -2,7 +2,8 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from api import db
-from api.models import Card, Comment, Subscription
+from api.models import Card, Comment, Release, Subscription
+from api.services.card import create_card
 from api.services.stream import create_entity
 from api.tests.utils import create_admin_token, create_user_token
 
@@ -111,6 +112,51 @@ def test_get_details_phoenixborn(client: TestClient, session: db.Session):
     """Must properly find connected cards when looking up Phoenixborn"""
     response = client.get("/v2/cards/example-phoenixborn/details")
     assert response.status_code == status.HTTP_200_OK
+
+
+def test_get_details_phoenixborn_second_unique(client: TestClient, session: db.Session):
+    """Must properly output second Phoenixborn unique in details"""
+    # Get the master set release for creating our test cards
+    master_set = session.query(Release).filter(Release.stub == "master-set").first()
+    
+    # Create a second conjuration for the second unique
+    create_card(
+        session,
+        name="Example Second Conjuration",
+        card_type="Conjuration",
+        placement="Battlefield",
+        phoenixborn="Example Phoenixborn",
+        release=master_set,
+        attack=1,
+        life=3,
+        recover=0,
+        copies=2,
+    )
+    
+    # Create a second unique for the Example Phoenixborn
+    create_card(
+        session,
+        name="Example Second Unique",
+        card_type="Ready Spell",
+        placement="Spellboard",
+        phoenixborn="Example Phoenixborn",
+        release=master_set,
+        cost="[[main]] - 2 [[illusion:power]]",
+        text="Second unique: [[main]] - [[exhaust]]: Place an [[Example Second Conjuration]] conjuration on your battlefield.",
+    )
+    
+    response = client.get("/v2/cards/example-phoenixborn/details")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    related_cards = data["related_cards"]
+    assert "phoenixborn_unique_2" in related_cards
+    assert related_cards["phoenixborn_unique_2"]["name"] == "Example Second Unique"
+    assert "phoenixborn_unique_2_conjurations" in related_cards
+    assert len(related_cards["phoenixborn_unique_2_conjurations"]) == 1
+    assert (
+        related_cards["phoenixborn_unique_2_conjurations"][0]["name"]
+        == "Example Second Conjuration"
+    )
 
 
 def test_get_details_last_seen_entity_id(client: TestClient, session: db.Session):
