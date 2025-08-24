@@ -8,7 +8,6 @@ Typical usage:
 
 from sqlalchemy import (
     BigInteger,
-    Binary,
     Boolean,
     Column,
     Date,
@@ -73,7 +72,6 @@ from sqlalchemy import (
     within_group,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
-from sqlalchemy.engine import RowProxy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
@@ -106,7 +104,6 @@ __all__ = (
     BigInteger,
     Integer,
     SmallInteger,
-    Binary,
     LargeBinary,
     Boolean,
     Date,
@@ -171,7 +168,6 @@ __all__ = (
     Table,
     UniqueConstraint,
     Query,
-    RowProxy,
     hybrid_property,
     # ORM
     flag_modified,
