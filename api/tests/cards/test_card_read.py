@@ -118,7 +118,7 @@ def test_get_details_phoenixborn_second_unique(client: TestClient, session: db.S
     """Must properly output second Phoenixborn unique in details"""
     # Get the master set release for creating our test cards
     master_set = session.query(Release).filter(Release.stub == "master-set").first()
-    
+
     # Create a second conjuration for the second unique
     create_card(
         session,
@@ -132,7 +132,7 @@ def test_get_details_phoenixborn_second_unique(client: TestClient, session: db.S
         recover=0,
         copies=2,
     )
-    
+
     # Create a second unique for the Example Phoenixborn
     create_card(
         session,
@@ -144,7 +144,7 @@ def test_get_details_phoenixborn_second_unique(client: TestClient, session: db.S
         cost="[[main]] - 2 [[illusion:power]]",
         text="Second unique: [[main]] - [[exhaust]]: Place an [[Example Second Conjuration]] conjuration on your battlefield.",
     )
-    
+
     response = client.get("/v2/cards/example-phoenixborn/details")
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
