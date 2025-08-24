@@ -1,16 +1,25 @@
+from collections import defaultdict
+from datetime import datetime
+from typing import Annotated
+
+import httpx
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import UUID4
+from sqlalchemy import and_, or_
 
 from api import db
 from api.depends import (
     AUTH_RESPONSES,
+    anonymous_required,
     get_current_user,
     get_session,
     login_required,
     paging_options,
 )
+from api.environment import settings
 from api.exceptions import APIException, NotFoundException, NoUserAccessException
 from api.models import (
+    AnonymousUser,
     Card,
     Deck,
     DeckCard,
@@ -22,12 +31,16 @@ from api.models import (
     User,
     UserType,
 )
+from api.models.card import DiceFlags
 from api.schemas import DetailResponse
 from api.schemas.decks import (
     DeckDetails,
+    DeckExportOut,
+    DeckExportResults,
     DeckFilters,
     DeckFiltersMine,
     DeckFullOut,
+    DeckImportOut,
     DeckIn,
     DeckListingOut,
     DeckSaveOut,
@@ -44,10 +57,13 @@ from api.services.deck import (
     create_or_update_deck,
     create_snapshot_for_deck,
     deck_to_dict,
+    generate_deck_dict,
+    get_conjuration_mapping,
     get_decks_query,
     paginate_deck_listing,
 )
 from api.services.stream import create_entity
+from api.utils.dates import pydantic_style_datetime_str
 
 router = APIRouter()
 
@@ -863,3 +879,492 @@ def edit_snapshot(
             setattr(deck, field, None)
     session.commit()
     return deck_to_dict(session, deck=deck)
+
+
+class DeckImportException(Exception):
+    """Used internally to record exceptions when trying to import decks"""
+
+    pass
+
+
+@router.get(
+    "/decks/import/{export_token}",
+    response_model=DeckImportOut,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Error fetching decks to import from source.",
+        },
+        **AUTH_RESPONSES,
+    },
+)
+def import_decks(
+    export_token: UUID4,
+    from_date: datetime | None = None,
+    deck_share_uuid: Annotated[
+        UUID4 | None,
+        Query(
+            description="If specified, only this deck and its snapshots will be imported."
+        ),
+    ] = None,
+    from_api: str = "api.ashes.live",
+    session: db.Session = Depends(get_session),
+    current_user: "User" = Depends(login_required),
+):
+    """Imports decks from another instance of the Ashes.live backend.
+
+    Mainly intended to be called on the Plaid Hat AshesDB in order to import decks from Ashes.live.
+    """
+    if not from_api.startswith("http"):
+        from_api = f"https://{from_api}"
+    if from_api.endswith("/"):
+        from_api = from_api[:-1]
+    params = {}
+    if from_date:
+        params["from_date"] = from_date.isoformat()
+    if deck_share_uuid:
+        params["deck_share_uuid"] = str(deck_share_uuid)
+    if not params:
+        params = None
+    try:
+        response = httpx.get(
+            f"{from_api}/v2/decks/export/{export_token}", params=params
+        )
+        response.raise_for_status()
+        exported_decks = response.json()
+    except httpx.HTTPStatusError as e:
+        raise APIException(
+            detail=f"Source API responded with error: {e.response.json()['detail']}"
+        )
+    except httpx.RequestError as e:
+        raise APIException(detail=f"Unable to connect to source API at {e.request.url}")
+
+    # Time to import those decks! This is complicated for a few reasons:
+    #  1. We're using created date + user as the primary key, because auto-incremented integers will differ
+    #  2. We need to catch unusual errors such as cards existing in the external instance but not in ours
+    #  3. We need to perform as few SQL calls wherever possible, because we're working in large batches
+    #  4. Decks could be new or updated
+    #
+    #  All of these combined mean that we can't easily use the existing utility method for saving decks.
+
+    # Before we do anything else, we need to gather the cards and past decks that are necessary for bulk operations
+    card_stubs = set()
+    created_dates = set()
+    rendered_decks: list[DeckExportOut] = []
+    for export_dict in exported_decks["decks"]:
+        rendered = DeckExportOut(**export_dict)
+        for card in rendered.cards:
+            card_stubs.add(card.stub)
+        card_stubs.add(rendered.phoenixborn.stub)
+        created_dates.add(rendered.created)
+        rendered_decks.append(rendered)
+    card_stub_to_id: dict[str, int] = {
+        x[0]: x[1]
+        for x in session.query(Card.stub, Card.id)
+        .join(Card.release)
+        .filter(
+            Card.stub.in_(card_stubs),
+            Card.is_legacy == False,
+            Release.is_public == True,
+        )
+        .all()
+    }
+    created_to_deck: dict[datetime, Deck] = {
+        x.created: x
+        for x in session.query(Deck)
+        .options(
+            db.joinedload("cards"),
+            db.joinedload("dice"),
+            db.joinedload("selected_cards"),
+        )
+        .filter(Deck.created.in_(created_dates), Deck.user_id == current_user.id)
+        .all()
+    }
+    successfully_imported_created_dates = set()
+    errors = []
+    source_created_to_deck = defaultdict(list)
+    for export_deck in rendered_decks:
+        try:
+            phoenixborn_id = card_stub_to_id.get(export_deck.phoenixborn.stub)
+            if not phoenixborn_id:
+                raise DeckImportException(
+                    f"Deck '{export_deck.title}' failed to import; missing Phoenixborn {export_deck.phoenixborn.name}."
+                )
+            # Check if this is an update
+            deck = created_to_deck.get(export_deck.created)
+            if deck is not None:
+                deck.title = export_deck.title
+                deck.description = export_deck.description
+                deck.phoenixborn_id = phoenixborn_id
+                deck.modified = export_deck.modified
+                # Intentionally ignoring the Red Rains conversion logic, because life is too short
+            else:
+                deck = Deck(
+                    entity_id=create_entity(session),
+                    title=export_deck.title,
+                    description=export_deck.description,
+                    created=export_deck.created,
+                    modified=export_deck.modified,
+                    user_id=current_user.id,
+                    phoenixborn_id=phoenixborn_id,
+                    is_snapshot=export_deck.is_snapshot,
+                    is_public=export_deck.is_public,
+                    is_red_rains=export_deck.is_red_rains,
+                )
+
+            # Save the created date if this has a source set (we have to set these later once everything in this batch
+            #  is created or updated, because before then some of them might not have IDs)
+            if export_deck.source_created:
+                source_created_to_deck[export_deck.source_created].append(deck)
+
+            # Update the dice listing
+            deck_dice: list[DeckDie] = []
+            total_dice = 0
+            for die in export_deck.dice:
+                die_name = die.name
+                count = die.count
+                if count:
+                    if total_dice + count > 10:
+                        count = 10 - total_dice
+                    if count == 0:
+                        break
+                    total_dice = total_dice + count
+                    deck_dice.append(
+                        DeckDie(die_flag=DiceFlags[die_name].value, count=count)
+                    )
+            deck.dice = deck_dice
+
+            # And then the card listing
+            deck_cards: list[DeckCard] = []
+            for card in export_deck.cards:
+                card_id = card_stub_to_id.get(card.stub)
+                if card_id is None:
+                    raise DeckImportException(
+                        f"Deck '{export_deck.title}' failed to import; missing card {card.name}."
+                    )
+                deck_cards.append(DeckCard(card_id=card_id, count=card.count))
+            deck.cards = deck_cards
+
+            # Save everything up!
+            deck.selected_cards = []
+            session.add(deck)
+            # Unfortunately, this means we have 1-2 writes for every deck we import; however, I can't think of a way
+            #  around this, because we're relying on the ORM relationship logic to properly manage cards (and
+            #  particularly the selected cards) which isn't really possible with any SQLAlchemy bulk methods.
+            session.commit()
+            successfully_imported_created_dates.add(deck.created)
+            # No need to proceed if there is no first five, effect costs, and/or tutor map
+            if (
+                not export_deck.first_five
+                and not export_deck.effect_costs
+                and not export_deck.tutor_map
+            ):
+                continue
+
+            # Finally set selected cards
+            selected_cards: list[DeckSelectedCard] = []
+            if export_deck.effect_costs:
+                for card_stub in export_deck.effect_costs:
+                    card_id = card_stub_to_id.get(card_stub)
+                    # pytest-cov simply can't handle catching this usage, so we have to skip it
+                    if not card_id:  # pragma: no cover
+                        continue
+                    if (
+                        export_deck.first_five
+                        and card_stub not in export_deck.first_five
+                    ):
+                        selected_cards.append(
+                            DeckSelectedCard(card_id=card_id, is_paid_effect=True)
+                        )
+            if export_deck.first_five:
+                for card_stub in export_deck.first_five:
+                    card_id = card_stub_to_id.get(card_stub)
+                    if not card_id:  # pragma: no cover
+                        continue
+                    selected_cards.append(
+                        DeckSelectedCard(
+                            card_id=card_id,
+                            is_first_five=True,
+                            is_paid_effect=(
+                                card_stub in export_deck.effect_costs
+                                if export_deck.effect_costs
+                                else False
+                            ),
+                        )
+                    )
+            if export_deck.tutor_map:
+                for tutor_stub, card_stub in export_deck.tutor_map.items():
+                    tutor_card_id = card_stub_to_id.get(tutor_stub)
+                    card_id = card_stub_to_id.get(card_stub)
+                    if not tutor_card_id or not card_id:  # pragma: no cover
+                        continue
+                    selected_cards.append(
+                        DeckSelectedCard(card_id=card_id, tutor_card_id=tutor_card_id)
+                    )
+            deck.selected_cards = selected_cards
+            session.commit()
+        except DeckImportException as e:
+            errors.append(str(e))
+
+    # Now that we have imported everything, it's time to see if we can map source IDs
+    for row in (
+        session.query(Deck.created, Deck.id)
+        .filter(
+            Deck.created.in_(source_created_to_deck.keys()),
+            Deck.user_id == current_user.id,
+        )
+        .all()
+    ):
+        source_created = row[0]
+        source_id = row[1]
+        snapshot_decks = source_created_to_deck[source_created]
+        for deck in snapshot_decks:
+            deck.source_id = source_id
+    session.commit()
+
+    # Final step is to notify the source API which decks we imported successfully
+    total_successes = len(successfully_imported_created_dates)
+    if total_successes:
+        try:
+            response = httpx.post(
+                f"{from_api}/v2/decks/export/{export_token}",
+                json=[
+                    pydantic_style_datetime_str(dt)
+                    for dt in successfully_imported_created_dates
+                ],
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise APIException(
+                detail=f"Source API responded with error: {e.response.json()['detail']}"
+            )
+        except httpx.RequestError as e:
+            raise APIException(
+                detail=f"Unable to connect to source API at {e.request.url}"
+            )
+
+    # And at long last, we can return!
+    return {
+        "success_count": total_successes,
+        "total_count": exported_decks["total"],
+        "next_page_from_date": exported_decks["next_page_from_date"],
+        "errors": errors,
+    }
+
+
+@router.get(
+    "/decks/export/{export_token}",
+    response_model=DeckExportResults,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Error when trying to generate list of decks for export.",
+        },
+        **AUTH_RESPONSES,
+    },
+)
+def export_decks(
+    export_token: UUID4,
+    from_date: datetime | None = None,
+    deck_share_uuid: Annotated[
+        UUID4 | None,
+        Query(
+            description="If specified, only this deck and its snapshots will be exported."
+        ),
+    ] = None,
+    session: db.Session = Depends(get_session),
+    _: "AnonymousUser" = Depends(anonymous_required),
+):
+    """Exports user decks.
+
+    Intended to be called from another instance via its `/decks/import/{export_token}` endpoint.
+    """
+    if not settings.allow_exports:
+        raise APIException(detail="Deck exports are not allowed from this site.")
+    deck_user = (
+        session.query(User).filter(User.deck_export_uuid == export_token).first()
+    )
+    if not deck_user:
+        raise NotFoundException(detail="No user matching export token.")
+
+    # If we are exporting a "single" deck, then gather the source deck and all of its snapshots
+    initial_deck = None
+    if deck_share_uuid:
+        initial_deck = (
+            session.query(Deck)
+            .filter(
+                Deck.direct_share_uuid == deck_share_uuid,
+                Deck.user_id == deck_user.id,
+                Deck.is_deleted == False,
+                Deck.is_legacy == False,
+            )
+            .first()
+        )
+        if not initial_deck:
+            raise NotFoundException(
+                detail="Current user does not have a deck with this share UUID."
+            )
+        if initial_deck.is_snapshot:
+            initial_deck = (
+                session.query(Deck).filter(Deck.id == initial_deck.source_id).first()
+            )
+
+    deck_filters = [
+        Deck.user_id == deck_user.id,
+        Deck.is_exported == False,
+        Deck.is_deleted == False,
+        Deck.is_legacy == False,
+    ]
+    if initial_deck:
+        deck_filters.append(
+            or_(
+                Deck.id == initial_deck.id,
+                and_(Deck.source_id == initial_deck.id, Deck.is_snapshot == True),
+            )
+        )
+    if from_date:
+        deck_filters.append(Deck.created > from_date)
+    query = session.query(Deck).filter(*deck_filters).order_by(Deck.created.asc())
+    total_to_export = query.count()
+    # Find our next set of decks to export. We limit by 1 more than our max so we can determine if there is a next page
+    decks_to_export = query.limit(settings.exports_per_request + 1).all()
+    # Check if we have a next page, and discard the extra, if so
+    have_next_page = len(decks_to_export) == settings.exports_per_request + 1
+    if have_next_page:
+        decks_to_export.pop()
+
+    # Parse through the decks so that we can load their cards en masse with a single query; this is largely lifted
+    #  straight from the deck services pagination logic, but we need to look up source created dates so I'mma copy/paste
+    deck_ids = set()
+    source_ids = set()
+    needed_cards = set()
+    for deck_row in decks_to_export:
+        deck_ids.add(deck_row.id)
+        if deck_row.source_id:
+            source_ids.add(deck_row.source_id)
+        # Ensure we lookup our Phoenixborn cards
+        needed_cards.add(deck_row.phoenixborn_id)
+    # Fetch and collate our dice information for all decks
+    deck_dice = session.query(DeckDie).filter(DeckDie.deck_id.in_(deck_ids)).all()
+    deck_id_to_dice = defaultdict(list)
+    for deck_die in deck_dice:
+        deck_id_to_dice[deck_die.deck_id].append(deck_die)
+    # Now that we have all our basic deck information, look up the cards and quantities they include
+    deck_cards = session.query(DeckCard).filter(DeckCard.deck_id.in_(deck_ids)).all()
+    deck_id_to_deck_cards = defaultdict(list)
+    for deck_card in deck_cards:
+        needed_cards.add(deck_card.card_id)
+        deck_id_to_deck_cards[deck_card.deck_id].append(deck_card)
+    # And finally we need to fetch all top-level conjurations
+    card_id_to_conjurations = get_conjuration_mapping(
+        session=session, card_ids=needed_cards
+    )
+    # Now that we have root-level conjurations, we can gather all our cards and setup our decks
+    cards = session.query(Card).filter(Card.id.in_(needed_cards)).all()
+    card_id_to_card = {x.id: x for x in cards}
+    # Gather our selected cards for these decks
+    deck_selected_cards = (
+        session.query(DeckSelectedCard)
+        .filter(DeckSelectedCard.deck_id.in_(deck_ids))
+        .all()
+    )
+    deck_id_to_selected_cards = defaultdict(list)
+    for deck_selected_card in deck_selected_cards:
+        deck_id_to_selected_cards[deck_selected_card.deck_id].append(deck_selected_card)
+    # Gather all source IDs *that belong to this user* and stick them in a mapping
+    source_decks = (
+        session.query(Deck.id, Deck.created)
+        .filter(
+            Deck.id.in_(source_ids),
+            Deck.is_deleted == False,
+        )
+        .all()
+    )
+    source_id_to_created = {x[0]: x[1] for x in source_decks}
+    # And finally generate a dict for our deck export
+    deck_output = []
+    for deck in decks_to_export:
+        deck_dict = generate_deck_dict(
+            deck=deck,
+            card_id_to_card=card_id_to_card,
+            card_id_to_conjurations=card_id_to_conjurations,
+            deck_cards=deck_id_to_deck_cards[deck.id],
+            deck_dice=deck_id_to_dice.get(deck.id),
+            include_share_uuid=False,
+        )
+        deck_dict["description"] = deck.description
+        if deck_row.source_id and deck_row.source_id in source_id_to_created:
+            deck_dict["source_created"] = source_id_to_created[deck_row.source_id]
+        selected_cards = deck_id_to_selected_cards.get(deck.id, [])
+        first_five = []
+        effect_costs = []
+        tutor_map = {}
+        for selected_card in selected_cards:
+            card = card_id_to_card.get(selected_card.card_id)
+            # This situation should theoretically never happen, but just in case...
+            if not card:  # pragma: no cover
+                continue
+            if selected_card.is_first_five:
+                first_five.append(card.stub)
+            if selected_card.is_paid_effect:
+                effect_costs.append(card.stub)
+            if selected_card.tutor_card_id:
+                tutor_card = card_id_to_card.get(selected_card.tutor_card_id)
+                if tutor_card:
+                    tutor_map[tutor_card.stub] = card.stub
+        deck_dict["first_five"] = first_five
+        deck_dict["effect_costs"] = effect_costs
+        deck_dict["tutor_map"] = tutor_map
+        deck_output.append(deck_dict)
+    return {
+        "next_page_from_date": decks_to_export[-1].created if have_next_page else None,
+        "total": total_to_export,
+        "decks": deck_output,
+    }
+
+
+@router.post(
+    "/decks/export/{export_token}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        400: {
+            "model": DetailResponse,
+            "description": "Error when trying to mark decks as exported.",
+        },
+        404: {
+            "model": DetailResponse,
+            "description": "No user matching the export token.",
+        },
+        **AUTH_RESPONSES,
+    },
+)
+def finalize_exported_decks(
+    export_token: UUID4,
+    deck_create_dates: list[datetime],
+    session: db.Session = Depends(get_session),
+    _: "AnonymousUser" = Depends(anonymous_required),
+):
+    """Final step for importing decks is to call this endpoint and tell it which decks have been successfully
+    imported.
+
+    Accepts a list of deck created dates that were successfully imported.
+    """
+    if not settings.allow_exports:
+        raise APIException(detail="Deck exports are not allowed from this site.")
+    deck_user = (
+        session.query(User).filter(User.deck_export_uuid == export_token).first()
+    )
+    if not deck_user:
+        raise NotFoundException(detail="No user matching export token.")
+    if len(deck_create_dates) == 0:
+        raise APIException(
+            detail="You must pass one or more created dates for decks that were successfully imported."
+        )
+    if len(deck_create_dates) > settings.exports_per_request:
+        raise APIException(
+            detail=f"You cannot mark more than {settings.exports_per_request} decks as successfully imported at once."
+        )
+
+    session.query(Deck).filter(
+        Deck.user_id == deck_user.id, Deck.created.in_(deck_create_dates)
+    ).update({Deck.is_exported: True}, synchronize_session=False)

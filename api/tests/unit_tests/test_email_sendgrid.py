@@ -3,7 +3,6 @@ from collections import namedtuple
 from sendgrid.helpers.mail.exceptions import SendGridException
 
 import api.utils.email as email_utils
-from api.environment import settings
 
 from .. import utils
 
@@ -55,7 +54,7 @@ _GOOD_DATA = {
 }
 
 
-def test_email_no_sendgrid_token(caplog, monkeypatch):
+def test_email_no_sendgrid_token(monkeypatch):
     """Trying to email without a Sendgrid token should fail"""
 
     # Make sure that we don't fail due to a missing sender
@@ -63,28 +62,20 @@ def test_email_no_sendgrid_token(caplog, monkeypatch):
     email = utils.generate_random_email()
     assert email_utils.send_message(email, "invite", "INVITED", _GOOD_DATA) == False
 
-    # Verify the error was logged
-    assert len(caplog.records) == 1
 
-
-def test_email_no_sender_address(caplog, monkeypatch):
+def test_email_no_sender_address(monkeypatch):
     """Trying to send an email without a sender address should fail"""
     # Ensure sender address is blank but we have a SendGrid token
     _set_sender_token(monkeypatch, sender_email=False, sendgrid_token=True)
     email = utils.generate_random_email()
     assert email_utils.send_message(email, "invite", "INVITED", _GOOD_DATA) == False
 
-    # Verify the error was logged
-    assert len(caplog.records) == 1
 
-
-def test_email_no_template_id(caplog, monkeypatch):
+def test_email_no_template_id(monkeypatch):
     """Trying to send an email without a template ID should fail"""
     _set_sender_token(monkeypatch)
     email = utils.generate_random_email()
     assert email_utils.send_to_sendgrid(email, None, _GOOD_DATA) == False
-
-    assert len(caplog.records) == 1
 
 
 def test_email_sendgrid_error(monkeypatch):

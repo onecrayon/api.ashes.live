@@ -23,14 +23,14 @@ _help:
 ##
 ##=== Local development ===
 
-up:       ## Run development server
+up:          ## Run development server
 	@$(DOCKER_COMPOSE) up
 
-test:     ## Execute test suite; or specify target: `make test ARGS='api/tests/cards'`
+test:        ## Execute test suite; or specify target: `make test ARGS='api/tests/cards'`
 	@$(DOCKER_COMPOSE_TESTS) run --rm -w /code -u root api \
 		pytest --cov=api --cov-config=.coveragerc --cov-report=term:skip-covered --cov-report=html $(ARGS)
 
-test-rm:  ## Cleans up test coverage artifacts; useful if coverage is innacurate
+test-rm:     ## Cleans up test coverage artifacts; useful if coverage is innacurate
 	@$(DOCKER_COMPOSE_TESTS) run --rm -w /code -u root api coverage erase
 	@echo 'Test coverage cleaned up!'
 
@@ -40,15 +40,23 @@ ifndef REV
 override REV = head
 endif
 
-migrate: clean-api  ## Run database migrations; or specify a revision: `make migrate REV='head'`
+migrate: clean-api     ## Run database migrations; or specify a revision: `make migrate REV='head'`
 	@$(DOCKER_RUN_DB) alembic upgrade $(REV)
+
+# These two is a bit frustrating; the default entrypoints cause inexplicable errors when trying to pass strings
+#  (and just flat out fail for poetry commands), so we have to specify entrypoints with one-off commands
+migrate-new: clean-api ## Autogenerate a new database migration: `make migrate-new ARGS='Description here'`
+	$(DOCKER_COMPOSE) run --rm -u root -w /code --entrypoint alembic api revision --autogenerate -m "$(ARGS)"
+
+poetry-add: clean-api  ## Add a poetry dependency: `make poetry-add ARGS='pytest --group dev'`
+	$(DOCKER_COMPOSE) run --rm -e STANDALONE=true --no-deps -u root -w /code --entrypoint poetry api add $(ARGS)
 
 # This ensures that even if they pass in an empty value, we default to parsing the "api" folder
 ifndef FILEPATH
 override FILEPATH = api
 endif
 
-format:   ## Format via isort and black; or specify a file: `make format FILEPATH='api/main.py'`
+format:      ## Format via isort and black; or specify a file: `make format FILEPATH='api/main.py'`
 	@$(DOCKER_RUN) make _format FILEPATH="$(FILEPATH)"
 
 _format:
