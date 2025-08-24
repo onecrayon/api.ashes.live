@@ -48,8 +48,8 @@ migrate: clean-api     ## Run database migrations; or specify a revision: `make 
 migrate-new: clean-api ## Autogenerate a new database migration: `make migrate-new ARGS='Description here'`
 	$(DOCKER_COMPOSE) run --rm -u root -w /code --entrypoint alembic api revision --autogenerate -m "$(ARGS)"
 
-poetry-add: clean-api  ## Add a poetry dependency: `make poetry-add ARGS='pytest --group dev'`
-	$(DOCKER_COMPOSE) run --rm -e STANDALONE=true --no-deps -u root -w /code --entrypoint poetry api add $(ARGS)
+poetry-%: clean-api   ## Run arbitrary poetry actions with support for optional ARGS; e.g. `make poetry-lock`
+	$(DOCKER_COMPOSE) run --rm -e STANDALONE=true --no-deps -u root -w /code --entrypoint poetry api $* $(ARGS)
 
 # This ensures that even if they pass in an empty value, we default to parsing the "api" folder
 ifndef FILEPATH
