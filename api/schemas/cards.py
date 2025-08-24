@@ -193,6 +193,8 @@ class RelatedCardLists(BaseModel):
     phoenixborn_conjurations: list[CardMinimalOut] | None = None
     phoenixborn_unique: CardMinimalOut | None = None
     phoenixborn_unique_conjurations: list[CardMinimalOut] | None = None
+    phoenixborn_unique_2: CardMinimalOut | None = None
+    phoenixborn_unique_2_conjurations: list[CardMinimalOut] | None = None
 
 
 class PreconstructedDeck(BaseModel):

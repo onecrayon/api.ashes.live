@@ -564,16 +564,16 @@ def get_card_details(
         else:
             phoenixborn = card
         phoenixborn_conjurations = gather_conjurations(phoenixborn)
-        phoenixborn_unique = (
+        phoenixborn_uniques = (
             session.query(Card)
             .filter(
                 Card.phoenixborn == phoenixborn.name,
                 Card.card_type.notin_(("Conjuration", "Conjured Alteration Spell")),
                 Card.is_legacy.is_(show_legacy),
             )
-            .first()
+            .order_by(Card.id.asc())
+            .all()
         )
-        phoenixborn_unique_conjurations = gather_conjurations(phoenixborn_unique)
         related_cards["phoenixborn"] = _card_to_minimal_card(phoenixborn)
         if phoenixborn_conjurations:
             related_cards["phoenixborn_conjurations"] = [
@@ -581,16 +581,19 @@ def get_card_details(
             ]
             if card.id in [x.id for x in phoenixborn_conjurations]:
                 summons = [phoenixborn]
-        if phoenixborn_unique:
-            related_cards["phoenixborn_unique"] = _card_to_minimal_card(
+        for idx, phoenixborn_unique in enumerate(phoenixborn_uniques):
+            prop_prefix = "phoenixborn_unique"
+            if idx > 0:
+                prop_prefix += f"_{idx + 1}"
+            related_cards[prop_prefix] = _card_to_minimal_card(phoenixborn_unique)
+            if phoenixborn_unique_conjurations := gather_conjurations(
                 phoenixborn_unique
-            )
-        if phoenixborn_unique_conjurations:
-            related_cards["phoenixborn_unique_conjurations"] = [
-                _card_to_minimal_card(x) for x in phoenixborn_unique_conjurations
-            ]
-            if card.id in [x.id for x in phoenixborn_unique_conjurations]:
-                summons = [phoenixborn_unique]
+            ):
+                related_cards[f"{prop_prefix}_conjurations"] = [
+                    _card_to_minimal_card(x) for x in phoenixborn_unique_conjurations
+                ]
+                if card.id in [x.id for x in phoenixborn_unique_conjurations]:
+                    summons = [phoenixborn_unique]
     else:
         # Check to see if we have any conjurations that we need to map to this card
         # We want to look up things in a different order depending on whether we're looking at
