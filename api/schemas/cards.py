@@ -141,6 +141,7 @@ class CardOut(BaseModel):
     copies: int | None = None
     effectRepeats: bool | None = None
     is_legacy: bool | None = None
+    chained: bool | None = None
 
 
 class CardUpdate(BaseModel):
@@ -171,6 +172,7 @@ class CardUpdate(BaseModel):
     recover: Annotated[str | int | None, BeforeValidator(str_or_int)] = None
     spellboard: int | None = None
     copies: int | None = None
+    chained: bool | None = False
 
 
 class CardUsageCounts(BaseModel):
