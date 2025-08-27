@@ -44,6 +44,7 @@ def test_engine():
             f"@{settings.postgres_host}:{settings.postgres_port}/test"
         ),
         echo=False,
+        future=True,
     )
     # Drop database and recreate to ensure tests are always run against a clean slate
     if database_exists(test_engine.url):
