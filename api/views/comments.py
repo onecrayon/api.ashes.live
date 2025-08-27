@@ -61,7 +61,7 @@ def get_comments(
     """
     query = (
         session.query(Comment)
-        .options(db.joinedload("user"))
+        .options(db.joinedload(Comment.user))
         .filter(Comment.source_entity_id == entity_id)
         .order_by(getattr(Comment.created, order)())
     )

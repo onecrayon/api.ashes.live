@@ -51,7 +51,8 @@ def test_engine():
     create_database(test_engine.url)
     # Install necessary pgcrypto extension (for database-level default UUIDs)
     with test_engine.connect() as connection:
-        connection.execute(db.text("create extension pgcrypto"))
+        with connection.begin():
+            connection.execute(db.text("create extension pgcrypto"))
     # Create all tables
     db.AlchemyBase.metadata.create_all(bind=test_engine)
     try:

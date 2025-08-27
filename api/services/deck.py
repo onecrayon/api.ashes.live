@@ -1,6 +1,7 @@
 from collections import defaultdict
 from operator import itemgetter
 
+from sqlalchemy import select
 from starlette.requests import Request
 
 from api import db
@@ -74,15 +75,16 @@ def create_or_update_deck(
     # Tracks if dice or cards changed, as this necessitates resetting the export flag
     needs_new_export = False
     if deck_id:
-        deck = (
-            session.query(Deck)
+        stmt = (
+            select(Deck)
             .options(
-                db.joinedload("cards"),
-                db.joinedload("dice"),
-                db.joinedload("selected_cards"),
+                db.joinedload(Deck.cards),
+                db.joinedload(Deck.dice),
+                db.joinedload(Deck.selected_cards),
             )
-            .get(deck_id)
+            .where(Deck.id == deck_id)
         )
+        deck = session.execute(stmt).unique().scalar_one()
         deck.title = title
         deck.description = description
         deck.phoenixborn_id = phoenixborn.id

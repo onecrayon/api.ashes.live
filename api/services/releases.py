@@ -15,9 +15,7 @@ def get_releases_query(session: db.Session, current_user: UserType, show_legacy=
             Release.stub,
             Release.is_legacy,
             db.case(
-                [
-                    (UserRelease.release_id == Release.id, True),
-                ],
+                (UserRelease.release_id == Release.id, True),
                 else_=False,
             ).label("is_mine"),
         ).outerjoin(

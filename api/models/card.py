@@ -105,7 +105,7 @@ class Card(db.AlchemyBase):
     @type_weight.expression
     def type_weight(cls):
         return db.case(
-            [
+            *[
                 (cls.card_type == value, index)
                 for index, value in enumerate(CARD_TYPE_ORDER)
             ],

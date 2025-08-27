@@ -5,7 +5,7 @@ from typing import Annotated
 import httpx
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import UUID4
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, select
 
 from api import db
 from api.depends import (
@@ -221,7 +221,7 @@ def get_deck(
       a public snapshot)
     * passing any snapshot's ID will return that snapshot
     """
-    source_deck: Deck = session.query(Deck).get(deck_id)
+    source_deck: Deck = session.get(Deck, deck_id)
     if not source_deck:
         raise NotFoundException(detail="Deck not found.")
     own_deck = (
@@ -472,15 +472,16 @@ def create_snapshot(
     **Please note:** you must save the deck prior to calling this endpoint! This endpoint will create a snapshot from
     the most recent saved copy of the deck (although it does allow you to set a custom title and description).
     """
-    deck: Deck = (
-        session.query(Deck)
+    stmt = (
+        select(Deck)
         .options(
-            db.joinedload("cards"),
-            db.joinedload("dice"),
-            db.joinedload("selected_cards"),
+            db.joinedload(Deck.cards),
+            db.joinedload(Deck.dice),
+            db.joinedload(Deck.selected_cards),
         )
-        .get(deck_id)
+        .where(Deck.id == deck_id)
     )
+    deck: Deck = session.execute(stmt).unique().scalar_one_or_none()
     if not deck or deck.user_id != current_user.id:
         raise NoUserAccessException(
             detail="You cannot save a snapshot of a deck you do not own."
@@ -583,7 +584,7 @@ def list_snapshots(
     do not own decks can only ever see public snapshots, so no private snapshots will be included even if they ask
     for them).
     """
-    source_deck: Deck = session.query(Deck).get(deck_id)
+    source_deck: Deck = session.get(Deck, deck_id)
     if not source_deck or source_deck.is_deleted or source_deck.is_snapshot:
         raise NotFoundException(detail="Deck not found.")
     query = session.query(Deck).filter(
@@ -631,7 +632,8 @@ def delete_deck(
     When requested for a snapshot, it's a soft deletion and the snapshot will no longer show up
     in any listings (including the stream).
     """
-    deck: Deck = session.query(Deck).options(db.joinedload("source")).get(deck_id)
+    stmt = select(Deck).options(db.joinedload(Deck.source)).where(Deck.id == deck_id)
+    deck: Deck = session.execute(stmt).unique().scalar_one_or_none()
     if not deck or deck.user_id != current_user.id:
         raise NoUserAccessException(detail="You cannot delete a deck you do not own.")
     if deck.is_legacy:
@@ -770,9 +772,9 @@ def clone_deck(
     deck = (
         session.query(Deck)
         .options(
-            db.joinedload("cards"),
-            db.joinedload("dice"),
-            db.joinedload("selected_cards"),
+            db.joinedload(Deck.cards),
+            db.joinedload(Deck.dice),
+            db.joinedload(Deck.selected_cards),
         )
         .filter(*valid_deck_filters)
         .first()
@@ -850,7 +852,7 @@ def edit_snapshot(
     Title and description can be intentionally cleared by passing in an empty string for one or the other.
     """
     # First look up the snapshot
-    deck: Deck = session.query(Deck).get(snapshot_id)
+    deck: Deck = session.get(Deck, snapshot_id)
     # Run basic validation to make sure they have access to this snapshot (and it is indeed a snapshot)
     if not deck:
         raise NotFoundException(detail="No such snapshot found.")
@@ -973,9 +975,9 @@ def import_decks(
         x.created: x
         for x in session.query(Deck)
         .options(
-            db.joinedload("cards"),
-            db.joinedload("dice"),
-            db.joinedload("selected_cards"),
+            db.joinedload(Deck.cards),
+            db.joinedload(Deck.dice),
+            db.joinedload(Deck.selected_cards),
         )
         .filter(Deck.created.in_(created_dates), Deck.user_id == current_user.id)
         .all()

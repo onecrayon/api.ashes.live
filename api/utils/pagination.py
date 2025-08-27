@@ -1,5 +1,8 @@
 import inspect
 import urllib.parse
+from typing import Any
+
+from sqlalchemy.orm import Query
 
 from api import db
 from api.environment import settings
@@ -24,7 +27,7 @@ def replace_offset(url: str, offset: int) -> str:
 
 
 def paginated_results_for_query(
-    query: db.Query,
+    query: Query,
     paging: PaginationOptions,
     url: str,
 ) -> dict:
