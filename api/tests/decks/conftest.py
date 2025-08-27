@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy.engine import Engine
 
 from api.db import Session
 
@@ -6,23 +7,25 @@ from .deck_utils import create_cards_for_decks
 
 
 @pytest.fixture(scope="package")
-def cards_session(session_local: Session, monkeypatch_package) -> Session:
+def cards_session(test_engine: Engine, monkeypatch_package) -> Session:
     """Populate our database with the cards needed to create decks once for the package
 
     This causes our session to be reused between all tests in this package, with specific classes
     handling deck/user data persistence using nested rollbacks.
     """
-    # Creates a nested transaction that includes standard card data
-    session = session_local()
-    session.begin_nested()
+    connection = test_engine.connect()
+    cards_transaction = connection.begin()
+    session = Session(bind=connection)
     # Overwrite commits with flushes so that we can query stuff, but it's in the same transaction
     monkeypatch_package.setattr(session, "commit", session.flush)
+    # Create our fake cards that are relied on by the tests in this module
     create_cards_for_decks(session)
+
     try:
         yield session
     finally:
-        session.rollback()
-        session.close()
+        cards_transaction.rollback()
+        connection.close()
 
 
 @pytest.fixture(scope="module")

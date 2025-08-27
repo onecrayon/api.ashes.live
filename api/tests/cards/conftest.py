@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy.engine import Engine
 
 from api import db, models
 from api.db import Session
@@ -135,23 +136,26 @@ def _create_cards_for_filtration(session: db.Session, is_legacy=False):
 
 
 @pytest.fixture(scope="package")
-def cards_session(session_local: Session, monkeypatch_package) -> Session:
+def cards_session(test_engine: Engine, monkeypatch_package) -> Session:
     """Populate our database with the cards needed for listing tests.
 
     This causes our session to be reused between all tests in this package.
     """
-    # Creates a nested transaction that includes standard card data
-    session = session_local()
-    session.begin_nested()
+    # Create a nested transaction that includes standard card data
+    connection = test_engine.connect()
+    cards_transaction = connection.begin()
+    session = Session(bind=connection)
     # Overwrite commits with flushes so that we can query stuff, but it's in the same transaction
     monkeypatch_package.setattr(session, "commit", session.flush)
+    # Create our fake cards that are relied on by the tests in this module
     _create_cards_for_filtration(session, is_legacy=True)
     _create_cards_for_filtration(session)
+
     try:
         yield session
     finally:
-        session.rollback()
-        session.close()
+        cards_transaction.rollback()
+        connection.close()
 
 
 @pytest.fixture(scope="function")

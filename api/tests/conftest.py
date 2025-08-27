@@ -13,7 +13,8 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 import api.environment
@@ -34,7 +35,7 @@ def testing_environment(monkeypatch):
 
 
 @pytest.fixture(scope="session")
-def session_local():
+def test_engine():
     """Override the default database with our testing database, and make sure to run migrations"""
     settings = api.environment.ApplicationSettings()
     test_engine = create_engine(
@@ -48,30 +49,29 @@ def session_local():
     if database_exists(test_engine.url):
         drop_database(test_engine.url)
     create_database(test_engine.url)
-    TestSessionLocal = sessionmaker(bind=test_engine)
     # Install necessary pgcrypto extension (for database-level default UUIDs)
     with test_engine.connect() as connection:
         connection.execute(db.text("create extension pgcrypto"))
     # Create all tables
     db.AlchemyBase.metadata.create_all(bind=test_engine)
     try:
-        yield TestSessionLocal
+        yield test_engine
     finally:
         drop_database(test_engine.url)
 
 
 @pytest.fixture(scope="function")
-def session(session_local: Session, monkeypatch) -> Session:
-    """Return an SQLAlchemy session for this test"""
-    session = session_local()
-    session.begin_nested()
-    # Overwrite commits with flushes so that we can query stuff, but it's in the same transaction
-    monkeypatch.setattr(session, "commit", session.flush)
+def session(test_engine: Engine, monkeypatch) -> Session:
+    """Return an SQLAlchemy session for this test, complete with SAVEPOINT for internal rollbacks"""
+    connection = test_engine.connect()
+    transaction = connection.begin()
+    session = Session(bind=connection)
     try:
         yield session
     finally:
-        session.rollback()
         session.close()
+        transaction.rollback()
+        connection.close()
 
 
 @pytest.fixture(scope="function")
