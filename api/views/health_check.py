@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, Response, status
+from sqlalchemy import select
 from sqlalchemy.sql.expression import literal_column
 
 from api import db
@@ -36,9 +37,8 @@ def health_check(response: Response, session: db.Session = Depends(get_session))
 
     # Check for PostgreSQL database health
     try:
-        meaning_of_life_the_universe_and_everything = session.query(
-            literal_column("42")
-        ).scalar()
+        stmt = select(literal_column("42"))
+        meaning_of_life_the_universe_and_everything = session.execute(stmt).scalar()
         assert meaning_of_life_the_universe_and_everything == 42
     except:
         output.services.database = HealthCheckStatusResponses.error

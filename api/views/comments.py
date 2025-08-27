@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Request, Response, status
+from sqlalchemy import select
 
 from api import db
 from api.depends import (
@@ -59,14 +60,15 @@ def get_comments(
     By default, comments are ordered from oldest to newest by created date. You can pass the `order` query parameter
     to use a different sorting order.
     """
-    query = (
-        session.query(Comment)
+    stmt = (
+        select(Comment)
         .options(db.joinedload(Comment.user))
-        .filter(Comment.source_entity_id == entity_id)
+        .where(Comment.source_entity_id == entity_id)
         .order_by(getattr(Comment.created, order)())
     )
     page_results = paginated_results_for_query(
-        query=query,
+        session=session,
+        stmt=stmt,
         paging=paging,
         url=str(request.url),
     )
@@ -102,10 +104,12 @@ def create_comment(
 ):
     """Post a comment to a resource on the site."""
     # First, figure out what our entity ID is pointing to
-    source = session.query(Card).filter(Card.entity_id == entity_id).first()
+    stmt = select(Card).where(Card.entity_id == entity_id)
+    source = session.execute(stmt).scalar_one_or_none()
     source_type = "card"
     if not source:
-        source = session.query(Deck).filter(Deck.entity_id == entity_id).first()
+        stmt = select(Deck).where(Deck.entity_id == entity_id)
+        source = session.execute(stmt).scalar_one_or_none()
         source_type = "deck"
     if source is None:
         raise NotFoundException(detail="No valid resource found to comment on.")
@@ -127,13 +131,13 @@ def create_comment(
     except AttributeError:
         # Decks don't have this attribute, so we can ignore it
         source_version = None
-    previous_ordering_increment = (
-        session.query(Comment.ordering_increment)
-        .filter(Comment.source_entity_id == entity_id)
+    stmt = (
+        select(Comment.ordering_increment)
+        .where(Comment.source_entity_id == entity_id)
         .order_by(Comment.created.desc())
         .limit(1)
-        .scalar()
     )
+    previous_ordering_increment = session.execute(stmt).scalar()
     if not previous_ordering_increment:
         previous_ordering_increment = 0
     # Create our comment and update the stream and the existing user subscription
@@ -190,9 +194,8 @@ def edit_comment(
     **Admin-only:** the `moderation_notes` field is required when modifying another user's comment; should contain a
     short description of the reason the comment is being moderated.
     """
-    comment = (
-        session.query(Comment).filter(Comment.entity_id == comment_entity_id).first()
-    )
+    stmt = select(Comment).where(Comment.entity_id == comment_entity_id)
+    comment = session.execute(stmt).scalar_one_or_none()
     if not comment:
         raise NotFoundException(detail="No such comment found.")
     if comment.is_deleted:
@@ -246,9 +249,8 @@ def delete_comment(
     **Admin-only:** the `moderation_notes` field is required when modifying another user's comment; should contain a
     short description of the reason the comment is being moderated.
     """
-    comment = (
-        session.query(Comment).filter(Comment.entity_id == comment_entity_id).first()
-    )
+    stmt = select(Comment).where(Comment.entity_id == comment_entity_id)
+    comment = session.execute(stmt).scalar_one_or_none()
     if not comment:
         raise NotFoundException(detail="No such comment found.")
     success_response = Response(status_code=status.HTTP_204_NO_CONTENT)

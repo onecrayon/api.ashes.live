@@ -1,6 +1,7 @@
 from copy import deepcopy
 
 from fastapi import APIRouter, Depends, Query, Request, status
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from api import db
@@ -92,18 +93,16 @@ def list_cards(
     * `include_uniques_for`: if set to a Phoenixborn name, listing will also include uniques belonging to the given Phoenixborn
       (only applicable to deckbuilder mode)
     """
-    # First build our base query
-    query = (
-        session.query(Card.json).join(Card.release).filter(Release.is_public.is_(True))
-    )
+    # First build our base statement
+    stmt = select(Card.json).join(Card.release).where(Release.is_public.is_(True))
     # Only include legacy cards, if we're in legacy mode
     if show_legacy:
-        query = query.filter(Card.is_legacy.is_(True))
+        stmt = stmt.where(Card.is_legacy.is_(True))
     else:
-        query = query.filter(Card.is_legacy.is_(False))
+        stmt = stmt.where(Card.is_legacy.is_(False))
     # Add a search term, if we're using one
     if q and q.strip():
-        query = query.filter(
+        stmt = stmt.where(
             db.func.to_tsvector("english", Card.search_text).match(
                 to_prefixed_tsquery(q)
             )
@@ -117,28 +116,28 @@ def list_cards(
                 card_types.add("Conjured Alteration Spell")
             else:
                 card_types.add(card_type.replace("_", " ").title())
-        query = query.filter(Card.card_type.in_(card_types))
+        stmt = stmt.where(Card.card_type.in_(card_types))
     # Exclude some types if we're in deckbuilder mode
     if mode is CardsFilterListingMode.deckbuilder:
-        query = query.filter(
+        stmt = stmt.where(
             Card.card_type.notin_(
                 ("Phoenixborn", "Conjuration", "Conjured Alteration Spell")
             )
         )
     # Check if we're filtering by "Summon" cards
     if show_summons:
-        query = query.filter(Card.is_summon_spell.is_(True))
+        stmt = stmt.where(Card.is_summon_spell.is_(True))
     # Filter by releases, if requested
     if releases or r:
         if show_legacy and releases is CardsFilterRelease.phg:
-            query = query.filter(Release.is_phg.is_(True))
+            stmt = stmt.where(Release.is_phg.is_(True))
         elif releases is CardsFilterRelease.mine and not current_user.is_anonymous():
-            my_release_subquery = session.query(UserRelease.release_id).filter(
+            my_release_subquery = select(UserRelease.release_id).where(
                 UserRelease.user_id == current_user.id
             )
-            query = query.filter(Card.release_id.in_(my_release_subquery))
+            stmt = stmt.where(Card.release_id.in_(my_release_subquery))
         elif r:
-            query = query.filter(Release.stub.in_(r))
+            stmt = stmt.where(Release.stub.in_(r))
     # Filter against required dice costs
     if dice:
         dice_set = set(dice)
@@ -223,26 +222,26 @@ def list_cards(
         # It's possible, though unlikely, to not have filters here if they passed a bad dice listing
         #  (e.g. passed "basic" for the dice color and "includes" for the logic)
         if dice_filters:
-            query = query.filter(db.or_(*dice_filters))
+            stmt = stmt.where(db.or_(*dice_filters))
     # Only Include Phoenixborn uniques for the given Phoenixborn (or no Phoenixborn, in deckbuilder)
     if include_uniques_for:
-        query = query.filter(
+        stmt = stmt.where(
             db.or_(
                 Card.phoenixborn.is_(None),
                 Card.phoenixborn == include_uniques_for,
             )
         )
     elif mode is CardsFilterListingMode.deckbuilder:
-        query = query.filter(
+        stmt = stmt.where(
             Card.phoenixborn.is_(None),
         )
     if sort == CardsSortingMode.type_:
         # This uses a similar ordering to how the front-end organizes cards in deck listings
-        query = query.order_by(
+        stmt = stmt.order_by(
             getattr(Card.type_weight, order)(), getattr(Card.name, order)()
         )
     elif sort == CardsSortingMode.cost:
-        query = query.order_by(
+        stmt = stmt.order_by(
             getattr(Card.cost_weight, order)(), getattr(Card.name, order)()
         )
     elif sort == CardsSortingMode.dice:
@@ -251,7 +250,7 @@ def list_cards(
         #  then by their relative cost, and finally falling back on name. The latter two are simple,
         #  but to order by dice types we need to first bitwise OR dice and alt_dice (so we get a
         #  number representing all possible dice types you could spend), then order by that
-        query = query.order_by(
+        stmt = stmt.order_by(
             getattr(Card.dice_weight, order)(),
             getattr(Card.cost_weight, order)(),
             getattr(Card.name, order)(),
@@ -262,16 +261,17 @@ def list_cards(
         #  those cards out by preconstructed deck, because there's not an easy join strategy to
         #  fetch that data; I'd have to denormalize it into the cards. Will consider if people
         #  request it)
-        query = query.order_by(
+        stmt = stmt.order_by(
             getattr(Release.id, order)(),
             getattr(Card.type_weight, order)(),
             getattr(Card.name, order)(),
         )
     else:
         # Defaults to ordering by name
-        query = query.order_by(getattr(Card.name, order)())
+        stmt = stmt.order_by(getattr(Card.name, order)())
     return paginated_results_for_query(
-        query=query,
+        session=session,
+        stmt=stmt,
         paging=paging,
         url=str(request.url),
     )
@@ -298,22 +298,23 @@ def get_card_fuzzy_lookup(
     # Make sure we have a search term
     if not q or not q.strip():
         raise APIException(detail="Query string is required.")
-    query = session.query(Card).join(Card.release).filter(Release.is_public.is_(True))
+    stmt = select(Card).join(Card.release).where(Release.is_public.is_(True))
     if show_legacy:
-        query = query.filter(Card.is_legacy.is_(True))
+        stmt = stmt.where(Card.is_legacy.is_(True))
     else:
-        query = query.filter(Card.is_legacy.is_(False))
+        stmt = stmt.where(Card.is_legacy.is_(False))
     stub_search = stubify(q)
     search_vector = db.func.to_tsvector("english", Card.search_text)
     prefixed_query = to_prefixed_tsquery(q)
-    query = query.filter(
+    stmt = stmt.where(
         db.or_(
             search_vector.match(prefixed_query),
             Card.stub.like(f"%{stub_search}%"),
         )
     )
     # Order by search ranking
-    possible_cards = query.order_by(Card.name.asc()).all()
+    stmt = stmt.order_by(Card.name.asc())
+    possible_cards = session.execute(stmt).scalars().all()
     if not possible_cards:
         raise NotFoundException(detail="No matching cards found.")
     ranks_with_matches = []
@@ -365,14 +366,14 @@ def get_card(
 
     `for_update=true` will only work for admins.
     """
-    query = session.query(Card).filter(Card.stub == stub)
+    stmt = select(Card).where(Card.stub == stub)
     if show_legacy:
-        query = query.filter(Card.is_legacy.is_(True))
+        stmt = stmt.where(Card.is_legacy.is_(True))
     else:
-        query = query.filter(Card.is_legacy.is_(False))
+        stmt = stmt.where(Card.is_legacy.is_(False))
     if user.is_anonymous() or not user.is_admin:
-        query = query.join(Card.release).filter(Release.is_public == True)
-    card = query.scalar()
+        stmt = stmt.join(Card.release).where(Release.is_public == True)
+    card = session.execute(stmt).scalar()
     if not card:
         raise NotFoundException(detail="Card not found.")
     card_json = deepcopy(card.json)
@@ -426,8 +427,8 @@ def update_card(
     need to modify the database directly (and remember that the stub is stored in two
     places! The database column, and within the card JSON).
     """
-    query = session.query(Card).filter(Card.stub == stub, Card.is_legacy.is_(False))
-    card = query.scalar()
+    stmt = select(Card).where(Card.stub == stub, Card.is_legacy.is_(False))
+    card = session.execute(stmt).scalar()
     if not card:
         raise NotFoundException(detail="Card not found.")
     if data.is_errata:
@@ -526,17 +527,17 @@ def get_card_details(
     current_user: "UserType" = Depends(get_current_user),
 ):
     """Returns the full details about the card for use on the card details page"""
-    card = (
-        session.query(Card)
+    stmt = (
+        select(Card)
         .join(Card.release)
         .options(db.contains_eager(Card.release))
-        .filter(
+        .where(
             Card.stub == stub,
             Card.is_legacy.is_(show_legacy),
             Release.is_public == True,
         )
-        .scalar()
     )
+    card = session.execute(stmt).scalar()
     if not card:
         raise NotFoundException(detail="Card not found.")
 
@@ -550,28 +551,25 @@ def get_card_details(
     if card.phoenixborn or card.card_type == "Phoenixborn":
         # Grab all cards related to this Phoenixborn
         if card.phoenixborn:
-            phoenixborn = (
-                session.query(Card)
-                .filter(
-                    Card.name == card.phoenixborn,
-                    Card.card_type == "Phoenixborn",
-                    Card.is_legacy.is_(show_legacy),
-                )
-                .first()
+            stmt = select(Card).where(
+                Card.name == card.phoenixborn,
+                Card.card_type == "Phoenixborn",
+                Card.is_legacy.is_(show_legacy),
             )
+            phoenixborn = session.execute(stmt).scalar_one_or_none()
         else:
             phoenixborn = card
         phoenixborn_conjurations = gather_conjurations(phoenixborn)
-        phoenixborn_uniques = (
-            session.query(Card)
-            .filter(
+        stmt = (
+            select(Card)
+            .where(
                 Card.phoenixborn == phoenixborn.name,
                 Card.card_type.notin_(("Conjuration", "Conjured Alteration Spell")),
                 Card.is_legacy.is_(show_legacy),
             )
             .order_by(Card.id.asc())
-            .all()
         )
+        phoenixborn_uniques = session.execute(stmt).scalars().all()
         related_cards["phoenixborn"] = _card_to_minimal_card(phoenixborn)
         if phoenixborn_conjurations:
             related_cards["phoenixborn_conjurations"] = [
@@ -639,30 +637,29 @@ def get_card_details(
         root_card_ids = [card.id]
     # We only look up the Phoenixborn if it's in our root summons array (otherwise we might be
     #  looking at a Phoenixborn unique, and we'll get accurate counts for it in the next query)
-    phoenixborn_counts = (
-        session.query(
+    if phoenixborn and phoenixborn.id in root_card_ids:
+        stmt = select(
             db.func.count(Deck.id).label("decks"),
             db.func.count(db.func.distinct(Deck.user_id)).label("users"),
+        ).where(Deck.phoenixborn_id == phoenixborn.id, Deck.is_snapshot.is_(False))
+        phoenixborn_counts = session.execute(stmt).first()
+    else:
+        phoenixborn_counts = None
+    if root_card_ids:
+        stmt = (
+            select(
+                db.func.count(DeckCard.deck_id).label("decks"),
+                db.func.count(db.func.distinct(Deck.user_id)).label("users"),
+            )
+            .join(Deck, Deck.id == DeckCard.deck_id)
+            .where(
+                DeckCard.card_id.in_(root_card_ids),
+                Deck.is_snapshot.is_(False),
+            )
         )
-        .filter(Deck.phoenixborn_id == phoenixborn.id, Deck.is_snapshot.is_(False))
-        .first()
-        if phoenixborn and phoenixborn.id in root_card_ids
-        else None
-    )
-    card_counts = (
-        session.query(
-            db.func.count(DeckCard.deck_id).label("decks"),
-            db.func.count(db.func.distinct(Deck.user_id)).label("users"),
-        )
-        .join(Deck, Deck.id == DeckCard.deck_id)
-        .filter(
-            DeckCard.card_id.in_(root_card_ids),
-            Deck.is_snapshot.is_(False),
-        )
-        .first()
-        if root_card_ids
-        else None
-    )
+        card_counts = session.execute(stmt).first()
+    else:
+        card_counts = None
     counts = {"decks": 0, "users": 0}
     if phoenixborn_counts:
         counts["decks"] += phoenixborn_counts.decks
@@ -672,30 +669,27 @@ def get_card_details(
         counts["users"] += card_counts.users
 
     # Grab preconstructed deck, if available
-    preconstructed = (
-        session.query(Deck.source_id, Deck.title)
+    stmt = (
+        select(Deck.source_id, Deck.title)
         .join(DeckCard, DeckCard.deck_id == Deck.id)
-        .filter(
+        .where(
             Deck.is_snapshot.is_(True),
             Deck.is_public.is_(True),
             Deck.is_preconstructed.is_(True),
             Deck.is_legacy.is_(show_legacy),
             DeckCard.card_id.in_(root_card_ids),
         )
-        .first()
     )
+    preconstructed = session.execute(stmt).first()
 
     # Grab the last seen entity ID, if the user is logged in and has a subscription
     last_seen_entity_id = None
     if not current_user.is_anonymous():
-        last_seen_entity_id = (
-            session.query(Subscription.last_seen_entity_id)
-            .filter(
-                Subscription.user_id == current_user.id,
-                Subscription.source_entity_id == card.entity_id,
-            )
-            .scalar()
+        stmt = select(Subscription.last_seen_entity_id).where(
+            Subscription.user_id == current_user.id,
+            Subscription.source_entity_id == card.entity_id,
         )
+        last_seen_entity_id = session.execute(stmt).scalar()
 
     return {
         "card": card.json,
@@ -739,13 +733,11 @@ def create_card(
     """
     # Implicitly create the release, if necessary
     release_stub = stubify(data.release)
-    if not (
-        release := (
-            session.query(Release)
-            .filter(Release.stub == release_stub, Release.is_legacy.is_(False))
-            .one_or_none()
-        )
-    ):
+    stmt = select(Release).where(
+        Release.stub == release_stub, Release.is_legacy.is_(False)
+    )
+    release = session.execute(stmt).scalar_one_or_none()
+    if not release:
         release = Release(name=data.release, stub=release_stub)
         session.add(release)
         session.commit()

@@ -17,6 +17,6 @@ def test_health_check_postgres_failure(client: TestClient, monkeypatch):
         """Fakes a Postgres connection failure"""
         raise TimeoutError()
 
-    monkeypatch.setattr(sqlalchemy.orm.Session, "query", _raise_postgres_error)
+    monkeypatch.setattr(sqlalchemy.orm.Session, "execute", _raise_postgres_error)
     response = client.get("/health-check")
     assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE, response.json()

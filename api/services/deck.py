@@ -2,6 +2,7 @@ from collections import defaultdict
 from operator import itemgetter
 
 from sqlalchemy import select
+from sqlalchemy.sql import Select
 from starlette.requests import Request
 
 from api import db
@@ -90,16 +91,13 @@ def create_or_update_deck(
         deck.phoenixborn_id = phoenixborn.id
         deck.modified = now
         if deck.is_red_rains != is_red_rains:
-            if (
-                session.query(Deck)
-                .filter(
-                    Deck.source_id == deck_id,
-                    Deck.is_snapshot.is_(True),
-                    Deck.is_public.is_(True),
-                    Deck.is_deleted.is_(False),
-                )
-                .count()
-            ):
+            stmt = select(db.func.count(Deck.id)).where(
+                Deck.source_id == deck_id,
+                Deck.is_snapshot.is_(True),
+                Deck.is_public.is_(True),
+                Deck.is_deleted.is_(False),
+            )
+            if session.execute(stmt).scalar():
                 raise RedRainsConversionFailed()
             deck.is_red_rains = is_red_rains
     else:
@@ -143,16 +141,16 @@ def create_or_update_deck(
     if tutor_map:
         card_stubs.update(tutor_map.keys())
         card_stubs.update(tutor_map.values())
-    minimal_cards = (
-        session.query(Card.id, Card.stub, Card.name, Card.card_type, Card.phoenixborn)
+    stmt = (
+        select(Card.id, Card.stub, Card.name, Card.card_type, Card.phoenixborn)
         .join(Card.release)
-        .filter(
+        .where(
             Card.stub.in_(card_stubs),
             Card.is_legacy.is_(False),
             Release.is_public == True,
         )
-        .all()
     )
+    minimal_cards = session.execute(stmt).all()
     for card in minimal_cards:
         # Minimal cards could include bogus cards thanks to first_five list and similar, so fall
         #  back to zero to ensure this is something with a count
@@ -309,8 +307,7 @@ def create_snapshot_for_deck(
     return snapshot
 
 
-def get_decks_query(
-    session: db.Session,
+def get_decks_stmt(
     show_legacy=False,
     show_red_rains=False,
     is_public=False,
@@ -321,17 +318,17 @@ def get_decks_query(
     cards: list[str] | None = None,
     players: list[str] | None = None,
     show_preconstructed=False,
-) -> db.Query:
-    query = session.query(Deck).filter(
+):
+    stmt = select(Deck).where(
         Deck.is_legacy.is_(show_legacy),
         Deck.is_deleted.is_(False),
         Deck.is_red_rains.is_(show_red_rains),
     )
     if show_preconstructed:
-        query = query.filter(Deck.is_preconstructed.is_(True))
+        stmt = stmt.where(Deck.is_preconstructed.is_(True))
     if is_public:
         deck_comp = db.aliased(Deck)
-        query = query.outerjoin(
+        stmt = stmt.outerjoin(
             deck_comp,
             db.and_(
                 Deck.source_id == deck_comp.source_id,
@@ -343,40 +340,40 @@ def get_decks_query(
                     db.and_(Deck.created == deck_comp.created, Deck.id < deck_comp.id),
                 ),
             ),
-        ).filter(
+        ).where(
             deck_comp.id.is_(None), Deck.is_snapshot.is_(True), Deck.is_public.is_(True)
         )
     else:
-        query = query.filter(Deck.is_snapshot.is_(False))
+        stmt = stmt.where(Deck.is_snapshot.is_(False))
     if q and q.strip():
-        query = query.filter(
+        stmt = stmt.where(
             db.func.to_tsvector("english", db.cast(Deck.title, db.Text)).match(
                 to_prefixed_tsquery(q)
             )
         )
     # Filter by Phoenixborn stubs (this is always an OR comparison between Phoenixborn)
     if phoenixborn:
-        query = query.join(Card, Card.id == Deck.phoenixborn_id).filter(
+        stmt = stmt.join(Card, Card.id == Deck.phoenixborn_id).where(
             Card.stub.in_(phoenixborn)
         )
     # Filter by cards (this is always an OR comparison between cards)
     if cards:
         card_table = db.aliased(Card)
-        query = (
-            query.join(DeckCard, DeckCard.deck_id == Deck.id)
+        stmt = (
+            stmt.join(DeckCard, DeckCard.deck_id == Deck.id)
             .join(card_table, card_table.id == DeckCard.card_id)
-            .filter(card_table.stub.in_(cards))
+            .where(card_table.stub.in_(cards))
         )
     # Filter by player badge, and always ensure that we eagerly load the user object
     if players:
-        query = (
-            query.join(User, User.id == Deck.user_id)
-            .filter(User.badge.in_(players))
+        stmt = (
+            stmt.join(User, User.id == Deck.user_id)
+            .where(User.badge.in_(players))
             .options(db.contains_eager(Deck.user))
         )
     else:
-        query = query.options(db.joinedload(Deck.user))
-    return query.order_by(getattr(Deck.created, order)())
+        stmt = stmt.options(db.joinedload(Deck.user))
+    return stmt.order_by(getattr(Deck.created, order)())
 
 
 def add_conjurations(card_id_to_conjuration_mapping, root_card_id, conjuration_set):
@@ -401,12 +398,12 @@ def add_conjurations(card_id_to_conjuration_mapping, root_card_id, conjuration_s
 
 def get_conjuration_mapping(session: db.Session, card_ids: set[int]) -> dict:
     """Gathers top-level conjurations into a mapping keyed off the root card ID"""
-    conjuration_results = (
-        session.query(Card, CardConjuration.card_id.label("root_card"))
+    stmt = (
+        select(Card, CardConjuration.card_id.label("root_card"))
         .join(CardConjuration, Card.id == CardConjuration.conjuration_id)
-        .filter(CardConjuration.card_id.in_(card_ids))
-        .all()
+        .where(CardConjuration.card_id.in_(card_ids))
     )
+    conjuration_results = session.execute(stmt).all()
     card_id_to_conjurations = defaultdict(list)
     for result in conjuration_results:
         card_id_to_conjurations[result.root_card].append(result.Card)
@@ -509,7 +506,7 @@ def generate_deck_dict(
 
 
 def paginate_deck_listing(
-    query: db.Query,
+    stmt: Select,
     session: db.Session,
     request: Request,
     paging: PaginationOptions,
@@ -518,7 +515,7 @@ def paginate_deck_listing(
     """Generates a paginated deck listing using as few queries as possible."""
     # Gather our paginated results
     output = paginated_results_for_query(
-        query=query, paging=paging, url=str(request.url)
+        session=session, stmt=stmt, paging=paging, url=str(request.url)
     )
     # Parse through the decks so that we can load their cards en masse with a single query
     deck_ids = set()
@@ -528,12 +525,14 @@ def paginate_deck_listing(
         # Ensure we lookup our Phoenixborn cards
         needed_cards.add(deck_row.phoenixborn_id)
     # Fetch and collate our dice information for all decks
-    deck_dice = session.query(DeckDie).filter(DeckDie.deck_id.in_(deck_ids)).all()
+    deckdie_stmt = select(DeckDie).where(DeckDie.deck_id.in_(deck_ids))
+    deck_dice = session.execute(deckdie_stmt).scalars().all()
     deck_id_to_dice = defaultdict(list)
     for deck_die in deck_dice:
         deck_id_to_dice[deck_die.deck_id].append(deck_die)
     # Now that we have all our basic deck information, look up the cards and quantities they include
-    deck_cards = session.query(DeckCard).filter(DeckCard.deck_id.in_(deck_ids)).all()
+    deckcard_stmt = select(DeckCard).where(DeckCard.deck_id.in_(deck_ids))
+    deck_cards = session.execute(deckcard_stmt).scalars().all()
     deck_id_to_deck_cards = defaultdict(list)
     for deck_card in deck_cards:
         needed_cards.add(deck_card.card_id)
@@ -543,7 +542,8 @@ def paginate_deck_listing(
         session=session, card_ids=needed_cards
     )
     # Now that we have root-level conjurations, we can gather all our cards and setup our decks
-    cards = session.query(Card).filter(Card.id.in_(needed_cards)).all()
+    card_stmt = select(Card).where(Card.id.in_(needed_cards))
+    cards = session.execute(card_stmt).scalars().all()
     card_id_to_card = {x.id: x for x in cards}
     deck_output = []
     for deck in output["results"]:
@@ -570,16 +570,19 @@ def deck_to_dict(
     """Converts a Deck object into an output dict using as few queries as possible."""
     needed_cards = set()
     needed_cards.add(deck.phoenixborn_id)
-    deck_cards = session.query(DeckCard).filter(DeckCard.deck_id == deck.id).all()
+    stmt = select(DeckCard).where(DeckCard.deck_id == deck.id)
+    deck_cards = session.execute(stmt).scalars().all()
     for deck_card in deck_cards:
         needed_cards.add(deck_card.card_id)
-    deck_dice = session.query(DeckDie).filter(DeckDie.deck_id == deck.id).all()
+    stmt = select(DeckDie).where(DeckDie.deck_id == deck.id)
+    deck_dice = session.execute(stmt).scalars().all()
     # And finally we need to fetch all top-level conjurations
     card_id_to_conjurations = get_conjuration_mapping(
         session=session, card_ids=needed_cards
     )
     # Now that we have root-level conjurations, we can gather all our cards and generate deck output
-    cards = session.query(Card).filter(Card.id.in_(needed_cards)).all()
+    stmt = select(Card).where(Card.id.in_(needed_cards))
+    cards = session.execute(stmt).scalars().all()
     card_id_to_card = {x.id: x for x in cards}
     deck_dict = generate_deck_dict(
         deck=deck,

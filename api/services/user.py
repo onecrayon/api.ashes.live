@@ -3,6 +3,8 @@ import string
 from datetime import timedelta
 from random import choice
 
+from sqlalchemy import select
+
 from api import db, models
 from api.environment import settings
 from api.utils.auth import create_access_token, generate_password_hash
@@ -22,9 +24,8 @@ def access_token_for_user(user: "models.User", is_long_term=False) -> str:
 
 def get_invite_for_email(session: "db.Session", email: str) -> "models.Invite":
     """Fetches or creates a new invite for the given email"""
-    invitation = (
-        session.query(models.Invite).filter(models.Invite.email == email).first()
-    )
+    stmt = select(models.Invite).where(models.Invite.email == email)
+    invitation = session.execute(stmt).scalar_one_or_none()
     if invitation:
         invitation.requests += 1
     else:
@@ -123,12 +124,8 @@ def generate_badges(
             _tries=_tries + 1,
             _current=_current,
         )
-    taken = [
-        badge
-        for (badge,) in session.query(models.User.badge)
-        .filter(models.User.badge.in_(options))
-        .all()
-    ]
+    stmt = select(models.User.badge).where(models.User.badge.in_(options))
+    taken = [badge for badge in session.execute(stmt).scalars().all()]
     if taken:
         options = [x for x in options if x not in taken]
     # Highly unlikely, but if all random badges are taken, try again

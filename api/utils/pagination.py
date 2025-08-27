@@ -2,7 +2,9 @@ import inspect
 import urllib.parse
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Query
+from sqlalchemy.sql import Select
 
 from api import db
 from api.environment import settings
@@ -27,14 +29,32 @@ def replace_offset(url: str, offset: int) -> str:
 
 
 def paginated_results_for_query(
-    query: Query,
+    session: db.Session,
+    stmt: Select,
     paging: PaginationOptions,
     url: str,
 ) -> dict:
     """Generic pagination results output"""
     # Fetch count and actual query data
-    total_rows = query.count()
-    rows = query.limit(paging.limit).offset(paging.offset).all()
+    count_stmt = select(db.func.count()).select_from(stmt.subquery())
+    total_rows = session.execute(count_stmt).scalar()
+    stmt = stmt.limit(paging.limit).offset(paging.offset)
+    # Check if this is a single column select of scalars vs ORM objects
+    is_orm_query = (
+        len(stmt.column_descriptions) == 1
+        and inspect.isclass(stmt.column_descriptions[0]["type"])
+        and issubclass(stmt.column_descriptions[0]["type"], db.AlchemyBase)
+    )
+
+    if is_orm_query:
+        rows = session.execute(stmt).scalars().all()
+        row_list = rows
+    else:
+        rows = session.execute(stmt).all()
+        if len(stmt.column_descriptions) == 1:
+            row_list = [x[0] for x in rows]
+        else:
+            row_list = rows
 
     # Construct our next and previous links
     previous_url = None
@@ -48,15 +68,6 @@ def paginated_results_for_query(
     next_offset = paging.offset + paging.limit
     if next_offset < total_rows:
         next_url = replace_offset(url, next_offset)
-
-    # Construct our result rows and return
-    if len(query.column_descriptions) == 1 and (
-        not inspect.isclass(query.column_descriptions[0]["type"])
-        or not issubclass(query.column_descriptions[0]["type"], db.AlchemyBase)
-    ):
-        row_list = [x[0] for x in rows]
-    else:
-        row_list = rows
     return {
         "count": total_rows,
         "next": next_url,

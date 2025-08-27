@@ -1,5 +1,6 @@
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from api import db
 from api.models import Card, Comment, Release, Subscription
@@ -55,7 +56,9 @@ def test_get_card_for_update_admin(client: TestClient, session: db.Session):
 
 def test_get_card_for_update_search_keywords(client: TestClient, session: db.Session):
     """Search keywords are rendered correctly to update output for admins"""
-    card = session.query(Card).filter(Card.stub == "example-phoenixborn").first()
+    card = session.execute(
+        select(Card).where(Card.stub == "example-phoenixborn").limit(1)
+    ).scalar()
     card.search_text = f"{card.name} nonesuch\n{card.json['text']}"
     session.commit()
     admin, token = create_admin_token(session)
@@ -117,7 +120,9 @@ def test_get_details_phoenixborn(client: TestClient, session: db.Session):
 def test_get_details_phoenixborn_second_unique(client: TestClient, session: db.Session):
     """Must properly output second Phoenixborn unique in details"""
     # Get the master set release for creating our test cards
-    master_set = session.query(Release).filter(Release.stub == "master-set").first()
+    master_set = session.execute(
+        select(Release).where(Release.stub == "master-set").limit(1)
+    ).scalar()
 
     # Create a second conjuration for the second unique
     create_card(
@@ -162,7 +167,9 @@ def test_get_details_phoenixborn_second_unique(client: TestClient, session: db.S
 def test_get_details_last_seen_entity_id(client: TestClient, session: db.Session):
     """Must properly output last seen entity ID for cards with comments and subscriptions"""
     user, token = create_user_token(session)
-    card = session.query(Card).filter(Card.is_legacy == False).first()
+    card = session.execute(
+        select(Card).where(Card.is_legacy == False).limit(1)
+    ).scalar()
     comment = Comment(
         entity_id=create_entity(session),
         user_id=user.id,

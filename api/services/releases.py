@@ -1,16 +1,18 @@
+from sqlalchemy import select
+
 from api import db
 from api.models import Release, UserRelease, UserType
 
 
-def get_releases_query(session: db.Session, current_user: UserType, show_legacy=False):
+def get_releases_query(current_user: UserType, show_legacy=False):
     """Returns the query necessary to fetch a list of releases
 
     If a user is passed, then the releases will be tagged `is_mine` if in that user's collection.
     """
     if current_user.is_anonymous():
-        query = session.query(Release.name, Release.stub, Release.is_legacy)
+        stmt = select(Release.name, Release.stub, Release.is_legacy)
     else:
-        query = session.query(
+        stmt = select(
             Release.name,
             Release.stub,
             Release.is_legacy,
@@ -25,8 +27,8 @@ def get_releases_query(session: db.Session, current_user: UserType, show_legacy=
                 UserRelease.user_id == current_user.id,
             ),
         )
-    query = query.filter(
+    stmt = stmt.where(
         Release.is_legacy.is_(show_legacy),
         Release.is_public.is_(True),
     ).order_by(Release.id.asc())
-    return query
+    return stmt

@@ -177,8 +177,8 @@ __all__ = (
 )
 
 # Setup base engine and session class
-engine = create_engine(settings.postgres_url, echo=settings.debug)
-SessionLocal = sessionmaker(bind=engine)
+engine = create_engine(settings.postgres_url, echo=settings.debug, future=True)
+SessionLocal = sessionmaker(engine)
 
 # Setup our declarative base
 meta = MetaData(

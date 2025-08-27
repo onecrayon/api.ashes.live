@@ -1,6 +1,7 @@
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from api import db
 from api.models import Deck
@@ -82,7 +83,14 @@ def test_clone_public_snapshot(
     )
     assert response.status_code == status.HTTP_200_OK
     # One is the new deck object, and the other is the source ID snapshot
-    assert session.query(Deck).filter(Deck.user_id == user.id).count() == 2
+    assert (
+        session.execute(
+            select(db.func.count()).select_from(
+                select(Deck).where(Deck.user_id == user.id).subquery()
+            )
+        ).scalar()
+        == 2
+    )
 
 
 def test_clone_private_snapshot(
@@ -91,28 +99,56 @@ def test_clone_private_snapshot(
     """Can clone own private snapshot"""
     user, token = user_token
     # Verify that we have three "decks" (original deck, private snapshot, public snapshot)
-    assert session.query(Deck).filter(Deck.user_id == user.id).count() == 3
+    assert (
+        session.execute(
+            select(db.func.count()).select_from(
+                select(Deck).where(Deck.user_id == user.id).subquery()
+            )
+        ).scalar()
+        == 3
+    )
     response = client.get(
         f"/v2/decks/{snapshot.id}/clone",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_200_OK
     # Check that we now have two more decks than before: new deck, and source snapshot
-    assert session.query(Deck).filter(Deck.user_id == user.id).count() == 5
+    assert (
+        session.execute(
+            select(db.func.count()).select_from(
+                select(Deck).where(Deck.user_id == user.id).subquery()
+            )
+        ).scalar()
+        == 5
+    )
 
 
 def test_clone_deck(client: TestClient, session: db.Session, deck, user_token):
     """Can clone own deck"""
     user, token = user_token
     # Verify that we have three "decks" (original deck, private snapshot, public snapshot)
-    assert session.query(Deck).filter(Deck.user_id == user.id).count() == 3
+    assert (
+        session.execute(
+            select(db.func.count()).select_from(
+                select(Deck).where(Deck.user_id == user.id).subquery()
+            )
+        ).scalar()
+        == 3
+    )
     response = client.get(
         f"/v2/decks/{deck.id}/clone",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_200_OK
     # Check that we now have two more decks than before: new deck, and source snapshot
-    assert session.query(Deck).filter(Deck.user_id == user.id).count() == 5
+    assert (
+        session.execute(
+            select(db.func.count()).select_from(
+                select(Deck).where(Deck.user_id == user.id).subquery()
+            )
+        ).scalar()
+        == 5
+    )
 
 
 def test_clone_private_shared_deck(
@@ -127,7 +163,14 @@ def test_clone_private_shared_deck(
     )
     assert response.status_code == status.HTTP_200_OK, response.json()
     # One is the new deck object, and the other is the source ID snapshot
-    assert session.query(Deck).filter(Deck.user_id == user.id).count() == 2
+    assert (
+        session.execute(
+            select(db.func.count()).select_from(
+                select(Deck).where(Deck.user_id == user.id).subquery()
+            )
+        ).scalar()
+        == 2
+    )
 
 
 def test_clone_deck_red_rains(
@@ -144,8 +187,12 @@ def test_clone_deck_red_rains(
     assert response.status_code == status.HTTP_200_OK
     # Verify that we have two decks (deck and snapshot) and both are marked as Red Rains decks
     assert (
-        session.query(Deck)
-        .filter(Deck.user_id == user.id, Deck.is_red_rains.is_(True))
-        .count()
+        session.execute(
+            select(db.func.count()).select_from(
+                select(Deck)
+                .where(Deck.user_id == user.id, Deck.is_red_rains.is_(True))
+                .subquery()
+            )
+        ).scalar()
         == 2
     )

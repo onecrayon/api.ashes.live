@@ -1,5 +1,6 @@
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from api import db
 from api.models.release import Release, UserRelease
@@ -222,7 +223,9 @@ def test_release_filtration(client: TestClient, session: db.Session):
     """Filtering cards by owned releases works properly."""
     # Create our user, and setup their collection
     user, token = create_user_token(session)
-    master_set = session.query(Release).filter(Release.stub == "master-set").first()
+    master_set = session.execute(
+        select(Release).where(Release.stub == "master-set").limit(1)
+    ).scalar()
     user_release = UserRelease(user_id=user.id, release_id=master_set.id)
     session.add(user_release)
     session.commit()

@@ -1,5 +1,6 @@
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from api import db
 from api.models import Card
@@ -32,7 +33,7 @@ def test_patch_card_errata(client: TestClient, session: db.Session):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_200_OK
-    card = session.query(Card).filter(Card.stub == "wesley").first()
+    card = session.execute(select(Card).where(Card.stub == "wesley").limit(1)).scalar()
     assert card.version == 2
 
 
@@ -48,7 +49,7 @@ def test_patch_card_name(client: TestClient, session: db.Session):
     card_data = response.json()
     assert card_data["name"] == "Wesley", card_data
     assert card_data["stub"] == "wesley", card_data
-    card = session.query(Card).filter(Card.stub == "wesley").first()
+    card = session.execute(select(Card).where(Card.stub == "wesley").limit(1)).scalar()
     assert card.search_text.startswith("Wesley"), card.search_text
 
 
@@ -61,7 +62,9 @@ def test_patch_card_search_keywords(client: TestClient, session: db.Session):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_200_OK
-    card = session.query(Card).filter(Card.stub == "example-phoenixborn").first()
+    card = session.execute(
+        select(Card).where(Card.stub == "example-phoenixborn").limit(1)
+    ).scalar()
     assert card.search_text.startswith("Example Phoenixborn nonesuch"), card.search_text
 
 
@@ -99,7 +102,9 @@ def test_patch_card_copies(client: TestClient, session: db.Session):
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["copies"] == 17
-    card = session.query(Card).filter(Card.stub == "example-conjuration").first()
+    card = session.execute(
+        select(Card).where(Card.stub == "example-conjuration").limit(1)
+    ).scalar()
     assert card.copies == 17
 
 
@@ -113,7 +118,9 @@ def test_patch_card_copies_removal(client: TestClient, session: db.Session):
     )
     assert response.status_code == status.HTTP_200_OK
     assert "copies" not in response.json(), response.json()
-    card = session.query(Card).filter(Card.stub == "example-conjuration").first()
+    card = session.execute(
+        select(Card).where(Card.stub == "example-conjuration").limit(1)
+    ).scalar()
     assert card.copies is None
 
 
@@ -126,7 +133,9 @@ def test_patch_card_cost(client: TestClient, session: db.Session):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_200_OK
-    card = session.query(Card).filter(Card.stub == "example-ally").first()
+    card = session.execute(
+        select(Card).where(Card.stub == "example-ally").limit(1)
+    ).scalar()
     assert card.cost_weight == 106
     card_data = response.json()
     assert card_data["cost"] == ["[[main]]", "1 [[natural:class]]"], card_data
@@ -143,7 +152,9 @@ def test_patch_card_dice(client: TestClient, session: db.Session):
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["dice"] == ["illusion"]
-    card = session.query(Card).filter(Card.stub == "example-ally").first()
+    card = session.execute(
+        select(Card).where(Card.stub == "example-ally").limit(1)
+    ).scalar()
     assert card.dice_flags == 4
 
 
@@ -157,7 +168,9 @@ def test_patch_card_dice_removal(client: TestClient, session: db.Session):
     )
     assert response.status_code == status.HTTP_200_OK
     assert "dice" not in response.json(), response.json()
-    card = session.query(Card).filter(Card.stub == "example-ally").first()
+    card = session.execute(
+        select(Card).where(Card.stub == "example-ally").limit(1)
+    ).scalar()
     assert card.dice_flags == 0
 
 
@@ -171,7 +184,9 @@ def test_patch_card_alt_dice(client: TestClient, session: db.Session):
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["altDice"] == ["illusion"]
-    card = session.query(Card).filter(Card.stub == "example-ally").first()
+    card = session.execute(
+        select(Card).where(Card.stub == "example-ally").limit(1)
+    ).scalar()
     assert card.alt_dice_flags == 4
 
 
@@ -185,7 +200,9 @@ def test_patch_card_alt_dice_removal(client: TestClient, session: db.Session):
     )
     assert response.status_code == status.HTTP_200_OK
     assert "altDice" not in response.json(), response.json()
-    card = session.query(Card).filter(Card.stub == "example-ally").first()
+    card = session.execute(
+        select(Card).where(Card.stub == "example-ally").limit(1)
+    ).scalar()
     assert card.alt_dice_flags == 0
 
 
