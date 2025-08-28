@@ -144,10 +144,10 @@ def cards_connection(test_engine: Engine) -> Session:
     # Create a nested transaction that includes standard card data
     connection = test_engine.connect()
     cards_transaction = connection.begin()
-    session = Session(bind=connection, join_transaction_mode="create_savepoint")
+    cards_session = Session(bind=connection, join_transaction_mode="create_savepoint")
     # Create our fake cards that are relied on by the tests in this module
-    _create_cards_for_filtration(session, is_legacy=True)
-    _create_cards_for_filtration(session)
+    _create_cards_for_filtration(cards_session, is_legacy=True)
+    _create_cards_for_filtration(cards_session)
 
     try:
         yield connection

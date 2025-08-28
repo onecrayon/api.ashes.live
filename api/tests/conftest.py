@@ -14,12 +14,10 @@ from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 import api.environment
 
-# `models` is necessary to ensure that AlchemyBase is properly populated
 from api import app, db
 from api.depends import get_session
 
@@ -63,21 +61,20 @@ def test_engine():
 
 
 @pytest.fixture(scope="function")
-def session(test_engine: Engine, monkeypatch) -> Session:
+def session(test_engine: Engine) -> db.Session:
     """Return an SQLAlchemy session for this test, complete with SAVEPOINT for internal rollbacks"""
     connection = test_engine.connect()
     transaction = connection.begin()
-    session = Session(bind=connection, join_transaction_mode="create_savepoint")
     try:
-        yield session
+        with db.Session(bind=connection, join_transaction_mode="create_savepoint") as session:
+            yield session
     finally:
-        session.close()
         transaction.rollback()
         connection.close()
 
 
 @pytest.fixture(scope="function")
-def client(session: Session) -> TestClient:
+def client(session: db.Session) -> TestClient:
     """Return a FastAPI TestClient for issuing requests and rollback session transaction"""
 
     def override_get_session():
