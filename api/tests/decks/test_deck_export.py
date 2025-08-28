@@ -130,9 +130,9 @@ def test_export_decks_filters_by_export_status(
     assert data["total"] == 2  # Two unexported decks
     # Compare by created dates since export data uses created as unique identifier
     exported_deck_created_dates = {deck["created"] for deck in data["decks"]}
-    assert export_deck1.created.isoformat() in exported_deck_created_dates
+    assert pydantic_style_datetime_str(export_deck1.created) in exported_deck_created_dates
     assert (
-        export_deck3.created.isoformat() not in exported_deck_created_dates
+        pydantic_style_datetime_str(export_deck3.created) not in exported_deck_created_dates
     )  # Exported deck excluded
 
 
