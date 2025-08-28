@@ -32,7 +32,9 @@ def session(cards_connection):
     """Return a nested transaction on the outer session, to prevent rolling back card data"""
     savepoint = cards_connection.begin_nested()
     try:
-        with Session(bind=cards_connection, join_transaction_mode="create_savepoint") as session:
+        with Session(
+            bind=cards_connection, join_transaction_mode="create_savepoint"
+        ) as session:
             yield session
     finally:
         savepoint.rollback()

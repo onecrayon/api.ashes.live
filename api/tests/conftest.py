@@ -17,7 +17,6 @@ from sqlalchemy.engine import Engine
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 import api.environment
-
 from api import app, db
 from api.depends import get_session
 
@@ -66,7 +65,9 @@ def session(test_engine: Engine) -> db.Session:
     connection = test_engine.connect()
     transaction = connection.begin()
     try:
-        with db.Session(bind=connection, join_transaction_mode="create_savepoint") as session:
+        with db.Session(
+            bind=connection, join_transaction_mode="create_savepoint"
+        ) as session:
             yield session
     finally:
         transaction.rollback()
