@@ -12,15 +12,15 @@ from api.tests.utils import create_user_token
 from .deck_utils import create_deck_for_user
 
 
-@pytest.fixture(scope="module", autouse=True)
-def user1(decks_session):
-    user1, _ = create_user_token(decks_session)
+@pytest.fixture(scope="function", autouse=True)
+def user1(session):
+    user1, _ = create_user_token(session)
     return user1
 
 
-@pytest.fixture(scope="module", autouse=True)
-def deck1(decks_session, user1):
-    return create_deck_for_user(decks_session, user1, release_stub="master-set")
+@pytest.fixture(scope="function", autouse=True)
+def deck1(session, user1):
+    return create_deck_for_user(session, user1, release_stub="master-set")
 
 
 @pytest.fixture

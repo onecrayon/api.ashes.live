@@ -24,10 +24,10 @@ from .deck_utils import create_deck_for_user
 # Shared fixtures
 
 
-@pytest.fixture(scope="module", autouse=True)
-def user_token(decks_session):
+@pytest.fixture(scope="function", autouse=True)
+def user_token(session):
     """User and token for import tests"""
-    user, token = utils.create_user_token(decks_session)
+    user, token = utils.create_user_token(session)
     return user, token
 
 

@@ -10,29 +10,29 @@ from api.tests.decks.deck_utils import create_deck_for_user
 from api.tests.utils import create_user_token
 
 
-@pytest.fixture(scope="module", autouse=True)
-def user_token(decks_session):
-    user, token = create_user_token(decks_session)
+@pytest.fixture(scope="function", autouse=True)
+def user_token(session):
+    user, token = create_user_token(session)
     return user, token
 
 
-@pytest.fixture(scope="module", autouse=True)
-def user2_token(decks_session):
-    user, token = create_user_token(decks_session)
+@pytest.fixture(scope="function", autouse=True)
+def user2_token(session):
+    user, token = create_user_token(session)
     return user, token
 
 
-@pytest.fixture(scope="module", autouse=True)
-def deck(decks_session, user_token):
+@pytest.fixture(scope="function", autouse=True)
+def deck(session, user_token):
     user, _ = user_token
-    return create_deck_for_user(decks_session, user)
+    return create_deck_for_user(session, user)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def snapshot(decks_session, user_token, deck):
+@pytest.fixture(scope="function", autouse=True)
+def snapshot(session, user_token, deck):
     user, _ = user_token
     return create_snapshot_for_deck(
-        decks_session,
+        session,
         user,
         deck,
         title="First Snapshot",
@@ -41,11 +41,11 @@ def snapshot(decks_session, user_token, deck):
     )
 
 
-@pytest.fixture(scope="module", autouse=True)
-def public_snapshot(decks_session, user_token, deck):
+@pytest.fixture(scope="function", autouse=True)
+def public_snapshot(session, user_token, deck):
     user, _ = user_token
     return create_snapshot_for_deck(
-        decks_session,
+        session,
         user,
         deck,
         title="Second Snapshot",

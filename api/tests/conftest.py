@@ -83,14 +83,3 @@ def client(session: db.Session) -> TestClient:
     app.dependency_overrides[get_session] = override_get_session
 
     yield TestClient(app)
-
-
-@pytest.fixture(scope="package")
-def monkeypatch_package():
-    """Monkeypatch must be re-implemented to be included in fixtures for non-function scopes
-
-    See: https://github.com/pytest-dev/pytest/issues/363
-    """
-    monkeypatch = MonkeyPatch()
-    yield monkeypatch
-    monkeypatch.undo()

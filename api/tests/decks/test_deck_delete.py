@@ -10,16 +10,16 @@ from api.tests.decks.deck_utils import create_deck_for_user
 from api.tests.utils import create_user_token
 
 
-@pytest.fixture(scope="module", autouse=True)
-def user_token(decks_session):
-    user, token = create_user_token(decks_session)
+@pytest.fixture(scope="function", autouse=True)
+def user_token(session):
+    user, token = create_user_token(session)
     return user, token
 
 
-@pytest.fixture(scope="module")
-def deck(decks_session, user_token):
+@pytest.fixture(scope="function")
+def deck(session, user_token):
     user, _ = user_token
-    return create_deck_for_user(decks_session, user)
+    return create_deck_for_user(session, user)
 
 
 def test_delete_deck_bad_deck(client: TestClient, session: db.Session, user_token):
