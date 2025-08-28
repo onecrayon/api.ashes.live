@@ -67,7 +67,7 @@ def session(test_engine: Engine, monkeypatch) -> Session:
     """Return an SQLAlchemy session for this test, complete with SAVEPOINT for internal rollbacks"""
     connection = test_engine.connect()
     transaction = connection.begin()
-    session = Session(bind=connection)
+    session = Session(bind=connection, join_transaction_mode="create_savepoint")
     try:
         yield session
     finally:

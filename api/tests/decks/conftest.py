@@ -15,7 +15,7 @@ def cards_session(test_engine: Engine, monkeypatch_package) -> Session:
     """
     connection = test_engine.connect()
     cards_transaction = connection.begin()
-    session = Session(bind=connection)
+    session = Session(bind=connection, join_transaction_mode="create_savepoint")
     # Overwrite commits with flushes so that we can query stuff, but it's in the same transaction
     monkeypatch_package.setattr(session, "commit", session.flush)
     # Create our fake cards that are relied on by the tests in this module

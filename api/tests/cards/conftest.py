@@ -136,7 +136,7 @@ def _create_cards_for_filtration(session: db.Session, is_legacy=False):
 
 
 @pytest.fixture(scope="package")
-def cards_session(test_engine: Engine, monkeypatch_package) -> Session:
+def cards_connection(test_engine: Engine) -> Session:
     """Populate our database with the cards needed for listing tests.
 
     This causes our session to be reused between all tests in this package.
@@ -144,25 +144,26 @@ def cards_session(test_engine: Engine, monkeypatch_package) -> Session:
     # Create a nested transaction that includes standard card data
     connection = test_engine.connect()
     cards_transaction = connection.begin()
-    session = Session(bind=connection)
-    # Overwrite commits with flushes so that we can query stuff, but it's in the same transaction
-    monkeypatch_package.setattr(session, "commit", session.flush)
+    session = Session(bind=connection, join_transaction_mode="create_savepoint")
     # Create our fake cards that are relied on by the tests in this module
     _create_cards_for_filtration(session, is_legacy=True)
     _create_cards_for_filtration(session)
 
     try:
-        yield session
+        yield connection
     finally:
         cards_transaction.rollback()
         connection.close()
 
 
 @pytest.fixture(scope="function")
-def session(cards_session):
+def session(cards_connection):
     """Return a nested transaction on the outer session, to prevent rolling back card data"""
-    cards_session.begin_nested()
+    savepoint = cards_connection.begin_nested()
     try:
-        yield cards_session
+        with Session(
+            bind=cards_connection, join_transaction_mode="create_savepoint"
+        ) as session:
+            yield session
     finally:
-        cards_session.rollback()
+        savepoint.rollback()
