@@ -80,7 +80,7 @@ def _create_cards_for_filtration(session: db.Session, is_legacy=False):
             "phoenixborn": "Example Phoenixborn",
             "release": master_set,
             "cost": ["[[main]]", ["1 [[natural:power", "1 [[illusion:power]]"]],
-            "text": "Stuffiness: [[main]] - [[exhaust]] - 1 [[natural:class]] / 1 [[illusion:class]]: Place a [[Example Ally Conjuration]] conjuration on your battlefield.",
+            "text": "Stuff and Things: [[main]] - [[exhaust]] - 1 [[natural:class]] / 1 [[illusion:class]]: Place a [[Example Ally Conjuration]] conjuration on your battlefield.",
             "effect_magic_cost": "1 [[natural:class]] / 1 [[illusion:class]]",
             "attack": 2,
             "life": 1,
