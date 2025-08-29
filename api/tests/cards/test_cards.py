@@ -212,7 +212,9 @@ def test_pagination_paging(client: TestClient, session: db.Session):
 
 def test_pagination_exceed_limit(client: TestClient, session: db.Session, monkeypatch):
     """Exceeding the max pagination limit results in getting the max limit back"""
-    monkeypatch_settings(monkeypatch, {"pagination_max_limit": 4, "pagination_default_limit": 2})
+    monkeypatch_settings(
+        monkeypatch, {"pagination_max_limit": 4, "pagination_default_limit": 2}
+    )
     response = client.get("/v2/cards", params={"limit": 5})
     assert response.status_code == 200
     data = response.json()

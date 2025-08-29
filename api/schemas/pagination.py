@@ -1,7 +1,7 @@
 from enum import Enum
-from typing import Any, Annotated
+from typing import Annotated, Any
 
-from pydantic import BaseModel, Field, BeforeValidator
+from pydantic import BaseModel, BeforeValidator, Field
 
 from api.environment import settings
 
