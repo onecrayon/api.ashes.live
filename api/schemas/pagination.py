@@ -1,7 +1,7 @@
 from enum import Enum
-from typing import Any
+from typing import Any, Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, BeforeValidator
 
 from api.environment import settings
 
@@ -13,10 +13,22 @@ class PaginationOrderOptions(str, Enum):
     desc = "desc"
 
 
+def limit_to_max_pagination_value(value: Any) -> int:
+    """Ensures that users cannot exceed the maximum pagination limit
+
+    Needs to be run prior to normal validation to prevent a validation error from getting thrown
+    by the framework.
+    """
+    value = int(value)
+    if value > settings.pagination_max_limit:
+        value = settings.pagination_max_limit
+    return value
+
+
 class PaginationOptions(BaseModel):
     """Query string options to adjust pagination"""
 
-    limit: int = Field(
+    limit: Annotated[int, BeforeValidator(limit_to_max_pagination_value)] = Field(
         settings.pagination_default_limit, gt=0, le=settings.pagination_max_limit
     )
     offset: int = 0
