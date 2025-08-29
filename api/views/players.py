@@ -23,7 +23,7 @@ from api.schemas.auth import AuthTokenOut
 from api.schemas.user import UserExportToken
 from api.services.user import access_token_for_user, create_user, get_invite_for_email
 from api.utils.auth import generate_password_hash, verify_password
-from api.utils.email import send_message
+from api.utils.email import sanitize_email, send_message
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ def request_invite(
 
     Will fail if requested by an authenticated user.
     """
-    email = data.email.lower()
+    email = sanitize_email(data.email)
     stmt = select(User).where(User.email == email)
     user = session.execute(stmt).scalar_one_or_none()
     if user:

@@ -29,7 +29,7 @@ from api.schemas.user import UserEmailIn, UserSetPasswordIn
 from api.services.user import access_token_for_user
 from api.utils.auth import generate_password_hash, verify_password
 from api.utils.dates import utcnow
-from api.utils.email import send_message
+from api.utils.email import sanitize_email, send_message
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ def log_in(
     If you pass in `token:longterm` in the scopes, then you will be issued a long-lived token
     (defaults to one year before expiring).
     """
-    email = form_data.username.lower()
+    email = sanitize_email(form_data.username)
     stmt = select(User).where(User.email == email)
     user = session.execute(stmt).scalar_one_or_none()
     if not user or not verify_password(form_data.password, user.password):
@@ -116,7 +116,7 @@ def request_password_reset(
     _=Depends(anonymous_required),
 ):
     """Request a reset password link for the given email."""
-    email = data.email.lower()
+    email = sanitize_email(data.email)
     stmt = select(User).where(User.email == email)
     user: User = session.execute(stmt).scalar_one_or_none()
     if not user:
