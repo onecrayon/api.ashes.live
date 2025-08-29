@@ -114,6 +114,9 @@ def list_cards(
             if card_type is CardsFilterType.conjurations:
                 card_types.add("Conjuration")
                 card_types.add("Conjured Alteration Spell")
+            elif card_type is CardsFilterType.alteration_spell:
+                card_types.add("Alteration Spell")
+                card_types.add("Conjured Alteration Spell")
             else:
                 card_types.add(card_type.replace("_", " ").title())
         stmt = stmt.where(Card.card_type.in_(card_types))
