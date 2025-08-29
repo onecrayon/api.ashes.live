@@ -13,12 +13,10 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.engine import Engine
 from sqlalchemy_utils import create_database, database_exists, drop_database
 
 import api.environment
-
-# `models` is necessary to ensure that AlchemyBase is properly populated
 from api import app, db
 from api.depends import get_session
 
@@ -34,7 +32,7 @@ def testing_environment(monkeypatch):
 
 
 @pytest.fixture(scope="session")
-def session_local():
+def test_engine():
     """Override the default database with our testing database, and make sure to run migrations"""
     settings = api.environment.ApplicationSettings()
     test_engine = create_engine(
@@ -43,38 +41,41 @@ def session_local():
             f"@{settings.postgres_host}:{settings.postgres_port}/test"
         ),
         echo=False,
+        future=True,
     )
     # Drop database and recreate to ensure tests are always run against a clean slate
     if database_exists(test_engine.url):
         drop_database(test_engine.url)
     create_database(test_engine.url)
-    TestSessionLocal = sessionmaker(bind=test_engine)
     # Install necessary pgcrypto extension (for database-level default UUIDs)
-    test_engine.execute("create extension pgcrypto")
+    with test_engine.connect() as connection:
+        with connection.begin():
+            connection.execute(db.text("create extension pgcrypto"))
     # Create all tables
     db.AlchemyBase.metadata.create_all(bind=test_engine)
     try:
-        yield TestSessionLocal
+        yield test_engine
     finally:
         drop_database(test_engine.url)
 
 
 @pytest.fixture(scope="function")
-def session(session_local: Session, monkeypatch) -> Session:
-    """Return an SQLAlchemy session for this test"""
-    session = session_local()
-    session.begin_nested()
-    # Overwrite commits with flushes so that we can query stuff, but it's in the same transaction
-    monkeypatch.setattr(session, "commit", session.flush)
+def session(test_engine: Engine) -> db.Session:
+    """Return an SQLAlchemy session for this test, complete with SAVEPOINT for internal rollbacks"""
+    connection = test_engine.connect()
+    transaction = connection.begin()
     try:
-        yield session
+        with db.Session(
+            bind=connection, join_transaction_mode="create_savepoint"
+        ) as session:
+            yield session
     finally:
-        session.rollback()
-        session.close()
+        transaction.rollback()
+        connection.close()
 
 
 @pytest.fixture(scope="function")
-def client(session: Session) -> TestClient:
+def client(session: db.Session) -> TestClient:
     """Return a FastAPI TestClient for issuing requests and rollback session transaction"""
 
     def override_get_session():
@@ -83,14 +84,3 @@ def client(session: Session) -> TestClient:
     app.dependency_overrides[get_session] = override_get_session
 
     yield TestClient(app)
-
-
-@pytest.fixture(scope="package")
-def monkeypatch_package():
-    """Monkeypatch must be re-implemented to be included in fixtures for non-function scopes
-
-    See: https://github.com/pytest-dev/pytest/issues/363
-    """
-    monkeypatch = MonkeyPatch()
-    yield monkeypatch
-    monkeypatch.undo()

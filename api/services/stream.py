@@ -1,3 +1,5 @@
+from sqlalchemy import delete, select
+
 from api import db
 from api.models.stream import Stream, Streamable, Subscription
 from api.utils.dates import utcnow
@@ -20,16 +22,14 @@ def refresh_stream_for_entity(
     invoking method.
     """
     if entity_type == "deck":
-        entity = (
-            session.query(Stream)
-            .filter(
-                Stream.source_entity_id == source_entity_id,
-                Stream.entity_type == "deck",
-            )
-            .first()
+        stmt = select(Stream).where(
+            Stream.source_entity_id == source_entity_id,
+            Stream.entity_type == "deck",
         )
+        entity = session.execute(stmt).scalar_one_or_none()
     else:
-        entity = session.query(Stream).filter(Stream.entity_id == entity_id).first()
+        stmt = select(Stream).where(Stream.entity_id == entity_id)
+        entity = session.execute(stmt).scalar_one_or_none()
     # Comment edits do not update the stream, hence not handling them here
     if not entity:
         entity = Stream(
@@ -57,14 +57,11 @@ def update_subscription_for_user(
     **Please note:** this method does not commit the changes! You must flush the session in the
     invoking method.
     """
-    subscription = (
-        session.query(Subscription)
-        .filter(
-            Subscription.user_id == user.id,
-            Subscription.source_entity_id == source_entity_id,
-        )
-        .first()
+    stmt = select(Subscription).where(
+        Subscription.user_id == user.id,
+        Subscription.source_entity_id == source_entity_id,
     )
+    subscription = session.execute(stmt).scalar_one_or_none()
     if not subscription:
         subscription = Subscription(
             user_id=user.id,

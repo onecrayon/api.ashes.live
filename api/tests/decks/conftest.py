@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy.engine import Engine
 
 from api.db import Session
 
@@ -6,40 +7,34 @@ from .deck_utils import create_cards_for_decks
 
 
 @pytest.fixture(scope="package")
-def cards_session(session_local: Session, monkeypatch_package) -> Session:
+def cards_connection(test_engine: Engine) -> Session:
     """Populate our database with the cards needed to create decks once for the package
 
-    This causes our session to be reused between all tests in this package, with specific classes
+    This causes our session to be reused between all tests in this package, with specific files
     handling deck/user data persistence using nested rollbacks.
     """
-    # Creates a nested transaction that includes standard card data
-    session = session_local()
-    session.begin_nested()
-    # Overwrite commits with flushes so that we can query stuff, but it's in the same transaction
-    monkeypatch_package.setattr(session, "commit", session.flush)
-    create_cards_for_decks(session)
-    try:
-        yield session
-    finally:
-        session.rollback()
-        session.close()
+    # Create a nested transaction that includes standard card data
+    connection = test_engine.connect()
+    cards_transaction = connection.begin()
+    cards_session = Session(bind=connection, join_transaction_mode="create_savepoint")
+    # Create our fake cards that are relied on by the tests in this module
+    create_cards_for_decks(cards_session)
 
-
-@pytest.fixture(scope="module")
-def decks_session(cards_session):
-    """Adds a module-level layer of nesting to keep the decks and such created in modules isolated"""
-    cards_session.begin_nested()
     try:
-        yield cards_session
+        yield connection
     finally:
-        cards_session.rollback()
+        cards_transaction.rollback()
+        connection.close()
 
 
 @pytest.fixture(scope="function")
-def session(decks_session):
+def session(cards_connection):
     """Return a nested transaction on the outer session, to prevent rolling back card data"""
-    decks_session.begin_nested()
+    savepoint = cards_connection.begin_nested()
     try:
-        yield decks_session
+        with Session(
+            bind=cards_connection, join_transaction_mode="create_savepoint"
+        ) as session:
+            yield session
     finally:
-        decks_session.rollback()
+        savepoint.rollback()

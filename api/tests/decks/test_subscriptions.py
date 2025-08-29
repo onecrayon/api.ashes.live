@@ -1,6 +1,7 @@
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from api import db
 from api.models import Card, Comment, Subscription
@@ -11,20 +12,20 @@ from api.tests.utils import create_user_token
 from .deck_utils import create_deck_for_user
 
 
-@pytest.fixture(scope="module", autouse=True)
-def user1(decks_session):
-    user1, _ = create_user_token(decks_session)
+@pytest.fixture(scope="function", autouse=True)
+def user1(session):
+    user1, _ = create_user_token(session)
     return user1
 
 
-@pytest.fixture(scope="module", autouse=True)
-def deck1(decks_session, user1):
-    return create_deck_for_user(decks_session, user1, release_stub="master-set")
+@pytest.fixture(scope="function", autouse=True)
+def deck1(session, user1):
+    return create_deck_for_user(session, user1, release_stub="master-set")
 
 
 @pytest.fixture
 def subscription(session, user1):
-    card = session.query(Card).order_by(Card.id.desc()).first()
+    card = session.execute(select(Card).order_by(Card.id.desc()).limit(1)).scalar()
     sub = Subscription(
         user_id=user1.id,
         source_entity_id=card.entity_id,
@@ -36,7 +37,7 @@ def subscription(session, user1):
 
 def test_create_subscription(client: TestClient, session: db.Session, user1):
     """Verify that creating a card subscription works properly"""
-    card = session.query(Card).first()
+    card = session.execute(select(Card).limit(1)).scalar()
     _, token = create_user_token(session, user=user1)
     response = client.post(
         f"/v2/subscription/{card.entity_id}",
@@ -108,7 +109,7 @@ def test_create_subscription_existing_subscription(
     client: TestClient, session: db.Session, user1
 ):
     """Verify creating a subscription that already exists returns truthy"""
-    card = session.query(Card).first()
+    card = session.execute(select(Card).limit(1)).scalar()
     sub = Subscription(
         user_id=user1.id,
         source_entity_id=card.entity_id,
@@ -127,7 +128,7 @@ def test_create_subscription_last_entity_id(
     client: TestClient, session: db.Session, user1
 ):
     """Verify subscriptions populate the last seen entity ID properly"""
-    card = session.query(Card).first()
+    card = session.execute(select(Card).limit(1)).scalar()
     # Add a pre-existing comment
     comment = Comment(
         entity_id=create_entity(session),
@@ -148,14 +149,14 @@ def test_create_subscription_last_entity_id(
     )
     assert response.status_code == status.HTTP_201_CREATED
     # Verify the last_seen_entity_id matches our previous comment
-    subscription = (
-        session.query(Subscription)
-        .filter(
+    subscription = session.execute(
+        select(Subscription)
+        .where(
             Subscription.source_entity_id == card.entity_id,
             Subscription.user_id == user1.id,
         )
-        .first()
-    )
+        .limit(1)
+    ).scalar()
     assert subscription.last_seen_entity_id == comment.entity_id
 
 
@@ -178,14 +179,14 @@ def test_create_subscription_last_entity_id_snapshot(
     )
     assert response.status_code == status.HTTP_201_CREATED
     # Check the subscription last_seen_entity_id
-    subscription = (
-        session.query(Subscription)
-        .filter(
+    subscription = session.execute(
+        select(Subscription)
+        .where(
             Subscription.source_entity_id == deck1.entity_id,
             Subscription.user_id == user1.id,
         )
-        .first()
-    )
+        .limit(1)
+    ).scalar()
     assert subscription.last_seen_entity_id == snapshot.entity_id
 
 
@@ -208,12 +209,14 @@ def test_delete_subscription(
     )
     assert response.status_code == status.HTTP_204_NO_CONTENT
     assert (
-        session.query(Subscription)
-        .filter(
-            Subscription.source_entity_id == source_entity_id,
-            Subscription.user_id == user1.id,
-        )
-        .first()
+        session.execute(
+            select(Subscription)
+            .where(
+                Subscription.source_entity_id == source_entity_id,
+                Subscription.user_id == user1.id,
+            )
+            .limit(1)
+        ).scalar()
         is None
     )
 

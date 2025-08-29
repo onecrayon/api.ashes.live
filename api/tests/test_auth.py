@@ -5,6 +5,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from freezegun import freeze_time
 from jose import jwt
+from sqlalchemy import select
 
 import api.views.players
 from api import db
@@ -87,7 +88,12 @@ def test_anonymous_required(client: TestClient, session: db.Session, monkeypatch
     fake_email = utils.generate_random_email()
     response = client.post("/v2/players/new", json={"email": fake_email})
     assert response.status_code == status.HTTP_201_CREATED, response.json()
-    assert session.query(Invite).filter(Invite.email == fake_email).count() == 1
+    count = session.execute(
+        select(db.func.count()).select_from(
+            select(Invite).where(Invite.email == fake_email).subquery()
+        )
+    ).scalar()
+    assert count == 1
 
 
 def test_anonymous_required_authenticated_user(client: TestClient, session: db.Session):
@@ -100,7 +106,12 @@ def test_anonymous_required_authenticated_user(client: TestClient, session: db.S
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_401_UNAUTHORIZED, response.json()
-    assert session.query(Invite).filter(Invite.email == fake_email).count() == 0
+    count = session.execute(
+        select(db.func.count()).select_from(
+            select(Invite).where(Invite.email == fake_email).subquery()
+        )
+    ).scalar()
+    assert count == 0
 
 
 def test_login_required(client: TestClient, session: db.Session):
@@ -349,12 +360,14 @@ def test_revoke_token(client: TestClient, session: db.Session):
     # Verify that we added the token to the "revert token" table
     payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
     jwt_uuid = uuid.UUID(hex=payload["jti"])
-    assert (
-        session.query(UserRevokedToken)
-        .filter(UserRevokedToken.revoked_uuid == jwt_uuid)
-        .count()
-        == 1
-    )
+    count = session.execute(
+        select(db.func.count()).select_from(
+            select(UserRevokedToken)
+            .where(UserRevokedToken.revoked_uuid == jwt_uuid)
+            .subquery()
+        )
+    ).scalar()
+    assert count == 1
     # Verify that we cannot make further authenticated requests with this token
     response = client.get(
         "/v2/players/me", headers={"Authorization": f"Bearer {token}"}
@@ -377,7 +390,13 @@ def test_revoke_token_cleanup(client: TestClient, session: db.Session):
     # Revoke a token 2 days ago
     one_day = now - timedelta(days=2)
     revoke_token(one_day)
-    assert session.query(UserRevokedToken).count() == 1
+    count = session.execute(
+        select(db.func.count()).select_from(UserRevokedToken)
+    ).scalar()
+    assert count == 1
     # Revoke a token now, so that the first token should get purged
     revoke_token(now)
-    assert session.query(UserRevokedToken).count() == 1
+    count = session.execute(
+        select(db.func.count()).select_from(UserRevokedToken)
+    ).scalar()
+    assert count == 1

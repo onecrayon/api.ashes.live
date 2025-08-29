@@ -12,6 +12,7 @@ import httpx
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from api import db
 from api.models import Deck
@@ -23,10 +24,10 @@ from .deck_utils import create_deck_for_user
 # Shared fixtures
 
 
-@pytest.fixture(scope="module", autouse=True)
-def user_token(decks_session):
+@pytest.fixture(scope="function", autouse=True)
+def user_token(session):
     """User and token for import tests"""
-    user, token = utils.create_user_token(decks_session)
+    user, token = utils.create_user_token(session)
     return user, token
 
 
@@ -213,7 +214,14 @@ def test_import_decks_creates_new_decks(
     monkeypatch.setattr(httpx, "post", mock_httpx_post)
 
     # Verify no decks exist initially
-    assert session.query(Deck).filter(Deck.user_id == user.id).count() == 0
+    assert (
+        session.execute(
+            select(db.func.count()).select_from(
+                select(Deck).where(Deck.user_id == user.id).subquery()
+            )
+        ).scalar()
+        == 0
+    )
 
     response = client.get(
         f"/v2/decks/import/{export_token}",
@@ -229,7 +237,9 @@ def test_import_decks_creates_new_decks(
     assert len(data["errors"]) == 0
 
     # Verify decks were created in database
-    created_decks = session.query(Deck).filter(Deck.user_id == user.id).all()
+    created_decks = (
+        session.execute(select(Deck).where(Deck.user_id == user.id)).scalars().all()
+    )
     assert len(created_decks) == 2
 
     # Verify deck details
@@ -285,7 +295,9 @@ def test_import_decks_updates_existing_decks(
     assert len(data["errors"]) == 0
 
     # Verify deck was updated, not duplicated
-    user_decks = session.query(Deck).filter(Deck.user_id == user.id).all()
+    user_decks = (
+        session.execute(select(Deck).where(Deck.user_id == user.id)).scalars().all()
+    )
     assert len(user_decks) == 1
 
     updated_deck = user_decks[0]
@@ -342,7 +354,9 @@ def test_import_decks_handles_snapshots_and_sources(
     assert len(data["errors"]) == 0
 
     # Verify both decks were created
-    created_decks = session.query(Deck).filter(Deck.user_id == user.id).all()
+    created_decks = (
+        session.execute(select(Deck).where(Deck.user_id == user.id)).scalars().all()
+    )
     assert len(created_decks) == 2
 
     # Find source and snapshot
@@ -413,7 +427,9 @@ def test_import_decks_imports_selected_cards(
     assert data["success_count"] == 1
 
     # Verify deck was created with selected cards data
-    created_deck = session.query(Deck).filter(Deck.user_id == user.id).first()
+    created_deck = session.execute(
+        select(Deck).where(Deck.user_id == user.id).limit(1)
+    ).scalar()
     assert created_deck is not None
 
     # Check selected cards relationships
@@ -481,7 +497,9 @@ def test_import_decks_single_deck_import(
     assert len(data["errors"]) == 0
 
     # Verify both the deck and its snapshot were imported
-    created_decks = session.query(Deck).filter(Deck.user_id == user.id).all()
+    created_decks = (
+        session.execute(select(Deck).where(Deck.user_id == user.id)).scalars().all()
+    )
     assert len(created_decks) == 2
 
     source_deck = next((d for d in created_decks if not d.is_snapshot), None)
@@ -569,7 +587,9 @@ def test_import_decks_pagination_handling(
     assert data["next_page_from_date"] is not None  # Should have next page info
 
     # Verify only first deck was imported (pagination handled by front-end)
-    created_decks = session.query(Deck).filter(Deck.user_id == user.id).all()
+    created_decks = (
+        session.execute(select(Deck).where(Deck.user_id == user.id)).scalars().all()
+    )
     assert len(created_decks) == 1
 
     deck_titles = [d.title for d in created_decks]
@@ -642,7 +662,9 @@ def test_import_decks_handles_missing_cards(
     assert "missing cards" in data["errors"][0].lower()
 
     # Verify no decks were created
-    created_decks = session.query(Deck).filter(Deck.user_id == user.id).all()
+    created_decks = (
+        session.execute(select(Deck).where(Deck.user_id == user.id)).scalars().all()
+    )
     assert len(created_decks) == 0
 
 
@@ -696,7 +718,9 @@ def test_import_decks_handles_missing_phoenixborn(
     assert "missing phoenixborn" in data["errors"][0].lower()
 
     # Verify no decks were created
-    created_decks = session.query(Deck).filter(Deck.user_id == user.id).all()
+    created_decks = (
+        session.execute(select(Deck).where(Deck.user_id == user.id)).scalars().all()
+    )
     assert len(created_decks) == 0
 
 
@@ -847,7 +871,9 @@ def test_import_decks_handles_partial_import_failures(
     assert "missing phoenixborn" in data["errors"][0].lower()
 
     # Verify only the valid deck was created
-    created_decks = session.query(Deck).filter(Deck.user_id == user.id).all()
+    created_decks = (
+        session.execute(select(Deck).where(Deck.user_id == user.id)).scalars().all()
+    )
     assert len(created_decks) == 1
     assert created_decks[0].title == "Valid Deck"
 
@@ -1150,7 +1176,9 @@ def test_import_decks_handles_dice_validation(
     assert len(data["errors"]) == 0
 
     # Verify deck was created with capped dice counts
-    created_decks = session.query(Deck).filter(Deck.user_id == user.id).all()
+    created_decks = (
+        session.execute(select(Deck).where(Deck.user_id == user.id)).scalars().all()
+    )
     assert len(created_decks) == 1
 
     created_deck = created_decks[0]
@@ -1196,7 +1224,9 @@ def test_import_decks_handles_empty_export_response(
     assert data["next_page_from_date"] is None
 
     # Verify no decks were created
-    created_decks = session.query(Deck).filter(Deck.user_id == user.id).all()
+    created_decks = (
+        session.execute(select(Deck).where(Deck.user_id == user.id)).scalars().all()
+    )
     assert len(created_decks) == 0
 
 
@@ -1262,7 +1292,9 @@ def test_import_decks_preserves_deck_relationships(
     assert len(data["errors"]) == 0
 
     # Verify all decks were created
-    created_decks = session.query(Deck).filter(Deck.user_id == user.id).all()
+    created_decks = (
+        session.execute(select(Deck).where(Deck.user_id == user.id)).scalars().all()
+    )
     assert len(created_decks) == 3
 
     # Find the decks by type

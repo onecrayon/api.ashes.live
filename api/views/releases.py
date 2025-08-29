@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import delete, select
 
 from api import db
 from api.depends import (
@@ -34,10 +35,8 @@ def list_releases(
 
     * `show_legacy` (default: false): if true, legacy 1.0 card data will be returned
     """
-    query = get_releases_query(
-        session=session, current_user=current_user, show_legacy=show_legacy
-    )
-    return query.all()
+    stmt = get_releases_query(current_user=current_user, show_legacy=show_legacy)
+    return session.execute(stmt).all()
 
 
 @router.put(
@@ -59,27 +58,23 @@ def save_collection(
     **This is not a patch!** You must pass the entire list of the user's collections every time.
     """
     # Clear out our existing releases
-    session.query(UserRelease).filter(UserRelease.user_id == current_user.id).delete()
+    delete_stmt = delete(UserRelease).where(UserRelease.user_id == current_user.id)
+    session.execute(delete_stmt)
     session.commit()
-    release_ids = (
-        (
-            session.query(Release.id)
-            .filter(
-                Release.is_legacy.is_(False),
-                Release.is_public.is_(True),
-                Release.stub.in_(collection),
-            )
-            .all()
+    release_ids = None
+    if collection:
+        stmt = select(Release.id).where(
+            Release.is_legacy.is_(False),
+            Release.is_public.is_(True),
+            Release.stub.in_(collection),
         )
-        if collection
-        else None
-    )
+        release_ids = session.execute(stmt).all()
     if release_ids:
         for row in release_ids:
             session.add(UserRelease(user_id=current_user.id, release_id=row.id))
         session.commit()
-    query = get_releases_query(session=session, current_user=current_user)
-    return query.all()
+    stmt = get_releases_query(current_user=current_user)
+    return session.execute(stmt).all()
 
 
 @router.patch(
@@ -103,11 +98,10 @@ def update_release(
 
     **Admin only.**
     """
-    release = (
-        session.query(Release)
-        .filter(Release.stub == release_stub, Release.is_legacy.is_(False))
-        .first()
+    stmt = select(Release).where(
+        Release.stub == release_stub, Release.is_legacy.is_(False)
     )
+    release = session.execute(stmt).scalar_one_or_none()
     if not release:
         raise NotFoundException(detail="Release not found.")
     release.is_public = data.is_public

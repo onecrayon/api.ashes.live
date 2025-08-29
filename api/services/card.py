@@ -1,5 +1,7 @@
 import re
 
+from sqlalchemy import select
+
 from api import db
 from api.models.card import Card, CardConjuration
 from api.models.release import Release
@@ -190,11 +192,10 @@ def create_card(
             text,
         ):
             conjuration_stubs.add(stubify(match.group(1)))
-        existing_conjurations = (
-            session.query(Card.id, Card.stub, Card.name)
-            .filter(Card.stub.in_(conjuration_stubs), Card.is_legacy.is_(False))
-            .all()
+        stmt = select(Card.id, Card.stub, Card.name).where(
+            Card.stub.in_(conjuration_stubs), Card.is_legacy.is_(False)
         )
+        existing_conjurations = session.execute(stmt).all()
         existing_stubs = set(x.stub for x in existing_conjurations)
         missing_conjurations = conjuration_stubs.symmetric_difference(existing_stubs)
         if missing_conjurations:

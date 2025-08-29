@@ -1,5 +1,6 @@
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from api import db
 from api.models import Release, UserRelease
@@ -87,7 +88,12 @@ def test_put_releases(client: TestClient, session: db.Session):
     session.commit()
     user, token = create_user_token(session)
     assert (
-        session.query(UserRelease).filter(UserRelease.user_id == user.id).count() == 0
+        session.execute(
+            select(db.func.count()).select_from(
+                select(UserRelease).where(UserRelease.user_id == user.id).subquery()
+            )
+        ).scalar()
+        == 0
     )
     response = client.put(
         "/v2/releases/mine",

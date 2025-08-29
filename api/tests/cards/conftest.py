@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy.engine import Engine
 
 from api import db, models
 from api.db import Session
@@ -79,7 +80,7 @@ def _create_cards_for_filtration(session: db.Session, is_legacy=False):
             "phoenixborn": "Example Phoenixborn",
             "release": master_set,
             "cost": ["[[main]]", ["1 [[natural:power", "1 [[illusion:power]]"]],
-            "text": "Stuffiness: [[main]] - [[exhaust]] - 1 [[natural:class]] / 1 [[illusion:class]]: Place a [[Example Ally Conjuration]] conjuration on your battlefield.",
+            "text": "Stuff and Things: [[main]] - [[exhaust]] - 1 [[natural:class]] / 1 [[illusion:class]]: Place a [[Example Ally Conjuration]] conjuration on your battlefield.",
             "effect_magic_cost": "1 [[natural:class]] / 1 [[illusion:class]]",
             "attack": 2,
             "life": 1,
@@ -135,30 +136,34 @@ def _create_cards_for_filtration(session: db.Session, is_legacy=False):
 
 
 @pytest.fixture(scope="package")
-def cards_session(session_local: Session, monkeypatch_package) -> Session:
+def cards_connection(test_engine: Engine) -> Session:
     """Populate our database with the cards needed for listing tests.
 
     This causes our session to be reused between all tests in this package.
     """
-    # Creates a nested transaction that includes standard card data
-    session = session_local()
-    session.begin_nested()
-    # Overwrite commits with flushes so that we can query stuff, but it's in the same transaction
-    monkeypatch_package.setattr(session, "commit", session.flush)
-    _create_cards_for_filtration(session, is_legacy=True)
-    _create_cards_for_filtration(session)
+    # Create a nested transaction that includes standard card data
+    connection = test_engine.connect()
+    cards_transaction = connection.begin()
+    cards_session = Session(bind=connection, join_transaction_mode="create_savepoint")
+    # Create our fake cards that are relied on by the tests in this module
+    _create_cards_for_filtration(cards_session, is_legacy=True)
+    _create_cards_for_filtration(cards_session)
+
     try:
-        yield session
+        yield connection
     finally:
-        session.rollback()
-        session.close()
+        cards_transaction.rollback()
+        connection.close()
 
 
 @pytest.fixture(scope="function")
-def session(cards_session):
+def session(cards_connection):
     """Return a nested transaction on the outer session, to prevent rolling back card data"""
-    cards_session.begin_nested()
+    savepoint = cards_connection.begin_nested()
     try:
-        yield cards_session
+        with Session(
+            bind=cards_connection, join_transaction_mode="create_savepoint"
+        ) as session:
+            yield session
     finally:
-        cards_session.rollback()
+        savepoint.rollback()

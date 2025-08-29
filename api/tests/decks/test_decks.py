@@ -14,21 +14,21 @@ from ..utils import create_admin_token, create_user_token
 from .deck_utils import create_deck_for_user
 
 
-@pytest.fixture(scope="module", autouse=True)
-def user1(decks_session):
-    user1, _ = create_user_token(decks_session)
+@pytest.fixture(scope="function", autouse=True)
+def user1(session):
+    user1, _ = create_user_token(session)
     return user1
 
 
-@pytest.fixture(scope="module", autouse=True)
-def deck1(decks_session, user1):
-    return create_deck_for_user(decks_session, user1, release_stub="master-set")
+@pytest.fixture(scope="function", autouse=True)
+def deck1(session, user1):
+    return create_deck_for_user(session, user1, release_stub="master-set")
 
 
-@pytest.fixture(scope="module", autouse=True)
-def snapshot1(decks_session, user1, deck1):
+@pytest.fixture(scope="function", autouse=True)
+def snapshot1(session, user1, deck1):
     return create_snapshot_for_deck(
-        decks_session,
+        session,
         user1,
         deck1,
         title="First Snapshot",
@@ -37,10 +37,10 @@ def snapshot1(decks_session, user1, deck1):
     )
 
 
-@pytest.fixture(scope="module", autouse=True)
-def private_snapshot1(decks_session, user1, deck1):
+@pytest.fixture(scope="function", autouse=True)
+def private_snapshot1(session, user1, deck1):
     return create_snapshot_for_deck(
-        decks_session,
+        session,
         user1,
         deck1,
         title="Private Snapshot",
@@ -49,26 +49,26 @@ def private_snapshot1(decks_session, user1, deck1):
     )
 
 
-@pytest.fixture(scope="module", autouse=True)
-def private_deck1(decks_session, user1):
-    return create_deck_for_user(decks_session, user1, release_stub="expansion")
+@pytest.fixture(scope="function", autouse=True)
+def private_deck1(session, user1):
+    return create_deck_for_user(session, user1, release_stub="expansion")
 
 
-@pytest.fixture(scope="module", autouse=True)
-def user2(decks_session):
-    user2, _ = create_user_token(decks_session)
+@pytest.fixture(scope="function", autouse=True)
+def user2(session):
+    user2, _ = create_user_token(session)
     return user2
 
 
-@pytest.fixture(scope="module", autouse=True)
-def deck2(decks_session, user2):
-    return create_deck_for_user(decks_session, user2, release_stub="expansion")
+@pytest.fixture(scope="function", autouse=True)
+def deck2(session, user2):
+    return create_deck_for_user(session, user2, release_stub="expansion")
 
 
-@pytest.fixture(scope="module", autouse=True)
-def snapshot2(decks_session, user2, deck2):
+@pytest.fixture(scope="function", autouse=True)
+def snapshot2(session, user2, deck2):
     return create_snapshot_for_deck(
-        decks_session,
+        session,
         user2,
         deck2,
         title="Second Snapshot",
@@ -76,24 +76,24 @@ def snapshot2(decks_session, user2, deck2):
     )
 
 
-@pytest.fixture(scope="module", autouse=True)
-def user3(decks_session):
-    user3, _ = create_user_token(decks_session)
+@pytest.fixture(scope="function", autouse=True)
+def user3(session):
+    user3, _ = create_user_token(session)
     return user3
 
 
-@pytest.fixture(scope="module", autouse=True)
-def deck3(decks_session, user3):
-    deck3 = create_deck_for_user(decks_session, user3, release_stub="expansion2")
+@pytest.fixture(scope="function", autouse=True)
+def deck3(session, user3):
+    deck3 = create_deck_for_user(session, user3, release_stub="expansion2")
     deck3.is_red_rains = True
-    decks_session.commit()
+    session.commit()
     return deck3
 
 
-@pytest.fixture(scope="module", autouse=True)
-def snapshot3(decks_session, user3, deck3):
+@pytest.fixture(scope="function", autouse=True)
+def snapshot3(session, user3, deck3):
     return create_snapshot_for_deck(
-        decks_session,
+        session,
         user3,
         deck3,
         title="Red Rains Snapshot",

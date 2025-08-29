@@ -2,6 +2,7 @@ import uuid
 
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 import api.views.players
 from api import db
@@ -28,13 +29,19 @@ def test_invite_requests_incremented(
     response = client.post("/v2/players/new", json={"email": fake_email})
     assert response.status_code == status.HTTP_201_CREATED, response.json()
     assert (
-        session.query(Invite.requests).filter(Invite.email == fake_email).scalar() == 1
+        session.execute(
+            select(Invite.requests).where(Invite.email == fake_email)
+        ).scalar()
+        == 1
     )
     # Request a second time
     response = client.post("/v2/players/new", json={"email": fake_email})
     assert response.status_code == status.HTTP_201_CREATED, response.json()
     assert (
-        session.query(Invite.requests).filter(Invite.email == fake_email).scalar() == 2
+        session.execute(
+            select(Invite.requests).where(Invite.email == fake_email)
+        ).scalar()
+        == 2
     )
 
 
@@ -43,7 +50,12 @@ def test_invite_existing_user(client: TestClient, session: db.Session):
     user, _ = utils.create_user_token(session)
     response = client.post("/v2/players/new", json={"email": user.email})
     assert response.status_code == status.HTTP_400_BAD_REQUEST, respone.json()
-    assert session.query(Invite).filter(Invite.email == user.email).count() == 0
+    count = session.execute(
+        select(db.func.count()).select_from(
+            select(Invite).where(Invite.email == user.email).subquery()
+        )
+    ).scalar()
+    assert count == 0
 
 
 def test_invite_smtp_failure(client: TestClient, session: db.Session, monkeypatch):
@@ -58,7 +70,12 @@ def test_invite_smtp_failure(client: TestClient, session: db.Session, monkeypatc
     response = client.post("/v2/players/new", json={"email": fake_email})
     assert response.status_code == status.HTTP_400_BAD_REQUEST, response.json()
     # Email failed, but the invite should still be created
-    assert session.query(Invite).filter(Invite.email == fake_email).count() == 1
+    count = session.execute(
+        select(db.func.count()).select_from(
+            select(Invite).where(Invite.email == fake_email).subquery()
+        )
+    ).scalar()
+    assert count == 1
 
 
 def test_register_user_different_passwords(client: TestClient, session: db.Session):
@@ -72,7 +89,8 @@ def test_register_user_different_passwords(client: TestClient, session: db.Sessi
         json={"password": password, "password_confirm": password_confirm},
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
-    assert session.query(User).count() == 0
+    count = session.execute(select(db.func.count(User.id))).scalar()
+    assert count == 0
 
 
 def test_register_user_invalid_token(client: TestClient, session: db.Session):
@@ -84,7 +102,8 @@ def test_register_user_invalid_token(client: TestClient, session: db.Session):
         json={"username": "test", "password": password, "password_confirm": password},
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND, response.json()
-    assert session.query(User).count() == 0
+    count = session.execute(select(db.func.count(User.id))).scalar()
+    assert count == 0
 
 
 def test_register_user(client: TestClient, session: db.Session):
@@ -97,8 +116,18 @@ def test_register_user(client: TestClient, session: db.Session):
         json={"username": "test", "password": password, "password_confirm": password},
     )
     assert response.status_code == status.HTTP_201_CREATED, response.json()
-    assert session.query(Invite).filter(Invite.email == email).count() == 0
-    assert session.query(User).filter(User.email == email).count() == 1
+    count = session.execute(
+        select(db.func.count()).select_from(
+            select(Invite).where(Invite.email == email).subquery()
+        )
+    ).scalar()
+    assert count == 0
+    count = session.execute(
+        select(db.func.count()).select_from(
+            select(User).where(User.email == email).subquery()
+        )
+    ).scalar()
+    assert count == 1
 
 
 # `/v2/players/me` is tested by the default auth dependency checks in `test_auth.py`

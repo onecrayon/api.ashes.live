@@ -1,6 +1,7 @@
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from api import db
 from api.models import Card, Comment
@@ -11,21 +12,21 @@ from ..utils import create_admin_token, create_user_token
 from .deck_utils import create_deck_for_user
 
 
-@pytest.fixture(scope="module", autouse=True)
-def user1(decks_session):
-    user1, _ = create_user_token(decks_session)
+@pytest.fixture(scope="function", autouse=True)
+def user1(session):
+    user1, _ = create_user_token(session)
     return user1
 
 
-@pytest.fixture(scope="module", autouse=True)
-def deck1(decks_session, user1):
-    return create_deck_for_user(decks_session, user1, release_stub="master-set")
+@pytest.fixture(scope="function", autouse=True)
+def deck1(session, user1):
+    return create_deck_for_user(session, user1, release_stub="master-set")
 
 
-@pytest.fixture(scope="module", autouse=True)
-def snapshot1(decks_session, user1, deck1):
+@pytest.fixture(scope="function", autouse=True)
+def snapshot1(session, user1, deck1):
     return create_snapshot_for_deck(
-        decks_session,
+        session,
         user1,
         deck1,
         title="First Snapshot",
@@ -48,7 +49,8 @@ def test_get_comments(client: TestClient, session: db.Session, deck1, user1):
     session.add(deck_comment)
     session.commit()
     #  Add the comments we do want to show up in the listing
-    card = session.query(Card).first()
+    stmt = select(Card).limit(1)
+    card = session.execute(stmt).scalar()
     comment1 = Comment(
         entity_id=create_entity(session),
         source_entity_id=card.entity_id,
@@ -147,7 +149,8 @@ def test_create_comment(client: TestClient, session: db.Session, deck1, user1):
         json={"text": "My second comment"},
     )
     assert response.status_code == status.HTTP_201_CREATED
-    comment = session.query(Comment).order_by(Comment.created.desc()).first()
+    stmt = select(Comment).order_by(Comment.created.desc()).limit(1)
+    comment = session.execute(stmt).scalar()
     assert comment.ordering_increment == 1
 
 
@@ -173,13 +176,15 @@ def test_create_comment_previous_comments(
         json={"text": "My second comment"},
     )
     assert response.status_code == status.HTTP_201_CREATED
-    comment2 = session.query(Comment).order_by(Comment.created.desc()).first()
+    stmt = select(Comment).order_by(Comment.created.desc()).limit(1)
+    comment2 = session.execute(stmt).scalar()
     assert comment2.ordering_increment == 2
 
 
 def test_create_comment_card(client: TestClient, session: db.Session, user1):
     """Verify creating a comment for a card works"""
-    card = session.query(Card).first()
+    stmt = select(Card).limit(1)
+    card = session.execute(stmt).scalar()
     _, token = create_user_token(session, user=user1)
     response = client.post(
         f"/v2/comments/{card.entity_id}",
@@ -187,7 +192,8 @@ def test_create_comment_card(client: TestClient, session: db.Session, user1):
         json={"text": "My second comment"},
     )
     assert response.status_code == status.HTTP_201_CREATED
-    comment = session.query(Comment).order_by(Comment.created.desc()).first()
+    stmt = select(Comment).order_by(Comment.created.desc()).limit(1)
+    comment = session.execute(stmt).scalar()
     assert comment.source_version == card.version
 
 

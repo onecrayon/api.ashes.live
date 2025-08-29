@@ -21,33 +21,33 @@ from .deck_utils import create_deck_for_user, get_phoenixborn_cards_dice
 # Shared fixtures
 
 
-@pytest.fixture(scope="module", autouse=True)
-def export_user(decks_session):
+@pytest.fixture(scope="function", autouse=True)
+def export_user(session):
     """User with export token for export tests"""
-    user, _ = utils.create_user_token(decks_session)
+    user, _ = utils.create_user_token(session)
     user.deck_export_uuid = uuid.uuid4()
-    decks_session.commit()
+    session.commit()
     return user
 
 
-@pytest.fixture(scope="module", autouse=True)
-def export_deck1(decks_session, export_user):
+@pytest.fixture(scope="function", autouse=True)
+def export_deck1(session, export_user):
     """First deck for export user"""
-    return create_deck_for_user(decks_session, export_user, release_stub="master-set")
+    return create_deck_for_user(session, export_user, release_stub="master-set")
 
 
-@pytest.fixture(scope="module", autouse=True)
-def export_deck2(decks_session, export_user):
+@pytest.fixture(scope="function", autouse=True)
+def export_deck2(session, export_user):
     """Second deck for export user"""
-    return create_deck_for_user(decks_session, export_user, release_stub="expansion")
+    return create_deck_for_user(session, export_user, release_stub="expansion")
 
 
-@pytest.fixture(scope="module", autouse=True)
-def export_deck3(decks_session, export_user):
+@pytest.fixture(scope="function", autouse=True)
+def export_deck3(session, export_user):
     """Third deck for export user (marked as exported)"""
-    deck = create_deck_for_user(decks_session, export_user, release_stub="expansion")
+    deck = create_deck_for_user(session, export_user, release_stub="expansion")
     deck.is_exported = True
-    decks_session.commit()
+    session.commit()
     return deck
 
 
@@ -130,9 +130,12 @@ def test_export_decks_filters_by_export_status(
     assert data["total"] == 2  # Two unexported decks
     # Compare by created dates since export data uses created as unique identifier
     exported_deck_created_dates = {deck["created"] for deck in data["decks"]}
-    assert export_deck1.created.isoformat() in exported_deck_created_dates
     assert (
-        export_deck3.created.isoformat() not in exported_deck_created_dates
+        pydantic_style_datetime_str(export_deck1.created) in exported_deck_created_dates
+    )
+    assert (
+        pydantic_style_datetime_str(export_deck3.created)
+        not in exported_deck_created_dates
     )  # Exported deck excluded
 
 

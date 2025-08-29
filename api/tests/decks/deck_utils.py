@@ -1,4 +1,4 @@
-from sqlalchemy import func
+from sqlalchemy import func, select
 
 from api import db
 from api.models import Card, Deck, Release, User
@@ -306,38 +306,35 @@ def get_phoenixborn_cards_dice(
 
     Returns (phoenixborn, cards, dice)
     """
-    release: Release = (
-        session.query(Release).filter(Release.stub == release_stub).first()
-        if release_stub
-        else None
-    )
-    phoenixborn_query = session.query(Card).filter(Card.card_type == "Phoenixborn")
-    if release:
-        phoenixborn_query = phoenixborn_query.filter(Card.release_id == release.id)
+    if release_stub:
+        stmt = select(Release).where(Release.stub == release_stub)
+        release: Release = session.execute(stmt).scalar_one_or_none()
     else:
-        phoenixborn_query = phoenixborn_query.order_by(func.random())
-    phoenixborn: Card = phoenixborn_query.first()
+        release = None
+    phoenixborn_stmt = select(Card).where(Card.card_type == "Phoenixborn")
+    if release:
+        phoenixborn_stmt = phoenixborn_stmt.where(Card.release_id == release.id)
+    else:
+        phoenixborn_stmt = phoenixborn_stmt.order_by(func.random())
+    phoenixborn: Card = session.execute(phoenixborn_stmt.limit(1)).scalar()
     if not phoenixborn:
         raise ValueError("No such test Phoenixborn!")
-    unique_card: Card = (
-        session.query(Card)
-        .filter(
-            Card.phoenixborn == phoenixborn.name,
-            Card.card_type.notin_(CONJURATION_TYPES),
-        )
-        .first()
+    unique_stmt = select(Card).where(
+        Card.phoenixborn == phoenixborn.name,
+        Card.card_type.notin_(CONJURATION_TYPES),
     )
-    cards_query = session.query(Card).filter(
+    unique_card: Card = session.execute(unique_stmt.limit(1)).scalar()
+    cards_stmt = select(Card).where(
         Card.card_type.notin_(
             ("Conjuration", "Conjured Alteration Spell", "Phoenixborn")
         ),
         Card.phoenixborn.is_(None),
     )
     if release:
-        cards_query = cards_query.filter(Card.release_id == release.id)
+        cards_stmt = cards_stmt.where(Card.release_id == release.id)
     else:
-        cards_query = cards_query.order_by(func.random())
-    deck_cards: list[Card] = cards_query.limit(9).all()
+        cards_stmt = cards_stmt.order_by(func.random())
+    deck_cards: list[Card] = session.execute(cards_stmt.limit(9)).scalars().all()
     card_dicts = [{"stub": x.stub, "count": 3} for x in deck_cards]
     card_dicts.append({"stub": unique_card.stub, "count": 3})
     dice_dicts = [

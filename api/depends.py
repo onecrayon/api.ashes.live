@@ -3,6 +3,7 @@ import uuid
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from sqlalchemy import select
 
 from .db import Session, SessionLocal
 from .environment import settings
@@ -58,12 +59,11 @@ def get_current_user(
     if user_badge is None or jwt_hex is None:
         raise CredentialsException()
     jwt_id = uuid.UUID(hex=jwt_hex)
-    current_user = session.query(User).filter(User.badge == user_badge).first()
-    revoked_session = (
-        session.query(UserRevokedToken)
-        .filter(UserRevokedToken.revoked_uuid == jwt_id)
-        .first()
-    )
+    stmt = select(User).where(User.badge == user_badge)
+    current_user = session.execute(stmt).scalar_one_or_none()
+
+    stmt = select(UserRevokedToken).where(UserRevokedToken.revoked_uuid == jwt_id)
+    revoked_session = session.execute(stmt).scalar_one_or_none()
     if revoked_session or current_user is None:
         raise CredentialsException()
     if current_user.is_banned:

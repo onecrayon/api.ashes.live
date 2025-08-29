@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Response, status
+from sqlalchemy import delete, select
 
 from api import db
 from api.depends import AUTH_RESPONSES, get_session, login_required
@@ -34,10 +35,12 @@ def create_subscription(
 ):
     """Subscribe to comments and updates for a deck or card."""
     # Make sure the entity ID can be subscribed to
-    source = session.query(Card).filter(Card.entity_id == entity_id).first()
+    stmt = select(Card).where(Card.entity_id == entity_id)
+    source = session.execute(stmt).scalar_one_or_none()
     is_deck = False
     if not source:
-        source = session.query(Deck).filter(Deck.entity_id == entity_id).first()
+        stmt = select(Deck).where(Deck.entity_id == entity_id)
+        source = session.execute(stmt).scalar_one_or_none()
         is_deck = True
     if source is None:
         raise NotFoundException(detail="No valid resource found to subscribe to.")
@@ -51,14 +54,11 @@ def create_subscription(
         pass
 
     # Check if they already have a subscription
-    subscription = (
-        session.query(Subscription)
-        .filter(
-            Subscription.source_entity_id == entity_id,
-            Subscription.user_id == current_user.id,
-        )
-        .first()
+    stmt = select(Subscription).where(
+        Subscription.source_entity_id == entity_id,
+        Subscription.user_id == current_user.id,
     )
+    subscription = session.execute(stmt).scalar_one_or_none()
     if subscription:
         # The front-end expects that if last_seen_entity_id is None it means we are not subscribed,
         #  so this is a bit of a hack to ensure that it always has some sort of value for comparison
@@ -69,25 +69,25 @@ def create_subscription(
 
     # Look up the most recently seen entity ID (assumes that they subscribed from the detail page, since it's silly to
     #  force them to immediately update the last seen ID after subscribing).
-    last_seen = (
-        session.query(Comment.entity_id)
-        .filter(Comment.source_entity_id == entity_id)
+    stmt = (
+        select(Comment.entity_id)
+        .where(Comment.source_entity_id == entity_id)
         .order_by(Comment.entity_id.desc())
-        .first()
     )
+    last_seen = session.execute(stmt).first()
     if not last_seen and is_deck:
         # If we don't have any comments on this deck, grab the latest entity ID for the most recent published snapshot
-        last_seen = (
-            session.query(Deck.entity_id)
-            .filter(
+        stmt = (
+            select(Deck.entity_id)
+            .where(
                 Deck.source_id == source.id,
                 Deck.is_deleted == False,
                 Deck.is_snapshot == True,
                 Deck.is_public == True,
             )
             .order_by(Deck.entity_id.desc())
-            .first()
         )
+        last_seen = session.execute(stmt).first()
 
     last_seen_entity_id = last_seen.entity_id if last_seen else None
 
@@ -128,10 +128,11 @@ def delete_subscription(
     session: db.Session = Depends(get_session),
 ):
     """Delete a subscription to comments and updates for a deck or card."""
-    session.query(Subscription).filter(
+    delete_stmt = delete(Subscription).where(
         Subscription.user_id == current_user.id,
         Subscription.source_entity_id == entity_id,
-    ).delete()
+    )
+    session.execute(delete_stmt)
     session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -164,37 +165,28 @@ def update_subscription(
     the latest viewed comment or the latest published deck snapshot.
     """
     # Grab the relevant subscription
-    subscription = (
-        session.query(Subscription)
-        .filter(
-            Subscription.user_id == current_user.id,
-            Subscription.source_entity_id == entity_id,
-        )
-        .first()
+    stmt = select(Subscription).where(
+        Subscription.user_id == current_user.id,
+        Subscription.source_entity_id == entity_id,
     )
+    subscription = session.execute(stmt).scalar_one_or_none()
     if not subscription:
         raise NotFoundException(detail="You are not subscribed to this content.")
     # Validate the entity ID that was passed in
-    last_seen = (
-        session.query(Comment)
-        .filter(
-            Comment.source_entity_id == entity_id,
-            Comment.entity_id == data.last_seen_entity_id,
-        )
-        .first()
+    stmt = select(Comment).where(
+        Comment.source_entity_id == entity_id,
+        Comment.entity_id == data.last_seen_entity_id,
     )
+    last_seen = session.execute(stmt).scalar_one_or_none()
     if not last_seen:
         # This might be a deck snapshot, so check for that
-        last_seen = (
-            session.query(Deck)
-            .filter(
-                Deck.entity_id == data.last_seen_entity_id,
-                Deck.is_snapshot == True,
-                Deck.is_public == True,
-                Deck.is_deleted == False,
-            )
-            .first()
+        stmt = select(Deck).where(
+            Deck.entity_id == data.last_seen_entity_id,
+            Deck.is_snapshot == True,
+            Deck.is_public == True,
+            Deck.is_deleted == False,
         )
+        last_seen = session.execute(stmt).scalar_one_or_none()
     if not last_seen:
         raise APIException(detail="Invalid entity ID passed for this subscription.")
     subscription.last_seen_entity_id = data.last_seen_entity_id

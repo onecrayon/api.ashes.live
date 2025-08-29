@@ -1,6 +1,7 @@
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from api import db
 from api.models import Card, Deck, DeckSelectedCard, Release
@@ -13,16 +14,16 @@ from api.tests.decks.deck_utils import (
 from api.tests.utils import create_user_token, generate_random_chars
 
 
-@pytest.fixture(scope="module", autouse=True)
-def user_token(decks_session):
-    user, token = create_user_token(decks_session)
+@pytest.fixture(scope="function", autouse=True)
+def user_token(session):
+    user, token = create_user_token(session)
     return user, token
 
 
-@pytest.fixture(scope="module")
-def deck(decks_session, user_token):
+@pytest.fixture(scope="function")
+def deck(session, user_token):
     user, _ = user_token
-    return create_deck_for_user(decks_session, user)
+    return create_deck_for_user(session, user)
 
 
 def _valid_deck_dict(session: db.Session) -> dict:
@@ -141,14 +142,20 @@ def test_put_deck_bad_unique_in_deck(
     user, token = user_token
     valid_deck = _valid_deck_dict(session)
     # Add all PB uniques to the deck (easiest way to ensure we have the wrong one)
-    pb_uniques_query = session.query(Card.stub).filter(
-        Card.phoenixborn.isnot(None),
-        Card.card_type.notin_(CONJURATION_TYPES),
+    pb_uniques_query = (
+        session.execute(
+            select(Card.stub).where(
+                Card.phoenixborn.isnot(None),
+                Card.card_type.notin_(CONJURATION_TYPES),
+            )
+        )
+        .scalars()
+        .all()
     )
-    for unique in pb_uniques_query.all():
+    for unique in pb_uniques_query:
         valid_deck["cards"].append(
             {
-                "stub": unique.stub,
+                "stub": unique,
                 "count": 3,
             }
         )
@@ -164,12 +171,9 @@ def test_put_deck_conjuration_in_deck(
     """Must not allow saving a deck with conjurations in the card list"""
     user, token = user_token
     valid_deck = _valid_deck_dict(session)
-    conjuration_stub = (
-        session.query(Card.stub)
-        .filter(Card.card_type.in_(CONJURATION_TYPES))
-        .limit(1)
-        .scalar()
-    )
+    conjuration_stub = session.execute(
+        select(Card.stub).where(Card.card_type.in_(CONJURATION_TYPES)).limit(1)
+    ).scalar()
     valid_deck["cards"].append(
         {
             "stub": conjuration_stub,
@@ -246,17 +250,16 @@ def test_put_deck_first_five(client: TestClient, session: db.Session, user_token
     user, token = user_token
     valid_deck = _valid_deck_dict(session)
     valid_stubs = [x["stub"] for x in valid_deck["cards"]]
-    bad_stub = (
-        session.query(Card.stub)
-        .filter(
+    bad_stub = session.execute(
+        select(Card.stub)
+        .where(
             Card.phoenixborn.is_(None),
             Card.card_type.notin_(CONJURATION_TYPES),
             Card.card_type != "Phoenixborn",
             Card.stub.notin_(valid_stubs),
         )
         .limit(1)
-        .scalar()
-    )
+    ).scalar()
     valid_deck["first_five"] = [valid_stubs[x] for x in range(0, 4)]
     valid_deck["first_five"].append(bad_stub)
     response = client.put(
@@ -273,17 +276,16 @@ def test_put_deck_effect_costs(client: TestClient, session: db.Session, user_tok
     user, token = user_token
     valid_deck = _valid_deck_dict(session)
     valid_stubs = [x["stub"] for x in valid_deck["cards"]]
-    bad_stub = (
-        session.query(Card.stub)
-        .filter(
+    bad_stub = session.execute(
+        select(Card.stub)
+        .where(
             Card.phoenixborn.is_(None),
             Card.card_type.notin_(CONJURATION_TYPES),
             Card.card_type != "Phoenixborn",
             Card.stub.notin_(valid_stubs),
         )
         .limit(1)
-        .scalar()
-    )
+    ).scalar()
     valid_deck["first_five"] = [valid_stubs[x] for x in range(0, 5)]
     valid_deck["effect_costs"] = [valid_stubs[x] for x in range(0, 4)]
     valid_deck["effect_costs"].append(bad_stub)
@@ -301,17 +303,16 @@ def test_put_deck_tutor_map(client: TestClient, session: db.Session, user_token)
     user, token = user_token
     valid_deck = _valid_deck_dict(session)
     valid_stubs = [x["stub"] for x in valid_deck["cards"]]
-    bad_stub = (
-        session.query(Card.stub)
-        .filter(
+    bad_stub = session.execute(
+        select(Card.stub)
+        .where(
             Card.phoenixborn.is_(None),
             Card.card_type.notin_(CONJURATION_TYPES),
             Card.card_type != "Phoenixborn",
             Card.stub.notin_(valid_stubs),
         )
         .limit(1)
-        .scalar()
-    )
+    ).scalar()
     valid_deck["tutor_map"] = {
         valid_stubs[0]: valid_stubs[1],
         bad_stub: valid_stubs[2],
@@ -551,7 +552,9 @@ def test_post_snapshot_precon_already_exists(client: TestClient, session: db.Ses
     admin, token = create_user_token(session)
     admin.is_admin = True
     session.commit()
-    release_id = session.query(Release.id).filter(Release.stub == "expansion").scalar()
+    release_id = session.execute(
+        select(Release.id).where(Release.stub == "expansion").limit(1)
+    ).scalar()
     deck = create_deck_for_user(session, admin, release_stub="expansion")
     snapshot = create_snapshot_for_deck(
         session, admin, deck, is_public=True, preconstructed_release_id=release_id
@@ -572,7 +575,7 @@ def test_post_snapshot(client: TestClient, session: db.Session, user_token, deck
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_201_CREATED
-    snapshot = session.query(Deck).order_by(Deck.id.desc()).first()
+    snapshot = session.execute(select(Deck).order_by(Deck.id.desc()).limit(1)).scalar()
     assert snapshot.title == deck.title
     assert snapshot.description == deck.description
 
@@ -589,7 +592,7 @@ def test_post_snapshot_clear_description(
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_201_CREATED
-    snapshot = session.query(Deck).order_by(Deck.id.desc()).first()
+    snapshot = session.execute(select(Deck).order_by(Deck.id.desc()).limit(1)).scalar()
     assert snapshot.title == new_title
     assert snapshot.description is None
 
@@ -606,7 +609,7 @@ def test_post_snapshot_new_description(
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_201_CREATED
-    snapshot = session.query(Deck).order_by(Deck.id.desc()).first()
+    snapshot = session.execute(select(Deck).order_by(Deck.id.desc()).limit(1)).scalar()
     assert snapshot.description == new_description
 
 
@@ -625,9 +628,9 @@ def test_post_snapshot_first_five(client: TestClient, session: db.Session, user_
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_201_CREATED
-    snapshot = (
-        session.query(Deck).order_by(Deck.id.desc(), Deck.is_snapshot.is_(True)).first()
-    )
+    snapshot = session.execute(
+        select(Deck).where(Deck.is_snapshot == True).order_by(Deck.id.desc()).limit(1)
+    ).scalar()
     assert len(snapshot.selected_cards) == 1
 
 
@@ -649,7 +652,7 @@ def test_post_snapshot_no_first_five_public(
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == status.HTTP_201_CREATED
-    snapshot = (
-        session.query(Deck).order_by(Deck.id.desc(), Deck.is_snapshot.is_(True)).first()
-    )
+    snapshot = session.execute(
+        select(Deck).where(Deck.is_snapshot == True).order_by(Deck.id.desc()).limit(1)
+    ).scalar()
     assert len(snapshot.selected_cards) == 0

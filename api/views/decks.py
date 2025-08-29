@@ -5,7 +5,7 @@ from typing import Annotated
 import httpx
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import UUID4
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, delete, or_, select, update
 
 from api import db
 from api.depends import (
@@ -59,7 +59,7 @@ from api.services.deck import (
     deck_to_dict,
     generate_deck_dict,
     get_conjuration_mapping,
-    get_decks_query,
+    get_decks_stmt,
     paginate_deck_listing,
 )
 from api.services.stream import create_entity
@@ -93,8 +93,9 @@ def list_published_decks(
     * `show_legacy` (default: false): if true, legacy 1.0 decks will be returned
     * `show_red_rains` (default: false): if true, only Red Rains decks will be returned
     """
-    query = get_decks_query(
-        session,
+    # For now, keep using get_decks_query but need to handle the session parameter
+    # This will be addressed when updating views/decks.py fully
+    stmt = get_decks_stmt(
         show_legacy=filters.show_legacy,
         show_red_rains=filters.show_red_rains,
         is_public=True,
@@ -105,7 +106,7 @@ def list_published_decks(
         players=filters.player,
         show_preconstructed=filters.show_preconstructed,
     )
-    return paginate_deck_listing(query, session, request, paging)
+    return paginate_deck_listing(stmt, session, request, paging)
 
 
 @router.get(
@@ -135,8 +136,7 @@ def list_my_decks(
     * `show_legacy` (default: false): if true, legacy 1.0 decks will be returned
     * `show_red_rains` (default: false): if true, only Red Rains decks will be returned
     """
-    query = get_decks_query(
-        session,
+    stmt = get_decks_stmt(
         show_legacy=filters.show_legacy,
         show_red_rains=filters.show_red_rains,
         is_public=False,
@@ -146,7 +146,7 @@ def list_my_decks(
         cards=filters.card,
         players=[current_user.badge],
     )
-    return paginate_deck_listing(query, session, request, paging)
+    return paginate_deck_listing(stmt, session, request, paging)
 
 
 @router.get(
@@ -169,11 +169,10 @@ def get_private_deck(
     primarily intended for loading a deck into an external application such as TableTop Simulator
     or Ashteki, but can also be used to privately share access to a deck with another user.
     """
-    deck = (
-        session.query(Deck)
-        .filter(Deck.direct_share_uuid == direct_share_uuid, Deck.is_deleted.is_(False))
-        .first()
+    stmt = select(Deck).where(
+        Deck.direct_share_uuid == direct_share_uuid, Deck.is_deleted.is_(False)
     )
+    deck = session.execute(stmt).scalar_one_or_none()
     if not deck:
         raise NotFoundException(
             detail="No such deck; it might have been deleted, or your share ID might be wrong."
@@ -221,7 +220,7 @@ def get_deck(
       a public snapshot)
     * passing any snapshot's ID will return that snapshot
     """
-    source_deck: Deck = session.query(Deck).get(deck_id)
+    source_deck: Deck = session.get(Deck, deck_id)
     if not source_deck:
         raise NotFoundException(detail="Deck not found.")
     own_deck = (
@@ -246,17 +245,17 @@ def get_deck(
         deck = source_deck
     # By default, re-route to the latest public snapshot
     else:
-        deck: Deck = (
-            session.query(Deck)
-            .filter(
+        stmt = (
+            select(Deck)
+            .where(
                 Deck.source_id == source_deck.id,
                 Deck.is_snapshot.is_(True),
                 Deck.is_public.is_(True),
                 Deck.is_deleted.is_(False),
             )
             .order_by(Deck.created.desc())
-            .first()
         )
+        deck: Deck = session.execute(stmt).scalar_one_or_none()
         if not deck:
             raise NotFoundException(detail="Deck not found.")
 
@@ -291,11 +290,11 @@ def get_deck(
     }
     for die in deck_dict["dice"]:
         release_stubs.add(dice_to_release[die["name"]])
-    release_results = (
-        session.query(Release, Deck)
+    stmt = (
+        select(Release, Deck)
         .outerjoin(Card, Card.release_id == Release.id)
         .outerjoin(Deck, Deck.preconstructed_release == Release.id)
-        .filter(
+        .where(
             db.or_(
                 Release.stub.in_(release_stubs),
                 Card.stub.in_(card_stubs),
@@ -304,8 +303,8 @@ def get_deck(
         )
         .order_by(Release.id.asc())
         .distinct(Release.id)
-        .all()
     )
+    release_results = session.execute(stmt).all()
     release_data = []
     for result in release_results:
         release_data.append(
@@ -330,34 +329,29 @@ def get_deck(
         source_id = (
             source_deck.id if not source_deck.is_snapshot else source_deck.source_id
         )
-        deck_details["has_published_snapshot"] = bool(
-            session.query(Deck.id)
-            .filter(
-                Deck.source_id == source_id,
-                Deck.is_snapshot.is_(True),
-                Deck.is_public.is_(True),
-                Deck.is_deleted.is_(False),
-            )
-            .count()
+        stmt = select(Deck.id).where(
+            Deck.source_id == source_id,
+            Deck.is_snapshot.is_(True),
+            Deck.is_public.is_(True),
+            Deck.is_deleted.is_(False),
         )
+        count = session.execute(
+            select(db.func.count()).select_from(stmt.subquery())
+        ).scalar()
+        deck_details["has_published_snapshot"] = bool(count)
 
     # If the user is subscribed to this deck, note their last seen entity ID for this deck
     if not current_user.is_anonymous():
-        deck_source_entity_id = (
-            deck.entity_id
-            if not deck.is_snapshot
-            else session.query(Deck.entity_id)
-            .filter(Deck.id == deck.source_id)
-            .scalar()
+        if not deck.is_snapshot:
+            deck_source_entity_id = deck.entity_id
+        else:
+            stmt = select(Deck.entity_id).where(Deck.id == deck.source_id)
+            deck_source_entity_id = session.execute(stmt).scalar()
+        stmt = select(Subscription).where(
+            Subscription.user_id == current_user.id,
+            Subscription.source_entity_id == deck_source_entity_id,
         )
-        subscription = (
-            session.query(Subscription)
-            .filter(
-                Subscription.user_id == current_user.id,
-                Subscription.source_entity_id == deck_source_entity_id,
-            )
-            .first()
-        )
+        subscription = session.execute(stmt).scalar_one_or_none()
         if subscription:
             deck_details["last_seen_entity_id"] = subscription.last_seen_entity_id
 
@@ -387,13 +381,10 @@ def save_deck(
     """
     # Verify that the user has access to this deck, if we're saving over an existing deck
     if data.id:
-        deck_check: Deck = (
-            session.query(
-                Deck.user_id, Deck.is_legacy, Deck.is_snapshot, Deck.is_deleted
-            )
-            .filter(Deck.id == data.id)
-            .first()
-        )
+        stmt = select(
+            Deck.user_id, Deck.is_legacy, Deck.is_snapshot, Deck.is_deleted
+        ).where(Deck.id == data.id)
+        deck_check = session.execute(stmt).first()
         if not deck_check or deck_check.user_id != current_user.id:
             raise NoUserAccessException(detail="You cannot save a deck you do not own.")
         if deck_check.is_legacy:
@@ -408,11 +399,10 @@ def save_deck(
         if isinstance(data.phoenixborn, str)
         else data.phoenixborn.get("stub")
     )
-    phoenixborn = (
-        session.query(Card.id, Card.name)
-        .filter(Card.stub == phoenixborn_stub, Card.is_legacy.is_(False))
-        .first()
+    stmt = select(Card.id, Card.name).where(
+        Card.stub == phoenixborn_stub, Card.is_legacy.is_(False)
     )
+    phoenixborn = session.execute(stmt).first()
     if not phoenixborn:
         raise APIException(detail="Valid Phoenixborn is required.")
     try:
@@ -472,15 +462,16 @@ def create_snapshot(
     **Please note:** you must save the deck prior to calling this endpoint! This endpoint will create a snapshot from
     the most recent saved copy of the deck (although it does allow you to set a custom title and description).
     """
-    deck: Deck = (
-        session.query(Deck)
+    stmt = (
+        select(Deck)
         .options(
-            db.joinedload("cards"),
-            db.joinedload("dice"),
-            db.joinedload("selected_cards"),
+            db.joinedload(Deck.cards),
+            db.joinedload(Deck.dice),
+            db.joinedload(Deck.selected_cards),
         )
-        .get(deck_id)
+        .where(Deck.id == deck_id)
     )
+    deck: Deck = session.execute(stmt).unique().scalar_one_or_none()
     if not deck or deck.user_id != current_user.id:
         raise NoUserAccessException(
             detail="You cannot save a snapshot of a deck you do not own."
@@ -518,17 +509,17 @@ def create_snapshot(
             raise APIException(
                 detail="Only public decks may be associated with a preconstructed deck."
             )
-        preconstructed_release_id = (
-            session.query(Release.id)
+        stmt = (
+            select(Release.id)
             .outerjoin(Deck, Deck.preconstructed_release == Release.id)
-            .filter(
+            .where(
                 Release.stub == data.preconstructed_release,
                 Release.is_legacy.is_(False),
                 Release.is_public.is_(True),
                 Deck.id.is_(None),
             )
-            .scalar()
         )
+        preconstructed_release_id = session.execute(stmt).scalar()
         if not preconstructed_release_id:
             raise APIException(
                 detail="No such release, or release already has a preconstructed deck."
@@ -583,10 +574,10 @@ def list_snapshots(
     do not own decks can only ever see public snapshots, so no private snapshots will be included even if they ask
     for them).
     """
-    source_deck: Deck = session.query(Deck).get(deck_id)
+    source_deck: Deck = session.get(Deck, deck_id)
     if not source_deck or source_deck.is_deleted or source_deck.is_snapshot:
         raise NotFoundException(detail="Deck not found.")
-    query = session.query(Deck).filter(
+    stmt = select(Deck).where(
         Deck.is_deleted.is_(False),
         Deck.is_snapshot.is_(True),
         Deck.source_id == source_deck.id,
@@ -596,12 +587,12 @@ def list_snapshots(
         or current_user.id != source_deck.user_id
         or show_public_only is True
     ):
-        query = query.filter(Deck.is_public.is_(True))
-    query = query.options(db.joinedload(Deck.user)).order_by(
+        stmt = stmt.where(Deck.is_public.is_(True))
+    stmt = stmt.options(db.joinedload(Deck.user)).order_by(
         getattr(Deck.created, order)()
     )
     return paginate_deck_listing(
-        query,
+        stmt,
         session,
         request,
         paging,
@@ -631,7 +622,8 @@ def delete_deck(
     When requested for a snapshot, it's a soft deletion and the snapshot will no longer show up
     in any listings (including the stream).
     """
-    deck: Deck = session.query(Deck).options(db.joinedload("source")).get(deck_id)
+    stmt = select(Deck).options(db.joinedload(Deck.source)).where(Deck.id == deck_id)
+    deck: Deck = session.execute(stmt).unique().scalar_one_or_none()
     if not deck or deck.user_id != current_user.id:
         raise NoUserAccessException(detail="You cannot delete a deck you do not own.")
     if deck.is_legacy:
@@ -643,18 +635,23 @@ def delete_deck(
     # Check if we have any snapshots for source decks, and just delete that sucker for real if not
     if (
         not deck.is_snapshot
-        and session.query(Deck).filter(Deck.source_id == deck.id).count() == 0
+        and session.execute(
+            select(db.func.count()).select_from(
+                select(Deck).where(Deck.source_id == deck.id).subquery()
+            )
+        ).scalar()
+        == 0
     ):
-        session.query(DeckCard).filter(DeckCard.deck_id == deck.id).delete(
-            synchronize_session=False
-        )
-        session.query(DeckDie).filter(DeckDie.deck_id == deck_id).delete(
-            synchronize_session=False
-        )
-        session.query(DeckSelectedCard).filter(
+        delete_stmt = delete(DeckCard).where(DeckCard.deck_id == deck.id)
+        session.execute(delete_stmt)
+        delete_stmt = delete(DeckDie).where(DeckDie.deck_id == deck_id)
+        session.execute(delete_stmt)
+        delete_stmt = delete(DeckSelectedCard).where(
             DeckSelectedCard.deck_id == deck_id
-        ).delete(synchronize_session=False)
-        session.query(Deck).filter(Deck.id == deck_id).delete(synchronize_session=False)
+        )
+        session.execute(delete_stmt)
+        delete_stmt = delete(Deck).where(Deck.id == deck_id)
+        session.execute(delete_stmt)
         session.commit()
         return success_response
 
@@ -664,28 +661,25 @@ def delete_deck(
     #  of the source deck's snapshots alone).
     if deck.is_snapshot and deck.is_public:
         # Check to see if we have a Stream entry that needs updating
-        stream_entry: Stream = (
-            session.query(Stream)
-            .filter(
-                Stream.source_entity_id == deck.source.entity_id,
-                Stream.entity_type == "deck",
-                Stream.entity_id == deck.entity_id,
-            )
-            .first()
+        stmt = select(Stream).where(
+            Stream.source_entity_id == deck.source.entity_id,
+            Stream.entity_type == "deck",
+            Stream.entity_id == deck.entity_id,
         )
+        stream_entry: Stream = session.execute(stmt).scalar_one_or_none()
         if stream_entry:
             # We have a stream entry pointed to this snapshot, so check if we have an older snapshot
             #  that we can swap in
-            previous_snapshot: Deck = (
-                session.query(Deck)
-                .filter(
+            stmt = (
+                select(Deck)
+                .where(
                     Deck.source_id == deck.source_id,
                     Deck.created < deck.created,
                     Deck.is_deleted.is_(False),
                 )
                 .order_by(Deck.created.desc())
-                .first()
             )
+            previous_snapshot: Deck = session.execute(stmt).scalar_one_or_none()
             if previous_snapshot:
                 stream_entry.entity_id = previous_snapshot.entity_id
                 stream_entry.posted = previous_snapshot.created
@@ -695,15 +689,21 @@ def delete_deck(
                 session.delete(stream_entry)
     elif not deck.is_snapshot:
         # If we're not deleting a snapshot, then we need to completely clear out the Stream entry
-        session.query(Stream).filter(
+        delete_stmt = delete(Stream).where(
             Stream.source_entity_id == deck.entity_id, Stream.entity_type == "deck"
-        ).delete(synchronize_session=False)
+        )
+        session.execute(delete_stmt)
         # And mark all snapshots as deleted
-        session.query(Deck).filter(
-            Deck.source_id == deck.id,
-            Deck.is_snapshot.is_(True),
-            Deck.is_deleted.is_(False),
-        ).update({"is_deleted": True}, synchronize_session=False)
+        update_stmt = (
+            update(Deck)
+            .where(
+                Deck.source_id == deck.id,
+                Deck.is_snapshot.is_(True),
+                Deck.is_deleted.is_(False),
+            )
+            .values(is_deleted=True)
+        )
+        session.execute(update_stmt)
     # Commit any pending changes, and return success
     session.commit()
     return success_response
@@ -761,22 +761,23 @@ def clone_deck(
         Deck.is_legacy.is_(False),
         Deck.is_deleted.is_(False),
     )
-    deck = session.query(Deck.id).filter(*valid_deck_filters).first()
+    stmt = select(Deck.id).where(*valid_deck_filters)
+    deck = session.execute(stmt).first()
     if not deck:
         raise NotFoundException(detail="Invalid ID for cloning.")
     # Then we grab a new entity_id first because it causes a commit and kills the process otherwise
     entity_id = create_entity(session)
     # Then we can finally grab our full deck and copy it
-    deck = (
-        session.query(Deck)
+    stmt = (
+        select(Deck)
         .options(
-            db.joinedload("cards"),
-            db.joinedload("dice"),
-            db.joinedload("selected_cards"),
+            db.joinedload(Deck.cards),
+            db.joinedload(Deck.dice),
+            db.joinedload(Deck.selected_cards),
         )
-        .filter(*valid_deck_filters)
-        .first()
+        .where(*valid_deck_filters)
     )
+    deck = session.execute(stmt).unique().scalar_one_or_none()
     # Create a clone of our deck object (transient cloning was too error-prone, so we're doing everything by hand)
     cloned_deck = Deck(
         entity_id=entity_id,
@@ -850,7 +851,7 @@ def edit_snapshot(
     Title and description can be intentionally cleared by passing in an empty string for one or the other.
     """
     # First look up the snapshot
-    deck: Deck = session.query(Deck).get(snapshot_id)
+    deck: Deck = session.get(Deck, snapshot_id)
     # Run basic validation to make sure they have access to this snapshot (and it is indeed a snapshot)
     if not deck:
         raise NotFoundException(detail="No such snapshot found.")
@@ -958,27 +959,27 @@ def import_decks(
         card_stubs.add(rendered.phoenixborn.stub)
         created_dates.add(rendered.created)
         rendered_decks.append(rendered)
-    card_stub_to_id: dict[str, int] = {
-        x[0]: x[1]
-        for x in session.query(Card.stub, Card.id)
+    stmt = (
+        select(Card.stub, Card.id)
         .join(Card.release)
-        .filter(
+        .where(
             Card.stub.in_(card_stubs),
             Card.is_legacy == False,
             Release.is_public == True,
         )
-        .all()
-    }
-    created_to_deck: dict[datetime, Deck] = {
-        x.created: x
-        for x in session.query(Deck)
+    )
+    card_stub_to_id: dict[str, int] = {x[0]: x[1] for x in session.execute(stmt).all()}
+    stmt = (
+        select(Deck)
         .options(
-            db.joinedload("cards"),
-            db.joinedload("dice"),
-            db.joinedload("selected_cards"),
+            db.joinedload(Deck.cards),
+            db.joinedload(Deck.dice),
+            db.joinedload(Deck.selected_cards),
         )
-        .filter(Deck.created.in_(created_dates), Deck.user_id == current_user.id)
-        .all()
+        .where(Deck.created.in_(created_dates), Deck.user_id == current_user.id)
+    )
+    created_to_deck: dict[datetime, Deck] = {
+        x.created: x for x in session.execute(stmt).scalars().unique().all()
     }
     successfully_imported_created_dates = set()
     errors = []
@@ -1107,14 +1108,11 @@ def import_decks(
             errors.append(str(e))
 
     # Now that we have imported everything, it's time to see if we can map source IDs
-    for row in (
-        session.query(Deck.created, Deck.id)
-        .filter(
-            Deck.created.in_(source_created_to_deck.keys()),
-            Deck.user_id == current_user.id,
-        )
-        .all()
-    ):
+    stmt = select(Deck.created, Deck.id).where(
+        Deck.created.in_(source_created_to_deck.keys()),
+        Deck.user_id == current_user.id,
+    )
+    for row in session.execute(stmt).all():
         source_created = row[0]
         source_id = row[1]
         snapshot_decks = source_created_to_deck[source_created]
@@ -1181,33 +1179,28 @@ def export_decks(
     """
     if not settings.allow_exports:
         raise APIException(detail="Deck exports are not allowed from this site.")
-    deck_user = (
-        session.query(User).filter(User.deck_export_uuid == export_token).first()
-    )
+    stmt = select(User).where(User.deck_export_uuid == export_token)
+    deck_user = session.execute(stmt).scalar_one_or_none()
     if not deck_user:
         raise NotFoundException(detail="No user matching export token.")
 
     # If we are exporting a "single" deck, then gather the source deck and all of its snapshots
     initial_deck = None
     if deck_share_uuid:
-        initial_deck = (
-            session.query(Deck)
-            .filter(
-                Deck.direct_share_uuid == deck_share_uuid,
-                Deck.user_id == deck_user.id,
-                Deck.is_deleted == False,
-                Deck.is_legacy == False,
-            )
-            .first()
+        stmt = select(Deck).where(
+            Deck.direct_share_uuid == deck_share_uuid,
+            Deck.user_id == deck_user.id,
+            Deck.is_deleted == False,
+            Deck.is_legacy == False,
         )
+        initial_deck = session.execute(stmt).scalar_one_or_none()
         if not initial_deck:
             raise NotFoundException(
                 detail="Current user does not have a deck with this share UUID."
             )
         if initial_deck.is_snapshot:
-            initial_deck = (
-                session.query(Deck).filter(Deck.id == initial_deck.source_id).first()
-            )
+            stmt = select(Deck).where(Deck.id == initial_deck.source_id)
+            initial_deck = session.execute(stmt).scalar_one_or_none()
 
     deck_filters = [
         Deck.user_id == deck_user.id,
@@ -1224,10 +1217,14 @@ def export_decks(
         )
     if from_date:
         deck_filters.append(Deck.created > from_date)
-    query = session.query(Deck).filter(*deck_filters).order_by(Deck.created.asc())
-    total_to_export = query.count()
+    stmt = select(Deck).where(*deck_filters).order_by(Deck.created.asc())
+    total_to_export = session.execute(
+        select(db.func.count()).select_from(stmt.subquery())
+    ).scalar()
     # Find our next set of decks to export. We limit by 1 more than our max so we can determine if there is a next page
-    decks_to_export = query.limit(settings.exports_per_request + 1).all()
+    decks_to_export = (
+        session.execute(stmt.limit(settings.exports_per_request + 1)).scalars().all()
+    )
     # Check if we have a next page, and discard the extra, if so
     have_next_page = len(decks_to_export) == settings.exports_per_request + 1
     if have_next_page:
@@ -1245,12 +1242,14 @@ def export_decks(
         # Ensure we lookup our Phoenixborn cards
         needed_cards.add(deck_row.phoenixborn_id)
     # Fetch and collate our dice information for all decks
-    deck_dice = session.query(DeckDie).filter(DeckDie.deck_id.in_(deck_ids)).all()
+    deckdie_stmt = select(DeckDie).where(DeckDie.deck_id.in_(deck_ids))
+    deck_dice = session.execute(deckdie_stmt).scalars().all()
     deck_id_to_dice = defaultdict(list)
     for deck_die in deck_dice:
         deck_id_to_dice[deck_die.deck_id].append(deck_die)
     # Now that we have all our basic deck information, look up the cards and quantities they include
-    deck_cards = session.query(DeckCard).filter(DeckCard.deck_id.in_(deck_ids)).all()
+    deckcard_stmt = select(DeckCard).where(DeckCard.deck_id.in_(deck_ids))
+    deck_cards = session.execute(deckcard_stmt).scalars().all()
     deck_id_to_deck_cards = defaultdict(list)
     for deck_card in deck_cards:
         needed_cards.add(deck_card.card_id)
@@ -1260,26 +1259,23 @@ def export_decks(
         session=session, card_ids=needed_cards
     )
     # Now that we have root-level conjurations, we can gather all our cards and setup our decks
-    cards = session.query(Card).filter(Card.id.in_(needed_cards)).all()
+    card_stmt = select(Card).where(Card.id.in_(needed_cards))
+    cards = session.execute(card_stmt).scalars().all()
     card_id_to_card = {x.id: x for x in cards}
     # Gather our selected cards for these decks
-    deck_selected_cards = (
-        session.query(DeckSelectedCard)
-        .filter(DeckSelectedCard.deck_id.in_(deck_ids))
-        .all()
+    deckselected_stmt = select(DeckSelectedCard).where(
+        DeckSelectedCard.deck_id.in_(deck_ids)
     )
+    deck_selected_cards = session.execute(deckselected_stmt).scalars().all()
     deck_id_to_selected_cards = defaultdict(list)
     for deck_selected_card in deck_selected_cards:
         deck_id_to_selected_cards[deck_selected_card.deck_id].append(deck_selected_card)
     # Gather all source IDs *that belong to this user* and stick them in a mapping
-    source_decks = (
-        session.query(Deck.id, Deck.created)
-        .filter(
-            Deck.id.in_(source_ids),
-            Deck.is_deleted == False,
-        )
-        .all()
+    source_stmt = select(Deck.id, Deck.created).where(
+        Deck.id.in_(source_ids),
+        Deck.is_deleted == False,
     )
+    source_decks = session.execute(source_stmt).all()
     source_id_to_created = {x[0]: x[1] for x in source_decks}
     # And finally generate a dict for our deck export
     deck_output = []
@@ -1351,9 +1347,8 @@ def finalize_exported_decks(
     """
     if not settings.allow_exports:
         raise APIException(detail="Deck exports are not allowed from this site.")
-    deck_user = (
-        session.query(User).filter(User.deck_export_uuid == export_token).first()
-    )
+    stmt = select(User).where(User.deck_export_uuid == export_token)
+    deck_user = session.execute(stmt).scalar_one_or_none()
     if not deck_user:
         raise NotFoundException(detail="No user matching export token.")
     if len(deck_create_dates) == 0:
@@ -1365,6 +1360,9 @@ def finalize_exported_decks(
             detail=f"You cannot mark more than {settings.exports_per_request} decks as successfully imported at once."
         )
 
-    session.query(Deck).filter(
-        Deck.user_id == deck_user.id, Deck.created.in_(deck_create_dates)
-    ).update({Deck.is_exported: True}, synchronize_session=False)
+    update_stmt = (
+        update(Deck)
+        .where(Deck.user_id == deck_user.id, Deck.created.in_(deck_create_dates))
+        .values(is_exported=True)
+    )
+    session.execute(update_stmt)
