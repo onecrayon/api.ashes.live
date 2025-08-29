@@ -58,6 +58,17 @@ def test_token(client: TestClient, session: db.Session):
     assert response.status_code == status.HTTP_200_OK, response.json()
 
 
+def test_token_email_bad_formatting(client: TestClient, session: db.Session):
+    """Logging in with valid but poorly formatted email must generate a JWT token"""
+    # Create a user in the database with a random password
+    user, password = utils.create_user_password(session)
+    # Verify that we can log in with the random password
+    response = client.post(
+        "/v2/token", data={"username": f"{user.email.upper()}   ", "password": password}
+    )
+    assert response.status_code == status.HTTP_200_OK, response.json()
+
+
 def test_longterm_token(client: TestClient, session: db.Session):
     """Requesting a long-term token must return a long-term token"""
     # Create a user
