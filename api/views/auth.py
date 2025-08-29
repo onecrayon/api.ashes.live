@@ -29,7 +29,7 @@ from api.schemas.user import UserEmailIn, UserSetPasswordIn
 from api.services.user import access_token_for_user
 from api.utils.auth import generate_password_hash, verify_password
 from api.utils.dates import utcnow
-from api.utils.email import send_message, sanitize_email
+from api.utils.email import sanitize_email, send_message
 
 logger = logging.getLogger(__name__)
 
