@@ -50,8 +50,8 @@ def test_card_filters_card_type(client: TestClient, session: db.Session):
         "/v2/cards", params={"types": ["alteration_spell", "ready_spell"]}
     )
     assert response.status_code == status.HTTP_200_OK, response.json()
-    # There are three cards: two ready spells, and one alteration spell
-    assert len(response.json()["results"]) == 3, names_from_results(response)
+    # There are three cards: two ready spells, one alteration spell, and one conjured alteration spell
+    assert len(response.json()["results"]) == 4, names_from_results(response)
     # Filtering by "conjurations" shortcut works
     response = client.get("/v2/cards", params={"types": "conjurations"})
     assert response.status_code == status.HTTP_200_OK, response.json()
