@@ -254,8 +254,9 @@ def get_deck(
                 Deck.is_deleted.is_(False),
             )
             .order_by(Deck.created.desc())
+            .limit(1)
         )
-        deck: Deck = session.execute(stmt).scalar_one_or_none()
+        deck: Deck = session.execute(stmt).scalar()
         if not deck:
             raise NotFoundException(detail="Deck not found.")
 
@@ -518,6 +519,7 @@ def create_snapshot(
                 Release.is_public.is_(True),
                 Deck.id.is_(None),
             )
+            .limit(1)
         )
         preconstructed_release_id = session.execute(stmt).scalar()
         if not preconstructed_release_id:
@@ -678,6 +680,7 @@ def delete_deck(
                     Deck.is_deleted.is_(False),
                 )
                 .order_by(Deck.created.desc())
+                .limit(1)
             )
             previous_snapshot: Deck = session.execute(stmt).scalar_one_or_none()
             if previous_snapshot:
