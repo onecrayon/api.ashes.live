@@ -1369,3 +1369,4 @@ def finalize_exported_decks(
         .values(is_exported=True)
     )
     session.execute(update_stmt)
+    session.commit()
