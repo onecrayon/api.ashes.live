@@ -68,10 +68,10 @@ def save_collection(
             Release.is_public.is_(True),
             Release.stub.in_(collection),
         )
-        release_ids = session.execute(stmt).all()
+        release_ids = session.execute(stmt).scalars().all()
     if release_ids:
-        for row in release_ids:
-            session.add(UserRelease(user_id=current_user.id, release_id=row.id))
+        for release_id in release_ids:
+            session.add(UserRelease(user_id=current_user.id, release_id=release_id))
         session.commit()
     stmt = get_releases_query(current_user=current_user)
     return session.execute(stmt).all()
