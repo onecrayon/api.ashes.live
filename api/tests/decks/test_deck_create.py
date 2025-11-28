@@ -353,6 +353,37 @@ def test_put_deck_bad_dice(client: TestClient, session: db.Session, user_token):
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
+def test_put_deck_with_new_dice_types(
+    client: TestClient, session: db.Session, user_token
+):
+    """Must successfully create a deck with artifice and astral dice"""
+    user, token = user_token
+    valid_deck = _valid_deck_dict(session)
+    valid_deck["dice"] = [
+        {"count": 5, "name": "artifice"},
+        {"count": 3, "name": "astral"},
+        {"count": 2, "name": "charm"},
+    ]
+    response = client.put(
+        "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data["dice"]) == 3
+    dice_names = [die["name"] for die in data["dice"]]
+    assert "artifice" in dice_names
+    assert "astral" in dice_names
+    assert "charm" in dice_names
+    # Verify counts are correct
+    for die in data["dice"]:
+        if die["name"] == "artifice":
+            assert die["count"] == 5
+        elif die["name"] == "astral":
+            assert die["count"] == 3
+        elif die["name"] == "charm":
+            assert die["count"] == 2
+
+
 def test_put_deck_red_rains_swap(client: TestClient, session: db.Session, user_token):
     """Must allow swapping Red Rains on or off for decks without public snapshots"""
     user, token = user_token

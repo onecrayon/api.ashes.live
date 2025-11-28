@@ -33,6 +33,16 @@ def test_flags_to_dice():
         DiceFlags.illusion.value + DiceFlags.divine.value + DiceFlags.time.value
     ) == [DiceFlags.illusion.name, DiceFlags.divine.name, DiceFlags.time.name]
 
+    # New dice types (artifice and astral) work correctly
+    assert Card.flags_to_dice(DiceFlags.artifice.value) == [DiceFlags.artifice.name]
+    assert Card.flags_to_dice(DiceFlags.astral.value) == [DiceFlags.astral.name]
+
+    # Multiple dice including new types
+    assert Card.flags_to_dice(DiceFlags.artifice.value + DiceFlags.astral.value) == [
+        DiceFlags.artifice.name,
+        DiceFlags.astral.name,
+    ]
+
 
 def test_dice_weight():
     """Card.dice_weight property is all types of dice in either flag field"""
@@ -40,6 +50,12 @@ def test_dice_weight():
     card.dice_flags = DiceFlags.ceremonial.value
     card.alt_dice_flags = DiceFlags.charm.value + DiceFlags.ceremonial.value
     assert card.dice_weight == DiceFlags.ceremonial.value + DiceFlags.charm.value
+
+    # Test with new dice types
+    card = Card()
+    card.dice_flags = DiceFlags.artifice.value
+    card.alt_dice_flags = DiceFlags.astral.value
+    assert card.dice_weight == DiceFlags.artifice.value + DiceFlags.astral.value
 
 
 def test_type_weight():
@@ -70,3 +86,8 @@ def test_card_weights():
     assert parse_cost_to_weight("1 [[ceremonial:class]]") == 101
     # Power die is 102
     assert parse_cost_to_weight("1 [[ceremonial:power]]") == 102
+    # New dice types work correctly
+    assert parse_cost_to_weight("1 [[artifice:class]]") == 101
+    assert parse_cost_to_weight("2 [[artifice:class]]") == 202
+    assert parse_cost_to_weight("1 [[astral:power]]") == 102
+    assert parse_cost_to_weight("2 [[astral:power]]") == 204

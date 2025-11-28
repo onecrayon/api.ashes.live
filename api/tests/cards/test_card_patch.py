@@ -206,6 +206,38 @@ def test_patch_card_alt_dice_removal(client: TestClient, session: db.Session):
     assert card.alt_dice_flags == 0
 
 
+def test_patch_card_with_artifice_dice(client: TestClient, session: db.Session):
+    """Updating dice with artifice type works correctly"""
+    admin, token = create_admin_token(session)
+    response = client.patch(
+        "/v2/cards/example-ally",
+        json={"dice": ["artifice"]},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["dice"] == ["artifice"]
+    card = session.execute(
+        select(Card).where(Card.stub == "example-ally").limit(1)
+    ).scalar()
+    assert card.dice_flags == 128
+
+
+def test_patch_card_with_astral_dice(client: TestClient, session: db.Session):
+    """Updating alt dice with astral type works correctly"""
+    admin, token = create_admin_token(session)
+    response = client.patch(
+        "/v2/cards/example-ally",
+        json={"altDice": ["astral"]},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["altDice"] == ["astral"]
+    card = session.execute(
+        select(Card).where(Card.stub == "example-ally").limit(1)
+    ).scalar()
+    assert card.alt_dice_flags == 256
+
+
 def test_patch_cards_magic_costs(client: TestClient, session: db.Session):
     """Updating magic costs updates the JSON"""
     admin, token = create_admin_token(session)
