@@ -18,6 +18,8 @@ MAGIC_COSTS = (
     "divine",
     "sympathy",
     "time",
+    "artifice",
+    "astral",
 )
 
 

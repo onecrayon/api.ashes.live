@@ -19,6 +19,8 @@ class CardDiceCosts(str, Enum):
     natural = "natural"
     sympathy = "sympathy"
     time = "time"
+    artifice = "artifice"
+    astral = "astral"
 
 
 class CardsFilterListingMode(str, Enum):

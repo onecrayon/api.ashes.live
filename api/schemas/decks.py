@@ -96,6 +96,8 @@ class DeckDice(BaseModel):
             "divine",
             "sympathy",
             "time",
+            "artifice",
+            "astral",
         ):
             raise ValueError("invalid dice type.")
         return value

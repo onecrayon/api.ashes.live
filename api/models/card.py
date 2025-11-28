@@ -14,6 +14,8 @@ class DiceFlags(Enum):
     divine = 16
     sympathy = 32
     time = 64
+    artifice = 128
+    astral = 256
 
 
 CARD_TYPE_ORDER = [

@@ -288,6 +288,8 @@ def get_deck(
         "divine": "the-law-of-lions",
         "sympathy": "the-song-of-soaksend",
         "time": "the-breaker-of-fate",
+        "artifice": "ascendancy-starter-set",
+        "astral": "ascendancy-starter-set",
     }
     for die in deck_dict["dice"]:
         release_stubs.add(dice_to_release[die["name"]])
