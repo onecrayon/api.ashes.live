@@ -38,6 +38,7 @@ class CommentOut(BaseModel):
     created: datetime
     modified: datetime
     is_moderated: bool
+    is_deleted: bool
 
     user: UserBasicOut
     model_config = ConfigDict(from_attributes=True)
