@@ -199,6 +199,10 @@ def get_deck(
         False,
         description="When viewing a source deck ID, whether the actual latest save should be returned.",
     ),
+    full_cards: bool = Query(
+        False,
+        description="Whether to output minimal (default) or full card details.",
+    ),
     session: db.Session = Depends(get_session),
     current_user: "UserType" = Depends(get_current_user),
 ):
@@ -265,6 +269,7 @@ def get_deck(
         deck=deck,
         include_comment_entity_id=True,
         include_share_uuid=own_deck or deck.is_public,
+        include_full_cards=full_cards,
     )
 
     # Add our `is_saved` flag, if we're viewing a saved deck

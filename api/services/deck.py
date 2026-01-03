@@ -9,7 +9,7 @@ from api import db
 from api.environment import settings
 from api.models import Deck, DeckCard, DeckDie, DeckSelectedCard, Release, User
 from api.models.card import Card, CardConjuration, DiceFlags
-from api.schemas.cards import CardType
+from api.schemas.cards import CardOut, CardType
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.stream import (
     create_entity,
@@ -410,6 +410,23 @@ def get_conjuration_mapping(session: db.Session, card_ids: set[int]) -> dict:
     return card_id_to_conjurations
 
 
+def card_dict_for_deck(count: int, card: Card, full_card=False) -> dict:
+    """Generates a dict representing a card within a deck"""
+    if full_card:
+        return {
+            "count": count,
+            **card.json,
+        }
+    return {
+        "count": count,
+        "name": card.name,
+        "stub": card.stub,
+        "type": card.card_type,
+        "phoenixborn": card.phoenixborn,
+        "is_legacy": card.is_legacy,
+    }
+
+
 def generate_deck_dict(
     deck: Deck,
     card_id_to_card: dict[int, Card],
@@ -417,6 +434,7 @@ def generate_deck_dict(
     deck_cards: list[DeckCard] = None,
     deck_dice: list[DeckDie] = None,
     include_share_uuid: bool = False,
+    include_full_cards: bool = False,
 ) -> dict:
     """Formats a deck into the standard deck output dict after looking up card data beforehand.
 
@@ -437,28 +455,16 @@ def generate_deck_dict(
         for deck_card in deck_cards:
             card = card_id_to_card[deck_card.card_id]
             card_output.append(
-                {
-                    "count": deck_card.count,
-                    "name": card.name,
-                    "stub": card.stub,
-                    "type": card.card_type,
-                    "phoenixborn": card.phoenixborn,
-                    "is_legacy": card.is_legacy,
-                }
+                card_dict_for_deck(
+                    count=deck_card.count, card=card, full_card=include_full_cards
+                )
             )
             add_conjurations(card_id_to_conjurations, card.id, conjuration_set)
 
     phoenixborn = card_id_to_card[deck.phoenixborn_id]
     add_conjurations(card_id_to_conjurations, phoenixborn.id, conjuration_set)
     conjuration_output = [
-        {
-            "count": x.copies,
-            "name": x.name,
-            "stub": x.stub,
-            "type": x.card_type,
-            "phoenixborn": x.phoenixborn,
-            "is_legacy": x.is_legacy,
-        }
+        card_dict_for_deck(count=x.copies, card=x, full_card=include_full_cards)
         for x in conjuration_set
     ]
 
@@ -566,6 +572,7 @@ def deck_to_dict(
     deck: Deck,
     include_comment_entity_id=False,
     include_share_uuid=False,
+    include_full_cards=False,
 ) -> dict:
     """Converts a Deck object into an output dict using as few queries as possible."""
     needed_cards = set()
@@ -591,6 +598,7 @@ def deck_to_dict(
         deck_cards=deck_cards,
         deck_dice=deck_dice,
         include_share_uuid=include_share_uuid,
+        include_full_cards=include_full_cards,
     )
     deck_dict["description"] = deck.description
     if include_comment_entity_id:

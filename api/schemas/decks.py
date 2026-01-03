@@ -4,6 +4,7 @@ from fastapi import Query
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
 from api.schemas import DetailResponse
+from api.schemas.cards import CardOut
 from api.schemas.pagination import PaginatedResultsBase
 from api.schemas.user import UserBasicOut
 
@@ -70,6 +71,12 @@ class DeckCardOut(BaseModel):
     is_legacy: bool | None = None
 
 
+class DeckFullCardOut(CardOut):
+    """Output for decks when including full card details (e.g. when showing binder view)"""
+
+    count: int
+
+
 class DeckDice(BaseModel):
     """Dice associated with the deck"""
 
@@ -119,7 +126,7 @@ class DeckOut(BaseModel):
     user: UserBasicOut
     dice: list[DeckDice]
     phoenixborn: PhoenixbornCardOut
-    cards: list[DeckCardOut]
+    cards: list[DeckCardOut | DeckFullCardOut]
     conjurations: list[DeckCardOut]
     is_public: bool | None = None
     is_snapshot: bool | None = None
