@@ -72,6 +72,17 @@ class DeckCardOut(BaseModel):
     is_legacy: bool | None = None
 
 
+class DeckExportCardOut(BaseModel):
+    """Output for cards specific to deck exporting flow"""
+
+    count: int
+    name: str
+    stub: str
+    type: str
+    phoenixborn: str | None = None
+    is_legacy: bool | None = None
+
+
 class DeckFullCardOut(CardOut):
     """Output for decks when including full card details (e.g. when showing binder view)"""
 
@@ -182,8 +193,8 @@ class DeckExportOut(BaseModel):
     modified: datetime
     dice: list[DeckDice]
     phoenixborn: PhoenixbornCardOut
-    cards: list[DeckCardOut]
-    conjurations: list[DeckCardOut]
+    cards: list[DeckExportCardOut]
+    conjurations: list[DeckExportCardOut]
     is_public: bool | None = None
     is_snapshot: bool | None = None
     is_red_rains: bool | None = None
