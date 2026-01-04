@@ -127,7 +127,7 @@ class DeckOut(BaseModel):
     dice: list[DeckDice]
     phoenixborn: PhoenixbornCardOut
     cards: list[DeckCardOut | DeckFullCardOut]
-    conjurations: list[DeckCardOut]
+    conjurations: list[DeckCardOut | DeckFullCardOut]
     is_public: bool | None = None
     is_snapshot: bool | None = None
     is_legacy: bool | None = None
