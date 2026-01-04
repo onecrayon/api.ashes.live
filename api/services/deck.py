@@ -424,6 +424,7 @@ def card_dict_for_deck(count: int, card: Card, full_card=False) -> dict:
         "type": card.card_type,
         "phoenixborn": card.phoenixborn,
         "is_legacy": card.is_legacy,
+        "release": card.json.get("release", {}),
     }
 
 

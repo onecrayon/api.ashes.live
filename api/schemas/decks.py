@@ -4,7 +4,7 @@ from fastapi import Query
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
 from api.schemas import DetailResponse
-from api.schemas.cards import CardOut
+from api.schemas.cards import CardOut, CardReleaseEmbeddedOut
 from api.schemas.pagination import PaginatedResultsBase
 from api.schemas.user import UserBasicOut
 
@@ -67,6 +67,7 @@ class DeckCardOut(BaseModel):
     name: str
     stub: str
     type: str
+    release: CardReleaseEmbeddedOut
     phoenixborn: str | None = None
     is_legacy: bool | None = None
 
