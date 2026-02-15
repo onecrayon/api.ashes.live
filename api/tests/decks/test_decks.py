@@ -4,11 +4,13 @@ from datetime import timedelta
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from freezegun import freeze_time
 
 from api import db
 from api.models import Subscription
 from api.services.deck import create_snapshot_for_deck
 from api.utils.auth import create_access_token
+from api.utils.dates import utcnow
 
 from ..utils import create_admin_token, create_user_token
 from .deck_utils import create_deck_for_user
@@ -607,3 +609,91 @@ def test_edit_snapshot_clear_description(
     session.refresh(snapshot1)
     assert snapshot1.title == old_title
     assert snapshot1.description is None
+
+
+def test_get_decks_default_sort_by_created(client: TestClient, snapshot1, snapshot2):
+    """Default sorting should be by created date in descending order"""
+    response = client.get("/v2/decks")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["count"] == 2
+    # Newer deck should be first (reverse chronological)
+    assert data["results"][0]["id"] == snapshot2.id
+    assert data["results"][1]["id"] == snapshot1.id
+
+
+def test_get_decks_sort_by_created(client: TestClient, snapshot1, snapshot2):
+    """Explicit sorting by created date should work"""
+    response = client.get("/v2/decks?sort=created")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["count"] == 2
+    assert data["results"][0]["id"] == snapshot2.id
+    assert data["results"][1]["id"] == snapshot1.id
+
+
+def test_get_decks_sort_by_modified(
+    client: TestClient, session: db.Session, user1, deck1, snapshot1, snapshot2
+):
+    """Sorting by modified date should work"""
+    # Create a new snapshot for deck1 to update its modified timestamp
+    # Use freezegun to ensure we have a different timestamp
+    with freeze_time(utcnow() + timedelta(hours=1)):
+        snapshot1_v2 = create_snapshot_for_deck(
+            session, user1, deck1, title="Updated Snapshot", is_public=True
+        )
+        session.commit()
+
+    response = client.get("/v2/decks?sort=modified")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    # Most recently modified deck should be first
+    assert data["results"][0]["id"] == snapshot1_v2.id
+
+
+def test_get_decks_sort_by_modified_ascending(
+    client: TestClient, session: db.Session, user1, deck1, snapshot1, snapshot2
+):
+    """Sorting by modified date in ascending order should work"""
+    # Create a new snapshot to update modified timestamp
+    with freeze_time(utcnow() + timedelta(hours=1)):
+        snapshot1_v2 = create_snapshot_for_deck(
+            session, user1, deck1, title="Updated Snapshot", is_public=True
+        )
+        session.commit()
+
+    response = client.get("/v2/decks?sort=modified&order=asc")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    # Oldest modified deck should be first
+    assert data["results"][-1]["id"] == snapshot1_v2.id
+
+
+def test_get_mine_sort_by_modified(
+    client: TestClient, session: db.Session, user1, deck1, private_deck1
+):
+    """Mine endpoint should support sorting by modified date"""
+    # Update deck1 to have a more recent modified timestamp
+    with freeze_time(utcnow() + timedelta(hours=1)):
+        deck1.title = "Updated Title"
+        session.commit()
+        session.refresh(deck1)
+
+    token = create_access_token(
+        data={"sub": user1.badge},
+        expires_delta=timedelta(minutes=15),
+    )
+    response = client.get(
+        "/v2/decks/mine?sort=modified", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    # deck1 should be first since it was modified more recently
+    assert data["results"][0]["id"] == deck1.id
+    assert data["results"][1]["id"] == private_deck1.id
+
+
+def test_get_decks_invalid_sort_parameter(client: TestClient):
+    """Invalid sort parameter should return validation error"""
+    response = client.get("/v2/decks?sort=invalid")
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
