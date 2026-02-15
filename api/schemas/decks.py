@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 
 from fastapi import Query
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
@@ -47,6 +48,13 @@ class DeckFilters:
         self.show_red_rains = show_red_rains
         self.show_preconstructed = show_preconstructed
         self.player = player
+
+
+class DeckSortOptions(str, Enum):
+    """Sorting options for decks"""
+
+    created = "created"
+    modified = "modified"
 
 
 class PhoenixbornCardOut(BaseModel):

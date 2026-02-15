@@ -10,6 +10,7 @@ from api.environment import settings
 from api.models import Deck, DeckCard, DeckDie, DeckSelectedCard, Release, User
 from api.models.card import Card, CardConjuration, DiceFlags
 from api.schemas.cards import CardOut, CardType
+from api.schemas.decks import DeckSortOptions
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.stream import (
     create_entity,
@@ -312,6 +313,7 @@ def get_decks_stmt(
     show_red_rains=False,
     is_public=False,
     order: PaginationOrderOptions = PaginationOrderOptions.desc,
+    sort: DeckSortOptions = DeckSortOptions.created,
     # Filtering options
     q: str | None = None,
     phoenixborn: list[str] | None = None,
@@ -373,7 +375,7 @@ def get_decks_stmt(
         )
     else:
         stmt = stmt.options(db.joinedload(Deck.user))
-    return stmt.order_by(getattr(Deck.created, order)())
+    return stmt.order_by(getattr(getattr(Deck, sort), order)())
 
 
 def add_conjurations(card_id_to_conjuration_mapping, root_card_id, conjuration_set):
