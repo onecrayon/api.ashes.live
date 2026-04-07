@@ -19,31 +19,37 @@ depends_on = None
 def upgrade():
     # Update all cards with default chain status
     op.execute(
-        """
-        UPDATE card SET "json" = "json" || '{"chained": false}'::jsonb
-        WHERE is_legacy = FALSE
-        """
+        sa.text(
+            """
+            UPDATE card SET "json" = "json" || '{"chained": false}'::jsonb
+            WHERE is_legacy = FALSE
+            """
+        )
     )
     op.execute(
-        """
-        UPDATE card SET "json" = "json" || '{"chained": true}'::jsonb
-        WHERE is_legacy = FALSE AND stub IN (
-            'explosive-growth',
-            'golden-veil',
-            'hypnotize',
-            'psychic-vampire',
-            'river-skald',
-            'summon-shining-hydra',
-            'meteor'
+        sa.text(
+            """
+            UPDATE card SET "json" = "json" || '{"chained": true}'::jsonb
+            WHERE is_legacy = FALSE AND stub IN (
+                'explosive-growth',
+                'golden-veil',
+                'hypnotize',
+                'psychic-vampire',
+                'river-skald',
+                'summon-shining-hydra',
+                'meteor'
+            )
+            """
         )
-        """
     )
 
 
 def downgrade():
     op.execute(
-        """
-        UPDATE card SET "json" = "json" - 'chained'
-        WHERE is_legacy = FALSE
-        """
+        sa.text(
+            """
+            UPDATE card SET "json" = "json" - 'chained'
+            WHERE is_legacy = FALSE
+            """
+        )
     )

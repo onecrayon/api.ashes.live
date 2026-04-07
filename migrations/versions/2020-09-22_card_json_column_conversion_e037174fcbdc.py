@@ -5,11 +5,11 @@ Revises: 227bda0f6448
 Create Date: 2020-09-22 14:07:04.320398+00:00
 
 """
+
 import json
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "e037174fcbdc"
@@ -27,7 +27,7 @@ def upgrade():
     )
     # Strip out IDs and images, add `is_legacy` flag, and flatten effect text into a string
     conn = op.get_bind()
-    cards = conn.execute('SELECT id, is_legacy, "json" FROM card').fetchall()
+    cards = conn.execute(sa.text('SELECT id, is_legacy, "json" FROM card')).fetchall()
     for card in cards:
         data = card["json"]
         if card["is_legacy"]:

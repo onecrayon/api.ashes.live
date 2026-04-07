@@ -16,7 +16,6 @@ services:
             cache_from:
                 - "api_ashes_live:dev"
                 - "api_ashes_live:latest"
-                - "*"
         # env_file populates environment variables at runtime
         env_file: .env
         restart: unless-stopped

@@ -93,7 +93,7 @@ clean: clean-api clean-tests    ## Clean up Docker containers, images, etc.
 ##
 
 stack:    ## Rebuild the entire stack
-	@$(DOCKER_COMPOSE) pull
+	@$(DOCKER_COMPOSE) pull --ignore-buildable
 	@$(DOCKER_COMPOSE) build
 
 reset:    ## Completely remove all images, containers, and volumes (DANGER!)

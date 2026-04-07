@@ -5,12 +5,12 @@ Revises: ea070da9abd9
 Create Date: 2020-10-04 03:05:12.861613+00:00
 
 """
+
 import json
 import re
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "e3cbe225d553"
@@ -23,7 +23,9 @@ def upgrade():
     # Go through all cards and update their conjurations array to use an object with name and stub
     conn = op.get_bind()
     cards = conn.execute(
-        "SELECT DISTINCT ON (id) id, json FROM card INNER JOIN card_conjuration AS conj ON conj.card_id = card.id"
+        sa.text(
+            "SELECT DISTINCT ON (id) id, json FROM card INNER JOIN card_conjuration AS conj ON conj.card_id = card.id"
+        )
     ).fetchall()
     for card in cards:
         json_data = card["json"]
@@ -52,7 +54,9 @@ def downgrade():
     # And back to names only
     conn = op.get_bind()
     cards = conn.execute(
-        "SELECT DISTINCT ON (id) id, json FROM card INNER JOIN card_conjuration AS conj ON conj.card_id = card.id"
+        sa.text(
+            "SELECT DISTINCT ON (id) id, json FROM card INNER JOIN card_conjuration AS conj ON conj.card_id = card.id"
+        )
     ).fetchall()
     for card in cards:
         json_data = card["json"]
