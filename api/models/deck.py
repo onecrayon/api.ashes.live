@@ -59,7 +59,7 @@ class Deck(db.AlchemyBase):
     user = db.relationship(User)
     phoenixborn = db.relationship(Card)
     source = db.relationship("Deck", uselist=False, remote_side=[id])
-    # `cards`, `dice`, and `selected_cards` are defined via backref in the models below
+    # `cards` and `dice` are defined via backref in the models below
 
 
 class DeckCard(db.AlchemyBase):
@@ -92,7 +92,10 @@ class DeckDie(db.AlchemyBase):
 
 
 class DeckSelectedCard(db.AlchemyBase):
-    """Tracks cards selected for use in First Five
+    """DEPRECATED! Do not use this relationship; it is only modeled here because legacy decks still
+    use it in the database.
+
+    Tracks cards selected for use in First Five
 
     `is_first_five` means cards that are explicitly included in the First Five. `is_paid_effect`
     means that the player plans to pay the effect cost for that card in the first round.

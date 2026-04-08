@@ -162,18 +162,6 @@ class DeckSaveOut(DeckOut):
     """Full deck information returned from saving endpoint"""
 
     description: str | None = None
-    first_five: list[str] = Field(
-        None,
-        description="A list of up to five card stubs intended as the typical First Five. May not be included for public snapshots (owners can opt out of displaying it).",
-    )
-    effect_costs: list[str] = Field(
-        None,
-        description="A list of card stubs in the First Five (or the Phoenixborn) whose effects are expected to be paid in the first round. Only included for public snapshots if the First Five is populated.",
-    )
-    tutor_map: dict[str, str] = Field(
-        None,
-        description="An object with tutor card stubs in the First Five as keys, and the tutored card stubs as values. Only included for public snapshots if the First Five is populated.",
-    )
 
 
 class DeckFullOut(DeckSaveOut):
@@ -206,9 +194,6 @@ class DeckExportOut(BaseModel):
     is_public: bool | None = None
     is_snapshot: bool | None = None
     is_red_rains: bool | None = None
-    first_five: list[str] | None = None
-    effect_costs: list[str] | None = None
-    tutor_map: dict[str, str] | None = None
 
     # This is a generated property, because the root object only knows the source ID
     source_created: datetime | None = None
@@ -305,18 +290,6 @@ class DeckIn(BaseModel):
         description="The stub or an object containing at minimum a `stub` property representing the Phoenixborn for this deck.",
     )
     cards: list[DeckCardIn]
-    first_five: list[str] = Field(
-        None,
-        description="A list of up to five card stubs intended as the typical First Five.",
-    )
-    effect_costs: list[str] = Field(
-        None,
-        description="A list of card stubs in the First Five (or the Phoenixborn) whose effects are expected to be paid in the first round.",
-    )
-    tutor_map: dict[str, str] = Field(
-        None,
-        description="An object with tutor card stubs in the First Five as keys, and the tutored card stubs as values.",
-    )
     is_red_rains: bool = Field(
         False,
         description="May only be changed when creating a new deck or for a deck that has no public snapshots.",

@@ -266,58 +266,6 @@ def test_export_decks_excludes_deleted_legacy_decks(
     )
 
 
-def test_export_decks_includes_selected_cards_data(
-    client: TestClient, session: db.Session, export_user, monkeypatch
-):
-    """Test that export includes first_five, effect_costs, and tutor_map data"""
-    # Enable exports
-    utils.monkeypatch_settings(monkeypatch, {"allow_exports": True})
-
-    # Create a deck with selected cards data
-    phoenixborn, card_dicts, dice_dicts = get_phoenixborn_cards_dice(
-        session, "master-set"
-    )
-
-    # Extract some card stubs for selected cards
-    first_card_stub = card_dicts[0]["stub"]
-    second_card_stub = card_dicts[1]["stub"]
-    third_card_stub = card_dicts[2]["stub"]
-
-    deck = create_or_update_deck(
-        session,
-        export_user,
-        phoenixborn=phoenixborn,
-        title="Deck with Selected Cards",
-        cards=card_dicts,
-        dice=dice_dicts,
-        first_five=[first_card_stub, second_card_stub],
-        effect_costs=[second_card_stub, third_card_stub],
-        tutor_map={first_card_stub: second_card_stub},
-    )
-
-    response = client.get(f"/v2/decks/export/{export_user.deck_export_uuid}")
-
-    data = response.json()
-    assert response.status_code == status.HTTP_200_OK, data
-
-    # Find our deck in the results
-    target_deck = None
-    for exported_deck in data["decks"]:
-        if exported_deck["created"] == pydantic_style_datetime_str(deck.created):
-            target_deck = exported_deck
-            break
-
-    assert target_deck is not None, "Created deck not found in export"
-    assert "first_five" in target_deck
-    assert "effect_costs" in target_deck
-    assert "tutor_map" in target_deck
-    assert first_card_stub in target_deck["first_five"]
-    assert second_card_stub in target_deck["first_five"]
-    assert second_card_stub in target_deck["effect_costs"]
-    assert third_card_stub in target_deck["effect_costs"]
-    assert target_deck["tutor_map"][first_card_stub] == second_card_stub
-
-
 # Export Finalization Tests
 
 

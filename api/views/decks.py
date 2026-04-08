@@ -19,17 +19,14 @@ from api.depends import (
 from api.environment import settings
 from api.exceptions import APIException, NotFoundException, NoUserAccessException
 from api.models import (
-    AnonymousUser,
     Card,
     Deck,
     DeckCard,
     DeckDie,
-    DeckSelectedCard,
     Release,
     Stream,
     Subscription,
     User,
-    UserType,
 )
 from api.models.card import DiceFlags
 from api.schemas import DetailResponse
@@ -428,9 +425,6 @@ def save_deck(
             description=data.description,
             dice=[x.model_dump() for x in data.dice] if data.dice else None,
             cards=[x.model_dump() for x in data.cards] if data.cards else None,
-            first_five=data.first_five,
-            effect_costs=data.effect_costs,
-            tutor_map=data.tutor_map,
             is_red_rains=data.is_red_rains,
         )
     except PhoenixbornInDeck:
@@ -480,7 +474,6 @@ def create_snapshot(
         .options(
             db.joinedload(Deck.cards),
             db.joinedload(Deck.dice),
-            db.joinedload(Deck.selected_cards),
         )
         .where(Deck.id == deck_id)
     )
@@ -660,10 +653,6 @@ def delete_deck(
         session.execute(delete_stmt)
         delete_stmt = delete(DeckDie).where(DeckDie.deck_id == deck_id)
         session.execute(delete_stmt)
-        delete_stmt = delete(DeckSelectedCard).where(
-            DeckSelectedCard.deck_id == deck_id
-        )
-        session.execute(delete_stmt)
         delete_stmt = delete(Deck).where(Deck.id == deck_id)
         session.execute(delete_stmt)
         session.commit()
@@ -788,7 +777,6 @@ def clone_deck(
         .options(
             db.joinedload(Deck.cards),
             db.joinedload(Deck.dice),
-            db.joinedload(Deck.selected_cards),
         )
         .where(*valid_deck_filters)
     )
@@ -817,16 +805,6 @@ def clone_deck(
     for card in deck.cards:
         session.add(
             DeckCard(deck_id=cloned_deck.id, card_id=card.card_id, count=card.count)
-        )
-    for card in deck.selected_cards:
-        session.add(
-            DeckSelectedCard(
-                deck_id=cloned_deck.id,
-                card_id=card.card_id,
-                tutor_card_id=card.tutor_card_id,
-                is_first_five=card.is_first_five,
-                is_paid_effect=card.is_paid_effect,
-            )
         )
     session.commit()
     # Finally create an initial snapshot for the deck so we can see its original state even if the source changes
@@ -989,7 +967,6 @@ def import_decks(
         .options(
             db.joinedload(Deck.cards),
             db.joinedload(Deck.dice),
-            db.joinedload(Deck.selected_cards),
         )
         .where(Deck.created.in_(created_dates), Deck.user_id == current_user.id)
     )
@@ -1062,63 +1039,12 @@ def import_decks(
             deck.cards = deck_cards
 
             # Save everything up!
-            deck.selected_cards = []
             session.add(deck)
             # Unfortunately, this means we have 1-2 writes for every deck we import; however, I can't think of a way
             #  around this, because we're relying on the ORM relationship logic to properly manage cards (and
             #  particularly the selected cards) which isn't really possible with any SQLAlchemy bulk methods.
             session.commit()
             successfully_imported_created_dates.add(deck.created)
-            # No need to proceed if there is no first five, effect costs, and/or tutor map
-            if (
-                not export_deck.first_five
-                and not export_deck.effect_costs
-                and not export_deck.tutor_map
-            ):
-                continue
-
-            # Finally set selected cards
-            selected_cards: list[DeckSelectedCard] = []
-            if export_deck.effect_costs:
-                for card_stub in export_deck.effect_costs:
-                    card_id = card_stub_to_id.get(card_stub)
-                    # pytest-cov simply can't handle catching this usage, so we have to skip it
-                    if not card_id:  # pragma: no cover
-                        continue
-                    if (
-                        export_deck.first_five
-                        and card_stub not in export_deck.first_five
-                    ):
-                        selected_cards.append(
-                            DeckSelectedCard(card_id=card_id, is_paid_effect=True)
-                        )
-            if export_deck.first_five:
-                for card_stub in export_deck.first_five:
-                    card_id = card_stub_to_id.get(card_stub)
-                    if not card_id:  # pragma: no cover
-                        continue
-                    selected_cards.append(
-                        DeckSelectedCard(
-                            card_id=card_id,
-                            is_first_five=True,
-                            is_paid_effect=(
-                                card_stub in export_deck.effect_costs
-                                if export_deck.effect_costs
-                                else False
-                            ),
-                        )
-                    )
-            if export_deck.tutor_map:
-                for tutor_stub, card_stub in export_deck.tutor_map.items():
-                    tutor_card_id = card_stub_to_id.get(tutor_stub)
-                    card_id = card_stub_to_id.get(card_stub)
-                    if not tutor_card_id or not card_id:  # pragma: no cover
-                        continue
-                    selected_cards.append(
-                        DeckSelectedCard(card_id=card_id, tutor_card_id=tutor_card_id)
-                    )
-            deck.selected_cards = selected_cards
-            session.commit()
         except DeckImportException as e:
             errors.append(str(e))
 
@@ -1277,14 +1203,6 @@ def export_decks(
     card_stmt = select(Card).where(Card.id.in_(needed_cards))
     cards = session.execute(card_stmt).scalars().all()
     card_id_to_card = {x.id: x for x in cards}
-    # Gather our selected cards for these decks
-    deckselected_stmt = select(DeckSelectedCard).where(
-        DeckSelectedCard.deck_id.in_(deck_ids)
-    )
-    deck_selected_cards = session.execute(deckselected_stmt).scalars().all()
-    deck_id_to_selected_cards = defaultdict(list)
-    for deck_selected_card in deck_selected_cards:
-        deck_id_to_selected_cards[deck_selected_card.deck_id].append(deck_selected_card)
     # Gather all source IDs *that belong to this user* and stick them in a mapping
     source_stmt = select(Deck.id, Deck.created).where(
         Deck.id.in_(source_ids),
@@ -1306,26 +1224,6 @@ def export_decks(
         deck_dict["description"] = deck.description
         if deck_row.source_id and deck_row.source_id in source_id_to_created:
             deck_dict["source_created"] = source_id_to_created[deck_row.source_id]
-        selected_cards = deck_id_to_selected_cards.get(deck.id, [])
-        first_five = []
-        effect_costs = []
-        tutor_map = {}
-        for selected_card in selected_cards:
-            card = card_id_to_card.get(selected_card.card_id)
-            # This situation should theoretically never happen, but just in case...
-            if not card:  # pragma: no cover
-                continue
-            if selected_card.is_first_five:
-                first_five.append(card.stub)
-            if selected_card.is_paid_effect:
-                effect_costs.append(card.stub)
-            if selected_card.tutor_card_id:
-                tutor_card = card_id_to_card.get(selected_card.tutor_card_id)
-                if tutor_card:
-                    tutor_map[tutor_card.stub] = card.stub
-        deck_dict["first_five"] = first_five
-        deck_dict["effect_costs"] = effect_costs
-        deck_dict["tutor_map"] = tutor_map
         deck_output.append(deck_dict)
     return {
         "next_page_from_date": decks_to_export[-1].created if have_next_page else None,

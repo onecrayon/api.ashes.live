@@ -7,9 +7,9 @@ from starlette.requests import Request
 
 from api import db
 from api.environment import settings
-from api.models import Deck, DeckCard, DeckDie, DeckSelectedCard, Release, User
+from api.models import Deck, DeckCard, DeckDie, Release, User
 from api.models.card import Card, CardConjuration, DiceFlags
-from api.schemas.cards import CardOut, CardType
+from api.schemas.cards import CardType
 from api.schemas.decks import DeckSortOptions
 from api.schemas.pagination import PaginationOptions, PaginationOrderOptions
 from api.services.stream import (
@@ -67,9 +67,6 @@ def create_or_update_deck(
     description: str = None,
     dice: list[dict[str, str | int]] = None,
     cards: list[dict[str, str | int]] = None,
-    first_five: list[str] = None,
-    effect_costs: list[str] = None,
-    tutor_map: dict[str, str] = None,
     is_red_rains: bool = False,
 ) -> "Deck":
     """Creates or updates a deck in place."""
@@ -82,7 +79,6 @@ def create_or_update_deck(
             .options(
                 db.joinedload(Deck.cards),
                 db.joinedload(Deck.dice),
-                db.joinedload(Deck.selected_cards),
             )
             .where(Deck.id == deck_id)
         )
@@ -135,13 +131,6 @@ def create_or_update_deck(
     deck_cards: list[DeckCard] = []
     card_stub_counts = {x["stub"]: x["count"] for x in (cards or [])}
     card_stubs = set(card_stub_counts.keys())
-    if first_five:
-        card_stubs.update(first_five)
-    if effect_costs:
-        card_stubs.update(effect_costs)
-    if tutor_map:
-        card_stubs.update(tutor_map.keys())
-        card_stubs.update(tutor_map.values())
     stmt = (
         select(Card.id, Card.stub, Card.name, Card.card_type, Card.phoenixborn)
         .join(Card.release)
@@ -180,48 +169,7 @@ def create_or_update_deck(
         deck.is_exported = False
 
     # Save everything up!
-    deck.selected_cards = []
     session.add(deck)
-    session.commit()
-
-    # And finally set selected cards (first five, paid effects, and tutored cards; used for stats)
-    #  This happens after clearing them out above because SQLAlchemy cannot handle the three way
-    #  composite index (tries to insert duplicates instead of updating intelligently based on
-    #  tutor_card_id)
-    stub_to_card = {x.stub: x for x in minimal_cards}
-    selected_cards: list[DeckSelectedCard] = []
-    if effect_costs:
-        for card_stub in effect_costs:
-            card = stub_to_card.get(card_stub)
-            # pytest-cov simply can't handle catching this usage, so we have to skip it
-            if not card:  # pragma: no cover
-                continue
-            if first_five and card_stub not in first_five:
-                selected_cards.append(
-                    DeckSelectedCard(card_id=card.id, is_paid_effect=True)
-                )
-    if first_five:
-        for card_stub in first_five:
-            card = stub_to_card.get(card_stub)
-            if not card:  # pragma: no cover
-                continue
-            selected_cards.append(
-                DeckSelectedCard(
-                    card_id=card.id,
-                    is_first_five=True,
-                    is_paid_effect=card.stub in effect_costs if effect_costs else False,
-                )
-            )
-    if tutor_map:
-        for tutor_stub, card_stub in tutor_map.items():
-            tutor_card = stub_to_card.get(tutor_stub)
-            card = stub_to_card.get(card_stub)
-            if not tutor_card or not card:  # pragma: no cover
-                continue
-            selected_cards.append(
-                DeckSelectedCard(card_id=card.id, tutor_card_id=tutor_card.id)
-            )
-    deck.selected_cards = selected_cards
     session.commit()
 
     return deck
@@ -274,17 +222,6 @@ def create_snapshot_for_deck(
                     deck_id=snapshot.id,
                     die_flag=deck_die.die_flag,
                     count=deck_die.count,
-                )
-            )
-    if deck.selected_cards and (include_first_five or not is_public):
-        for deck_selected_card in deck.selected_cards:
-            session.add(
-                DeckSelectedCard(
-                    deck_id=snapshot.id,
-                    card_id=deck_selected_card.card_id,
-                    tutor_card_id=deck_selected_card.tutor_card_id,
-                    is_first_five=deck_selected_card.is_first_five,
-                    is_paid_effect=deck_selected_card.is_paid_effect,
                 )
             )
     # Flip our public flag now that we've populated the deck details, if necessary
@@ -609,25 +546,4 @@ def deck_to_dict(
         deck_dict["comments_entity_id"] = (
             deck.source.entity_id if deck.source_id else deck.entity_id
         )
-    # If we are including first five information, grab that now
-    first_five = []
-    effect_costs = []
-    tutor_map = {}
-    # This is another implicit SQL lookup, but again it requires a lookup either way
-    for selected_card in deck.selected_cards:
-        card = card_id_to_card.get(selected_card.card_id)
-        # This situation should theoretically never happen, but just in case...
-        if not card:
-            continue
-        if selected_card.is_first_five:
-            first_five.append(card.stub)
-        if selected_card.is_paid_effect:
-            effect_costs.append(card.stub)
-        if selected_card.tutor_card_id:
-            tutor_card = card_id_to_card.get(selected_card.tutor_card_id)
-            if tutor_card:
-                tutor_map[tutor_card.stub] = card.stub
-    deck_dict["first_five"] = first_five
-    deck_dict["effect_costs"] = effect_costs
-    deck_dict["tutor_map"] = tutor_map
     return deck_dict
