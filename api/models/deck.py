@@ -55,6 +55,22 @@ class Deck(db.AlchemyBase):
     )
     original_description = db.Column(db.Text)
     moderation_notes = db.Column(db.Text)
+    # First Five support using the following pattern:
+    #
+    # [
+    #   {
+    #     "name": "optional str",
+    #     "slots": [
+    #       {
+    #         "name": "optional str",
+    #         "default_card": "optional-stub-str",
+    #         "choices": [ "card-stub-1", "card-stub-2" ]
+    #       },
+    #     ]
+    #   },
+    #   ...
+    # ]
+    first_fives = db.Column(db.JSONB)
 
     user = db.relationship(User)
     phoenixborn = db.relationship(Card)
