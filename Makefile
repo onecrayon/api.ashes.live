@@ -14,7 +14,7 @@ DOCKER_COMPOSE_TESTS = $(DOCKER_COMPOSE) -p asheslive_tests -f docker-compose.ym
 
 ##=== Welcome to Ashes.live! ===
 
-help:     ## Show this help.
+help:        ## Show this help.
 	@$(DOCKER_RUN) make _help
 
 _help:
@@ -48,7 +48,7 @@ migrate: clean-api     ## Run database migrations; or specify a revision: `make 
 migrate-new: clean-api ## Autogenerate a new database migration: `make migrate-new ARGS='Description here'`
 	$(DOCKER_COMPOSE) run --rm -u root -w /code --entrypoint alembic api revision --autogenerate -m "$(ARGS)"
 
-poetry-%: clean-api   ## Run arbitrary poetry actions with support for optional ARGS; e.g. `make poetry-lock`
+poetry-%: clean-api    ## Run arbitrary poetry actions with support for optional ARGS; e.g. `make poetry-lock`
 	$(DOCKER_COMPOSE) run --rm -e STANDALONE=true --no-deps -u root -w /code --entrypoint poetry api $* $(ARGS)
 
 # This ensures that even if they pass in an empty value, we default to parsing the "api" folder
@@ -66,19 +66,19 @@ _format:
 ##
 ##=== Access internals ===
 
-db:       ## Run standalone postgres server; accessible at localhost:5432
+db:          ## Run standalone postgres server; accessible at localhost:5432
 	@$(DOCKER_COMPOSE) run --service-ports --rm postgres
 
-shell:    ## Open a bash shell to API (warning: root user!)
+shell:       ## Open a bash shell to API (warning: root user!)
 	@$(DOCKER_RUN) bash
 
-shell-db: ## Open a bash shell to API with the database running
+shell-db:    ## Open a bash shell to API with the database running
 	@$(DOCKER_RUN_DB) bash
 
 ##
 ##=== Docker maintenance ===
 
-build:    ## Rebuild the main app container
+build:       ## Rebuild the main app container
 	@$(DOCKER_COMPOSE) build --no-cache api
 
 clean-api:
@@ -87,16 +87,16 @@ clean-api:
 clean-tests:
 	@$(DOCKER_COMPOSE_TESTS) down --remove-orphans
 
-clean: clean-api clean-tests    ## Clean up Docker containers, images, etc.
+clean: clean-api clean-tests       ## Clean up Docker containers, images, etc.
 	@echo 'All clean!'
 
 ##
 
-stack:    ## Rebuild the entire stack
+stack:       ## Rebuild the entire stack
 	@$(DOCKER_COMPOSE) pull --ignore-buildable
 	@$(DOCKER_COMPOSE) build
 
-reset:    ## Completely remove all images, containers, and volumes (DANGER!)
+reset:       ## Completely remove all images, containers, and volumes (DANGER!)
 	@$(DOCKER_COMPOSE) down --rmi all --remove-orphans --volumes
 	@echo
 	@echo 'You should now run `make stack`, `make db`, then populate your database!'
@@ -114,4 +114,4 @@ _post-example-data:
 	@$(DOCKER_RUN_DB) alembic upgrade head
 
 # Pipe causes these to be executed in strict order
-data: | _pre-example-data _populate-example-data _post-example-data     ## Populate example data (requires empty database!)
+data: | _pre-example-data _populate-example-data _post-example-data        ## Populate example data (requires empty database!)
