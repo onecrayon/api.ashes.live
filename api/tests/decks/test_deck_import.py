@@ -116,7 +116,9 @@ def test_import_decks_validates_export_token_format(
         "/v2/decks/import/invalid-uuid", headers={"Authorization": f"Bearer {token}"}
     )
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
+    assert (
+        response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    ), response.json()
 
 
 def test_import_decks_handles_invalid_from_api_format(
@@ -161,7 +163,9 @@ def test_import_decks_validates_date_parameters(
         headers={"Authorization": f"Bearer {token}"},
     )
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
+    assert (
+        response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    ), response.json()
 
 
 def test_import_decks_validates_deck_share_uuid_format(
@@ -177,7 +181,9 @@ def test_import_decks_validates_deck_share_uuid_format(
         headers={"Authorization": f"Bearer {token}"},
     )
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
+    assert (
+        response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    ), response.json()
 
 
 # Success Scenarios

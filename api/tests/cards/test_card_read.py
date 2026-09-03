@@ -198,7 +198,7 @@ def test_get_details_last_seen_entity_id(client: TestClient, session: db.Session
 def test_get_card_fuzzy_lookup_required_query(client: TestClient):
     """Must require querystring"""
     response = client.get("/v2/cards/fuzzy-lookup")
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     response = client.get("/v2/cards/fuzzy-lookup?q=%20%20")
     assert response.status_code == status.HTTP_400_BAD_REQUEST

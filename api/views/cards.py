@@ -1,3 +1,4 @@
+import re
 from copy import deepcopy
 
 from fastapi import APIRouter, Depends, Query, Request, status
@@ -101,12 +102,40 @@ def list_cards(
     else:
         stmt = stmt.where(Card.is_legacy.is_(False))
     # Add a search term, if we're using one
-    if q and q.strip():
-        stmt = stmt.where(
-            db.func.to_tsvector("english", Card.search_text).match(
-                to_prefixed_tsquery(q)
-            )
-        )
+    if q:
+        # Postgres search SUUUCKS, so we're rolling our own. The basic logic goes:
+        # * 1+ words: exact search with final word as a prefix across name and text
+        # * Quoted word(s): exact search across card name and text
+        allow_prefixes = True
+        query = q.strip()
+        # Straighten quotation marks
+        query = re.sub(r"[‘’]", "'", query)
+        query = re.sub(r"[“”]", '"', query)
+        # Strip wrapping quotation marks to check if it's quoted
+        unquoted = re.sub(r"""^(["'])(.+?)\1$""", r"\2", query)
+        if query != unquoted:
+            query = unquoted.strip()
+            allow_prefixes = False
+        # Double check we still have a query (no searching if quoted whitespace)
+        if query:
+            # Collapse multiple spaces down to a single space
+            query = re.sub(r"[ ]{2,}", " ", query)
+            # Escape regex characters
+            query = re.escape(query)
+            # Unescape spaces, because re.escape is a little too aggressive
+            query = query.replace(r"\ ", " ")
+            # Make sure that the last character is an alphabet character
+            if allow_prefixes and not re.search(r"[a-z]$", query, flags=re.I):
+                allow_prefixes = False
+            # Postgres regexp uses non-standard escape sequences compared to what I'm
+            #  used to; \m is start of a word and \M is end of a word
+            regexp_start = r"\m" if re.search(r"^[a-z]", query, flags=re.I) else ""
+            regexp_end = r"\M" if re.search(r"[a-z]$", query, flags=re.I) else ""
+            if allow_prefixes:
+                query = rf"{regexp_start}{query}[a-z0-9]*{regexp_end}"
+            else:
+                query = rf"{regexp_start}{query}{regexp_end}"
+            stmt = stmt.where(Card.search_text.regexp_match(query, flags="i"))
     # Filter by particular card types
     if types:
         card_types = set()
