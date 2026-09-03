@@ -1,4 +1,4 @@
-FROM python:3.11 AS development_build
+FROM python:3.13.15 AS development_build
 
 # This is only available at build, and is a required variable
 ARG ENV
@@ -16,7 +16,7 @@ ENV ENV=${ENV} \
   PIP_DISABLE_PIP_VERSION_CHECK=on \
   PIP_DEFAULT_TIMEOUT=100 \
   # poetry:
-  POETRY_VERSION=2.1.4 \
+  POETRY_VERSION=2.4.2 \
   POETRY_VIRTUALENVS_CREATE=false \
   POETRY_CACHE_DIR='/var/cache/pypoetry'
 
@@ -52,21 +52,19 @@ RUN echo "$ENV" \
 
 # This is a special case used as a code entrypoint:
 COPY ./docker/gunicorn.sh /
-
-# Setting up proper permissions:
-RUN chmod +x '/gunicorn.sh' \
-  && groupadd -r web && mkdir -p /home/web \
-  && useradd -d /home/web -r -g web web \
-  && chown web:web -R /code && chown web:web -R /home/web
-
-# Running as non-root user:
-USER web
+RUN chmod +x '/gunicorn.sh'
 
 
 # The following stage is only for production deployments.
 # (The development_build sets things up for a full local stack; this step
 # copies in the code so we don't need volumes)
 FROM development_build AS production_build
+# Setting up proper permissions:
+RUN groupadd -r web && mkdir -p /home/web \
+  && useradd -d /home/web -r -g web web \
+  && chown web:web -R /code && chown web:web -R /home/web
+# Running as non-root user:
+USER web
 COPY --chown=web:web ./alembic.ini /code/
 COPY --chown=web:web ./api /code/api
 COPY --chown=web:web ./email_templates /code/email_templates

@@ -20,7 +20,7 @@ jobs:
 
     services:
       postgres:
-        image: 'postgres:11'
+        image: 'postgres:14'
         ports:
           - 5432:5432
         env:
@@ -40,7 +40,7 @@ jobs:
         run: pipx install poetry
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.13'
           cache: 'poetry'
       - run: poetry install --without vscode
       - run: poetry run black --check ./api/
