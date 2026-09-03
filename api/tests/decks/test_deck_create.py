@@ -350,7 +350,7 @@ def test_put_deck_bad_dice(client: TestClient, session: db.Session, user_token):
     response = client.put(
         "/v2/decks", json=valid_deck, headers={"Authorization": f"Bearer {token}"}
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_put_deck_with_new_dice_types(

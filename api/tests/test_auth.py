@@ -321,7 +321,7 @@ def test_reset_password_bad_passwords(client: TestClient, session: db.Session):
         f"/v2/reset/{user.reset_uuid}",
         json={"password": password, "password_confirm": password2},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_reset_password(client: TestClient, session: db.Session):

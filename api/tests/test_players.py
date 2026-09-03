@@ -88,7 +88,9 @@ def test_register_user_different_passwords(client: TestClient, session: db.Sessi
         f"/v2/players/new/{invite.uuid}",
         json={"password": password, "password_confirm": password_confirm},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
+    assert (
+        response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    ), response.json()
     count = session.execute(select(db.func.count(User.id))).scalar()
     assert count == 0
 
@@ -148,7 +150,7 @@ def test_user_post_password_mismatch_passwords(client: TestClient, session: db.S
         },
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_user_post_password_wrong_password(client: TestClient, session: db.Session):
@@ -165,7 +167,7 @@ def test_user_post_password_wrong_password(client: TestClient, session: db.Sessi
         },
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_user_post_password(client: TestClient, session: db.Session):
@@ -237,7 +239,9 @@ def test_patch_user_validation_error(client: TestClient, session: db.Session):
         json={"username": "a" * 45},
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
+    assert (
+        response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    ), response.json()
 
 
 # Basic access to `/v2/players/{badge}` moderation endpoint is handled by test_auth.py

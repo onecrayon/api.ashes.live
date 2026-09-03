@@ -6,7 +6,7 @@
 
 services:
     postgres:
-        image: postgres:11
+        image: postgres:14
         restart: unless-stopped
         networks:
             - localnet

@@ -696,4 +696,4 @@ def test_get_mine_sort_by_modified(
 def test_get_decks_invalid_sort_parameter(client: TestClient):
     """Invalid sort parameter should return validation error"""
     response = client.get("/v2/decks?sort=invalid")
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
