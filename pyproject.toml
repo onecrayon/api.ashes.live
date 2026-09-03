@@ -31,6 +31,9 @@ httptools = "^0.8.0"
 pydantic-settings = "^2.4.0"
 httpx = "^0.28.1"
 sendgrid = "^6.12.4"
+# Pin greenlet (a dependency of SQLAlchemy) because the latest version wheels aren't
+#  building in my prod webhost
+greenlet = "==3.2.5"
 
 [tool.poetry.group.dev.dependencies]
 # These are used by the test suite
