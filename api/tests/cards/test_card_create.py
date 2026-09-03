@@ -29,7 +29,9 @@ def test_create_card_require_name(client: TestClient, session: db.Session):
         json=card_data,
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
+    assert (
+        response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    ), response.json()
 
 
 def test_create_card_require_card_type(client: TestClient, session: db.Session):
@@ -42,7 +44,9 @@ def test_create_card_require_card_type(client: TestClient, session: db.Session):
         json=card_data,
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
+    assert (
+        response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    ), response.json()
 
 
 def test_create_card_invalid_card_type(client: TestClient, session: db.Session):
@@ -55,7 +59,9 @@ def test_create_card_invalid_card_type(client: TestClient, session: db.Session):
         json=card_data,
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
+    assert (
+        response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    ), response.json()
 
 
 def test_create_card_require_valid_placement(client: TestClient, session: db.Session):
@@ -68,7 +74,9 @@ def test_create_card_require_valid_placement(client: TestClient, session: db.Ses
         json=card_data,
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
+    assert (
+        response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    ), response.json()
 
 
 def test_create_card_require_placement_non_phoenixborn(
@@ -83,7 +91,9 @@ def test_create_card_require_placement_non_phoenixborn(
         json=card_data,
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
+    assert (
+        response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    ), response.json()
 
 
 def test_create_card_placement_optional_phoenixborn(
@@ -199,7 +209,9 @@ def test_create_card_conjuration_copies_required(
         json=card_data,
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY, response.json()
+    assert (
+        response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    ), response.json()
     # And verify that it works when copies is passed in
     card_data["copies"] = 1
     response = client.post(
