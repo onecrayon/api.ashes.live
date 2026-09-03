@@ -127,10 +127,14 @@ def list_cards(
             # Make sure that the last character is an alphabet character
             if allow_prefixes and not re.search(r"[a-z]$", query, flags=re.I):
                 allow_prefixes = False
+            # Postgres regexp uses non-standard escape sequences compared to what I'm
+            #  used to; \m is start of a word and \M is end of a word
+            regexp_start = r"\m" if re.search(r"^[a-z]", query, flags=re.I) else ""
+            regexp_end = r"\M" if re.search(r"[a-z]$", query, flags=re.I) else ""
             if allow_prefixes:
-                query = rf"{query}[a-z0-9]*"
+                query = rf"{regexp_start}{query}[a-z0-9]*{regexp_end}"
             else:
-                query = rf"{query}"
+                query = rf"{regexp_start}{query}{regexp_end}"
             stmt = stmt.where(Card.search_text.regexp_match(query, flags="i"))
     # Filter by particular card types
     if types:
