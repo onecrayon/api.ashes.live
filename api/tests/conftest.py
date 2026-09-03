@@ -56,6 +56,7 @@ def test_engine():
     try:
         yield test_engine
     finally:
+        test_engine.dispose()
         drop_database(test_engine.url)
 
 
